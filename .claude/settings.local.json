@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/smart-amb-sys/smrt-amb-sys/**)",
+      "Bash(npx create-next-app@latest frontend --typescript --tailwind --eslint --app --src-dir --no-turbopack --import-alias \"@/*\" --use-npm)",
+      "Bash(npm install:*)",
+      "Bash(uvicorn app.main:app --host 0.0.0.0 --port 8000)",
+      "Bash(curl -s -X POST \"http://localhost:8000/api/sensors/load-road-sensors-full\")",
+      "Bash(pip install:*)",
+      "Bash(python -c \"import sys; print\\(sys.stdin.read\\(\\)\\)\")",
+      "Bash(python:*)",
+      "Bash(curl:*)"
+    ]
+  }
+}

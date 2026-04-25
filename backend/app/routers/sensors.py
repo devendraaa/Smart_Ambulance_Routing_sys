@@ -1,0 +1,421 @@
+import csv
+import httpx
+import math
+from fastapi import APIRouter, HTTPException
+from app.database import supabase
+from app.schemas.sensor import SensorCreate
+
+router = APIRouter()
+
+OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+
+# Mumbai bounding box (approx)
+MUMBAI_BOUNDS = {
+    "south": 18.8900,
+    "north": 19.2700,
+    "west": 72.7700,
+    "east": 72.9800,
+}
+
+
+@router.get("/")
+async def list_sensors():
+    """List manually added sensors."""
+    result = supabase.table("sensors").select("*").order("created_at").execute()
+    return result.data
+
+
+@router.post("/", status_code=201)
+async def create_sensor(data: SensorCreate):
+    """Add a single sensor."""
+    result = supabase.table("sensors").insert({
+        "latitude": data.latitude,
+        "longitude": data.longitude,
+    }).execute()
+    return result.data[0]
+
+
+@router.post("/load-overpass")
+async def load_sensors_from_overpass(city: str = "Mumbai", radius_km: int = 20):
+    """Download all hospitals/clinics from Mumbai via Overpass API and bulk load into sensors."""
+    lat = 19.0760
+    lon = 72.8777
+    radius = radius_km * 1000
+
+    overpass_query = f"""
+    [out:csv(::lat,::lon)][timeout:120];
+    (
+      node["amenity"="hospital"](around:{radius},{lat},{lon});
+      way["amenity"="hospital"](around:{radius},{lat},{lon});
+      node["amenity"="clinic"](around:{radius},{lat},{lon});
+      way["amenity"="clinic"](around:{radius},{lat},{lon});
+    );
+    out center;
+    """
+
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        response = await client.post(
+            OVERPASS_URL,
+            data={"data": overpass_query},
+            headers={"User-Agent": "Smart Ambulance Route with AI"},
+        )
+        response.raise_for_status()
+
+    lines = response.text.strip().splitlines()
+    locations = []
+    for line in lines[1:]:
+        parts = line.strip().split("\t")
+        if len(parts) >= 2:
+            try:
+                lat_val = float(parts[0])
+                lon_val = float(parts[1])
+                locations.append({"latitude": lat_val, "longitude": lon_val})
+            except ValueError:
+                continue
+
+    seen = set()
+    unique_locations = []
+    for loc in locations:
+        key = f"{loc['latitude']:.5f},{loc['longitude']:.5f}"
+        if key not in seen:
+            seen.add(key)
+            unique_locations.append(loc)
+
+    chunk_size = 100
+    for i in range(0, len(unique_locations), chunk_size):
+        chunk = unique_locations[i:i + chunk_size]
+        supabase.table("sensors").insert(chunk).execute()
+
+    return {"loaded": len(unique_locations), "message": f"Loaded {len(unique_locations)} sensors from Overpass"}
+
+
+@router.post("/load-csv")
+async def load_sensors_from_csv():
+    """Load sensors from static/output.csv (existing Mumbai coordinate data)."""
+    import os
+    csv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "..", "static", "output.csv")
+    if not os.path.exists(csv_path):
+        csv_path = "static/output.csv"
+    if not os.path.exists(csv_path):
+        return {"error": "output.csv not found"}
+
+    locations = []
+    with open(csv_path, "r") as f:
+        reader = csv.reader(f)
+        for row in reader:
+            if len(row) >= 2:
+                try:
+                    lat_val = float(row[0])
+                    lon_val = float(row[1])
+                    locations.append({"latitude": lat_val, "longitude": lon_val})
+                except ValueError:
+                    continue
+
+    chunk_size = 100
+    for i in range(0, len(locations), chunk_size):
+        chunk = locations[i:i + chunk_size]
+        supabase.table("sensors").insert(chunk).execute()
+
+    return {"loaded": len(locations), "message": f"Loaded {len(locations)} sensors from CSV"}
+
+
+@router.post("/load-road-sensors")
+async def load_road_sensors():
+    """
+    Fetch Mumbai road intersections via Overpass and bulk load into sensor_locations.
+    Fetches in bounding-box to stay under Overpass timeout limits.
+    Returns intersection points with road names and auto-generated UUIDs.
+    """
+    bounds = MUMBAI_BOUNDS
+
+    overpass_query = f"""
+    [out:csv(::lat,::lon,"::id","name","highway")][timeout:180];
+    (
+      node["highway"](around:0,{bounds["west"]},{bounds["south"]},{bounds["east"]},{bounds["north"]});
+      way["highway"](bbox:{bounds["south"]},{bounds["west"]},{bounds["north"]},{bounds["east"]});
+      // Get nodes that appear in multiple ways (intersections)
+    );
+    out center qt;
+    """
+
+    # Simpler approach: query all highway nodes in the bbox
+    overpass_query = f"""
+    [out:csv(::lat,::lon,"::id","name",::count)][timeout:180];
+    area["place"="city"]["name"~"Mumbai"]->.mumbai;
+    (
+      node["highway"](area.mumbai);
+    );
+    out;
+    """
+
+    async with httpx.AsyncClient(timeout=180.0) as client:
+        response = await client.post(
+            OVERPASS_URL,
+            data={"data": overpass_query},
+            headers={"User-Agent": "Smart Ambulance Route with AI"},
+        )
+        response.raise_for_status()
+
+    body = response.text.strip()
+    lines = body.splitlines()
+
+    # Check how many total roads nodes exist
+    locations = []
+    for line in lines[1:]:  # skip header
+        parts = line.strip().split("\t")
+        if len(parts) >= 2:
+            try:
+                lat_val = float(parts[0])
+                lon_val = float(parts[1])
+                road_name = parts[2].strip('"') if len(parts) > 2 else ""
+                # Filter to highways only (road, primary, secondary, tertiary, etc.)
+                highway_type = parts[3].strip('"') if len(parts) > 3 else ""
+                valid_roads = [
+                    "motorway", "trunk", "primary", "secondary", "tertiary",
+                    "motorway_link", "trunk_link", "primary_link",
+                    "secondary_link", "tertiary_link", "residential", "unclassified",
+                ]
+                if highway_type not in valid_roads:
+                    continue
+                locations.append({
+                    "latitude": lat_val,
+                    "longitude": lon_val,
+                    "road_name": road_name,
+                })
+            except ValueError:
+                continue
+
+    # Deduplicate
+    seen = set()
+    unique_locations = []
+    for loc in locations:
+        key = f"{loc['latitude']:.5f},{loc['longitude']:.5f}"
+        if key not in seen:
+            seen.add(key)
+            unique_locations.append(loc)
+            if len(unique_locations) >= 900:
+                break
+
+    # Bulk insert in chunks
+    chunk_size = 200
+    for i in range(0, len(unique_locations), chunk_size):
+        chunk = unique_locations[i:i + chunk_size]
+        supabase.table("sensor_locations").insert(chunk).execute()
+
+    return {
+        "loaded": len(unique_locations),
+        "message": f"Loaded {len(unique_locations)} road sensors from Overpass",
+    }
+
+
+@router.post("/load-road-sensors-bbox")
+async def load_road_sensors_bbox(
+    south: float = 18.890,
+    north: float = 19.270,
+    west: float = 72.770,
+    east: float = 72.980,
+):
+    """
+    Fetch road intersections in a specific bounding box.
+    Safer than whole city — use multiple smaller calls.
+    """
+    # Query highway nodes in the box
+    overpass_query = f"""
+    [out:json][timeout:60];
+    (
+      node["highway"~"primary|secondary|tertiary|residential|trunk|motorway|unclassified"]
+        ({south},{west},{north},{east});
+    );
+    out:ids;
+    """
+
+    async with httpx.AsyncClient(timeout=90.0) as client:
+        response = await client.post(
+            OVERPASS_URL,
+            data={"data": overpass_query},
+            headers={"User-Agent": "Smart Ambulance Route with AI"},
+        )
+        response.raise_for_status()
+
+    data = response.json()
+    nodes = []
+    seen = set()
+    for elem in data.get("elements", []):
+        if elem.get("type") != "node":
+            continue
+        lat = elem.get("lat")
+        lon = elem.get("lon")
+        if lat is None or lon is None:
+            continue
+        key = f"{lat:.5f},{lon:.5f}"
+        if key in seen:
+            continue
+        seen.add(key)
+        road_name = elem.get("tags", {}).get("name", elem.get("tags", {}).get("highway", ""))
+        nodes.append({
+            "latitude": lat,
+            "longitude": lon,
+            "road_name": road_name,
+        })
+
+    # Bulk insert in chunks
+    chunk_size = 200
+    total = 0
+    for i in range(0, len(nodes), chunk_size):
+        chunk = nodes[i:i + chunk_size]
+        supabase.table("sensor_locations").insert(chunk).execute()
+        total += len(chunk)
+
+    return {
+        "loaded": total,
+        "message": f"Loaded {total} road intersection sensors into sensor_locations",
+    }
+
+
+@router.post("/load-road-sensors-full")
+async def load_road_sensors_full():
+    """
+    Fetch ALL Mumbai road intersections via Overpass and store in sensor_locations.
+    Uses grid tiling with retries for reliability.
+    """
+    bounds = MUMBAI_BOUNDS
+    tile_size = 0.15  # ~16km tiles — fewer requests = higher reliability
+
+    all_nodes = []
+    seen = set()
+    skipped = 0
+
+    b = bounds
+    lat_start = b["south"]
+    while lat_start < b["north"]:
+        lat_end = min(lat_start + tile_size, b["north"])
+        lon_start = b["west"]
+        while lon_start < b["east"]:
+            lon_end = min(lon_start + tile_size, b["east"])
+            nodes = await _fetch_tile_highways(lat_start, lon_start, lat_end, lon_end, seen)
+            all_nodes.extend(nodes)
+            lon_start += tile_size
+        lat_start += tile_size
+
+    # Bulk insert in chunks
+    chunk_size = 500
+    for i in range(0, len(all_nodes), chunk_size):
+        chunk = all_nodes[i:i + chunk_size]
+        supabase.table("sensor_locations").insert(chunk).execute()
+
+    return {
+        "loaded": len(all_nodes),
+        "skipped_tiles": skipped,
+        "message": f"Loaded {len(all_nodes)} road intersection sensors",
+    }
+
+
+async def _fetch_tile_highways(
+    lat0: float, lon0: float, lat1: float, lon1: float,
+    seen: set | None = None,
+) -> list[dict]:
+    """Fetch highway nodes in a single tile using CSV format. Retries once on failure."""
+    if seen is None:
+        seen = set()
+    results = []
+    query = f"""
+[out:csv(::id,::lat,::lon,"name","highway")][timeout:60];
+node["highway"]({lat0},{lon0},{lat1},{lon1});
+out;
+"""
+    async with httpx.AsyncClient(timeout=90.0) as client:
+        try:
+            resp = await client.post(
+                OVERPASS_URL,
+                data={"data": query},
+                headers={"User-Agent": "Smart Ambulance Route with AI"},
+            )
+            resp.raise_for_status()
+        except (httpx.HTTPError, ValueError):
+            try:
+                import asyncio
+                await asyncio.sleep(2)
+                resp = await client.post(
+                    OVERPASS_URL,
+                    data={"data": query},
+                    headers={"User-Agent": "Smart Ambulance Route with AI"},
+                )
+                resp.raise_for_status()
+            except (httpx.HTTPError, ValueError):
+                return results
+
+    lines = resp.text.strip().splitlines()
+    for line in lines[1:]:
+        parts = line.strip().split("\t")
+        if len(parts) >= 3:
+            try:
+                lat = float(parts[1])
+                lon = float(parts[2])
+                name = parts[3].strip() if len(parts) > 3 else ""
+                highway = parts[4].strip() if len(parts) > 4 else ""
+                key = f"{lat:.6f},{lon:.6f}"
+                if key not in seen:
+                    seen.add(key)
+                    results.append({
+                        "latitude": lat,
+                        "longitude": lon,
+                        "road_name": name if name else highway,
+                        "intersection_type": highway if highway else "unknown",
+                        "source": "osm_overpass",
+                    })
+            except ValueError:
+                continue
+    return results
+
+
+@router.get("/nearest/{lat}/{lon}")
+async def find_nearest_sensor(lat: float, lon: float, count: int = 1):
+    """
+    Find nearest sensor(s) to a given coordinate.
+    Brute-force within 1000m radius.
+    """
+    result = supabase.table("sensor_locations").select("*").execute()
+    candidates = []
+    for s in result.data:
+        distance = haversine(lat, lon, s["latitude"], s["longitude"])
+        if distance <= 1.0:  # within 1 km
+            candidates.append({
+                "sensor_id": s["sensor_id"],
+                "latitude": s["latitude"],
+                "longitude": s["longitude"],
+                "road_name": s.get("road_name", ""),
+                "distance_km": round(distance, 3),
+            })
+
+    candidates.sort(key=lambda x: x["distance_km"])
+    return candidates[:count]
+
+
+@router.get("/location-count")
+async def sensor_location_count():
+    """Get count of road sensors loaded."""
+    result = supabase.table("sensor_locations").select("sensor_id", count="exact").execute()
+    return {"count": result.count}
+
+
+@router.get("/road")
+async def list_road_sensors(limit: int = 500):
+    """List road intersection sensors (paginated)."""
+    result = supabase.table("sensor_locations").select(
+        "sensor_id,latitude,longitude,road_name,intersection_type"
+    ).limit(limit).execute()
+    return result.data
+
+
+def haversine(lat1, lon1, lat2, lon2) -> float:
+    """Calculate distance in km between two coordinates."""
+    R = 6371.0
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(math.radians(lat1))
+        * math.cos(math.radians(lat2))
+        * math.sin(dlon / 2) ** 2
+    )
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
