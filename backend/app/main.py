@@ -29,7 +29,6 @@ app.include_router(sensors.router, prefix="/api/sensors", tags=["sensors"])
 app.include_router(mqtt.router, prefix="/api/mqtt", tags=["mqtt"])
 app.include_router(blood_banks.router, prefix="/api/blood-banks", tags=["blood-banks"])
 
-
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}

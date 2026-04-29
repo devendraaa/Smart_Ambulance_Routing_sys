@@ -170,3 +170,36 @@ export async function fetchRoadSensors() {
     { sensor_id: string; latitude: number; longitude: number; road_name?: string; intersection_type?: string }[]
   >("/api/sensors/road");
 }
+
+// --- Road Network API ---
+export async function fetchRoadNetwork(
+  south: number = 18.85,
+  north: number = 19.32,
+  west: number = 72.75,
+  east: number = 73.02,
+  limit: number = 100000
+) {
+  return fetchAPI<{
+    type: string;
+    features: Array<{
+      type: string;
+      properties: {
+        sensor_id: string;
+        road_name: string;
+        intersection_type: string;
+      };
+      geometry: {
+        type: string;
+        coordinates: [number, number];
+      };
+    }>;
+    count: number;
+  }>(`/api/sensors/network?south=${south}&north=${north}&west=${west}&east=${east}&limit=${limit}`);
+}
+
+export async function extractFullRoadNetwork() {
+  return fetchAPI<{
+    message: string;
+    note: string;
+  }>("/api/sensors/extract-full-network", { method: "POST" });
+}

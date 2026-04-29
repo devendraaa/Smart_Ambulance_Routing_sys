@@ -1,9 +1,10 @@
 import csv
 import httpx
 import math
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 from app.database import supabase
 from app.schemas.sensor import SensorCreate
+from app.services.road_network_extractor import extract_and_store_mumbai_roads
 
 router = APIRouter()
 
@@ -405,6 +406,59 @@ async def list_road_sensors(limit: int = 500):
         "sensor_id,latitude,longitude,road_name,intersection_type"
     ).limit(limit).execute()
     return result.data
+
+
+@router.post("/extract-full-network")
+async def extract_full_road_network(background_tasks: BackgroundTasks):
+    """
+    Extract and store the complete Mumbai road network.
+    This is a long-running operation that processes all roads in the Mumbai area.
+    Runs in background to avoid timeout.
+    """
+    background_tasks.add_task(extract_and_store_mumbai_roads)
+    return {
+        "message": "Mumbai road network extraction started in background",
+        "note": "This process may take several hours. Check /sensor-location-count for progress."
+    }
+
+
+@router.get("/network")
+async def get_road_network(
+    south: float = MUMBAI_BOUNDS["south"],
+    north: float = MUMBAI_BOUNDS["north"],
+    west: float = MUMBAI_BOUNDS["west"],
+    east: float = MUMBAI_BOUNDS["east"],
+    limit: int = 50000
+):
+    """
+    Get road network nodes for map display within a bounding box.
+    Returns simplified data for efficient mapping.
+    """
+    result = supabase.table("sensor_locations").select(
+        "sensor_id,latitude,longitude,road_name,intersection_type"
+    ).gte("latitude", south).lte("latitude", north).gte("longitude", west).lte("longitude", east).limit(limit).execute()
+
+    # Transform to GeoJSON-like format for easy consumption by mapping libraries
+    features = []
+    for node in result.data:
+        features.append({
+            "type": "Feature",
+            "properties": {
+                "sensor_id": node["sensor_id"],
+                "road_name": node["road_name"],
+                "intersection_type": node["intersection_type"]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [node["longitude"], node["latitude"]]
+            }
+        })
+
+    return {
+        "type": "FeatureCollection",
+        "features": features,
+        "count": len(features)
+    }
 
 
 def haversine(lat1, lon1, lat2, lon2) -> float:

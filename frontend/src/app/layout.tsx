@@ -27,6 +27,7 @@ const navLinks = [
   { href: "/sensor", label: "Sensors" },
   { href: "/sensor-map", label: "Sensor Map" },
   { href: "/map", label: "Route Map" },
+  { href: "/road-network", label: "Road Network" },
 ];
 
 export default function RootLayout({

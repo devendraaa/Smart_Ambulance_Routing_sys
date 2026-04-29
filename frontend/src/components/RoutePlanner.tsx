@@ -303,7 +303,8 @@ export default function RoutePlanner() {
       </div>
       <button
         type="submit"
-        disabled={!mounted || isSubmitting || !isLocationValid}
+        // disabled={!mounted || isSubmitting || !isLocationValid}
+        
         className="w-full rounded-md bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
       >
         {isSubmitting ? "Starting..." : "Compute Route"}
