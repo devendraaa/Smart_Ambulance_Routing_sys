@@ -20,20 +20,80 @@ MUMBAI_BOUNDS = {
 
 
 @router.get("/")
-async def list_sensors():
-    """List manually added sensors."""
-    result = supabase.table("sensors").select("*").order("created_at").execute()
+async def list_sensors(limit: int = 1000):
+    """List manually added sensors. Capped at 1000 by default to avoid lag."""
+    result = supabase.table("sensors").select("*").order("created_at").limit(limit).execute()
+    print(f"[DEBUG] list_sensors: returning {len(result.data)} sensors (limit={limit})")
     return result.data
 
 
 @router.post("/", status_code=201)
 async def create_sensor(data: SensorCreate):
     """Add a single sensor."""
-    result = supabase.table("sensors").insert({
+    payload = {
         "latitude": data.latitude,
         "longitude": data.longitude,
-    }).execute()
+    }
+    if data.degree is not None:
+        payload["degree"] = data.degree
+    result = supabase.table("sensors").insert(payload).execute()
     return result.data[0]
+
+
+@router.post("/upload-csv")
+async def upload_sensors_csv(data: dict):
+    """
+    Upload sensors from CSV data.
+    Expected format: { "csv_data": "lat,lon,degree\\n19.0760,72.8777,45\\n..." }
+    Degree is optional - if not provided, it will be saved as NULL.
+    """
+    from io import StringIO
+
+    csv_text = data.get("csv_data", "")
+    if not csv_text:
+        raise HTTPException(status_code=400, detail="No CSV data provided")
+
+    try:
+        csv_file = StringIO(csv_text)
+        reader = csv.reader(csv_file)
+        locations = []
+
+        for row in reader:
+            if len(row) >= 2:
+                try:
+                    lat_val = float(row[0].strip())
+                    lon_val = float(row[1].strip())
+                    sensor_data = {
+                        "latitude": lat_val,
+                        "longitude": lon_val,
+                    }
+                    # Degree is optional (column 3)
+                    if len(row) >= 3 and row[2].strip():
+                        try:
+                            sensor_data["degree"] = float(row[2].strip())
+                        except ValueError:
+                            pass  # Skip invalid degree, leave it NULL
+                    locations.append(sensor_data)
+                except ValueError:
+                    continue  # Skip invalid rows
+
+        if not locations:
+            raise HTTPException(status_code=400, detail="No valid sensor data found in CSV")
+
+        # Bulk insert in chunks
+        chunk_size = 100
+        total_inserted = 0
+        for i in range(0, len(locations), chunk_size):
+            chunk = locations[i:i + chunk_size]
+            supabase.table("sensors").insert(chunk).execute()
+            total_inserted += len(chunk)
+
+        return {
+            "inserted": total_inserted,
+            "message": f"Successfully inserted {total_inserted} sensors from CSV",
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process CSV: {str(e)}")
 
 
 @router.post("/load-overpass")
@@ -400,11 +460,12 @@ async def sensor_location_count():
 
 
 @router.get("/road")
-async def list_road_sensors(limit: int = 500):
-    """List road intersection sensors (paginated)."""
+async def list_road_sensors(limit: int = 1000):
+    """List road intersection sensors. Capped at 1000 by default to avoid lag."""
     result = supabase.table("sensor_locations").select(
         "sensor_id,latitude,longitude,road_name,intersection_type"
     ).limit(limit).execute()
+    print(f"[DEBUG] list_road_sensors: returning {len(result.data)} sensors (limit={limit})")
     return result.data
 
 
@@ -428,8 +489,12 @@ async def get_road_network(
     north: float = MUMBAI_BOUNDS["north"],
     west: float = MUMBAI_BOUNDS["west"],
     east: float = MUMBAI_BOUNDS["east"],
+# <<<<<<< HEAD
     limit: int = 50000
-):
+# =======
+    # limit: int = 1000
+# >>>>>>> f616973 (mqqt added)
+    ):
     """
     Get road network nodes for map display within a bounding box.
     Returns simplified data for efficient mapping.
@@ -461,6 +526,86 @@ async def get_road_network(
     }
 
 
+# <<<<<<< HEAD
+# =======
+@router.get("/near-route/{task_id}")
+async def get_sensors_near_route(
+    task_id: str,
+    threshold_km: float = 0.002,
+):
+    """
+    Find manually added sensors within threshold_km of the computed route.
+    Default threshold is 0.002 km (2 meters).
+    Uses bounding box pre-filtering for performance with large sensor datasets.
+    """
+    # Fetch route coordinates
+    route_result = (
+        supabase.table("route_task_coordinates")
+        .select("latitude,longitude")
+        .eq("task_id", task_id)
+        .order("sequence_order")
+        .execute()
+    )
+
+    if not route_result.data:
+        return {"sensors": [], "count": 0}
+
+    route_coords = [(c["latitude"], c["longitude"]) for c in route_result.data]
+
+    # Calculate bounding box from route + threshold (convert km to degrees approx)
+    # 1 deg lat ≈ 111 km, 1 deg lon ≈ 111 km at equator (approx for Mumbai)
+    lat_threshold_deg = threshold_km / 111.0
+    # For longitude, adjust by latitude (Mumbai is ~19° N)
+    avg_lat = sum(c[0] for c in route_coords) / len(route_coords)
+    lon_threshold_deg = threshold_km / (111.0 * math.cos(math.radians(avg_lat)))
+
+    min_lat = min(c[0] for c in route_coords) - lat_threshold_deg
+    max_lat = max(c[0] for c in route_coords) + lat_threshold_deg
+    min_lon = min(c[1] for c in route_coords) - lon_threshold_deg
+    max_lon = max(c[1] for c in route_coords) + lon_threshold_deg
+
+    # Fetch sensors within bounding box, capped at 1000 (avoid lag with 13K dataset)
+    all_sensors = (
+        supabase.table("sensors")
+        .select("*")
+        .gte("latitude", min_lat)
+        .lte("latitude", max_lat)
+        .gte("longitude", min_lon)
+        .lte("longitude", max_lon)
+        .limit(1000)
+        .execute()
+    ).data
+
+    print(f"[DEBUG] get_sensors_near_route: {len(all_sensors)} sensors within bounding box (capped at 1000)")
+
+    if not all_sensors:
+        return {"sensors": [], "count": 0}
+
+    # Find sensors within threshold distance of any route coordinate
+    nearby_sensors = []
+    for s in all_sensors:
+        min_dist = float("inf")
+        s_lat = s["latitude"]
+        s_lon = s["longitude"]
+        for r_lat, r_lon in route_coords:
+            d = haversine(s_lat, s_lon, r_lat, r_lon)
+            if d < min_dist:
+                min_dist = d
+                if d <= threshold_km:  # Early exit if we found a match
+                    break
+        if min_dist <= threshold_km:
+            nearby_sensors.append({
+                "id": str(s["id"]) if not isinstance(s["id"], str) else s["id"],
+                "latitude": s_lat,
+                "longitude": s_lon,
+                "degree": s.get("degree"),
+                "distance_km": round(min_dist, 6),
+            })
+
+    return {"sensors": nearby_sensors, "count": len(nearby_sensors)}
+
+
+# >>>>>>> f616973 (mqqt added)
 def haversine(lat1, lon1, lat2, lon2) -> float:
     """Calculate distance in km between two coordinates."""
     R = 6371.0
@@ -473,3 +618,182 @@ def haversine(lat1, lon1, lat2, lon2) -> float:
         * math.sin(dlon / 2) ** 2
     )
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def get_sensors_near_route_standalone(task_id: str, threshold_km: float = 0.002) -> list[dict]:
+    """
+    Standalone sync function to find sensors near a route.
+    Can be called from worker threads (unlike the async FastAPI endpoint).
+    Returns a list of nearby sensor dicts (not a JSON response).
+    """
+    from app.database import supabase
+
+    # Fetch route coordinates
+    route_result = (
+        supabase.table("route_task_coordinates")
+        .select("latitude,longitude")
+        .eq("task_id", task_id)
+        .order("sequence_order")
+        .execute()
+    )
+
+    if not route_result.data:
+        return []
+
+    route_coords = [(c["latitude"], c["longitude"]) for c in route_result.data]
+
+    # Calculate bounding box from route + threshold
+    lat_threshold_deg = threshold_km / 111.0
+    avg_lat = sum(c[0] for c in route_coords) / len(route_coords)
+    lon_threshold_deg = threshold_km / (111.0 * math.cos(math.radians(avg_lat)))
+
+    min_lat = min(c[0] for c in route_coords) - lat_threshold_deg
+    max_lat = max(c[0] for c in route_coords) + lat_threshold_deg
+    min_lon = min(c[1] for c in route_coords) - lon_threshold_deg
+    max_lon = max(c[1] for c in route_coords) + lon_threshold_deg
+
+    # Fetch sensors within bounding box, capped at 1000
+    all_sensors = (
+        supabase.table("sensors")
+        .select("*")
+        .gte("latitude", min_lat)
+        .lte("latitude", max_lat)
+        .gte("longitude", min_lon)
+        .lte("longitude", max_lon)
+        .limit(1000)
+        .execute()
+    ).data
+
+    if not all_sensors:
+        return []
+
+    # Find sensors within threshold distance
+    nearby = []
+    for s in all_sensors:
+        min_dist = float("inf")
+        s_lat = s["latitude"]
+        s_lon = s["longitude"]
+        for r_lat, r_lon in route_coords:
+            d = haversine(s_lat, s_lon, r_lat, r_lon)
+            if d < min_dist:
+                min_dist = d
+                if d <= threshold_km:
+                    break
+        if min_dist <= threshold_km:
+            nearby.append({
+                "id": str(s["id"]) if not isinstance(s["id"], str) else s["id"],
+                "latitude": s_lat,
+                "longitude": s_lon,
+                "degree": s.get("degree"),
+                "distance_km": round(min_dist, 6),
+            })
+
+    return nearby
+
+
+# ===== Traffic Signals =====
+
+@router.post("/load-traffic-signals")
+async def load_traffic_signals(background_tasks: BackgroundTasks):
+    """
+    Pre-load traffic signals from Overpass into traffic_signals table.
+    Queries Mumbai for highway=traffic_signals nodes.
+    Runs in background to avoid timeout.
+    """
+    background_tasks.add_task(_load_traffic_signals_task)
+    return {
+        "message": "Traffic signal loading started in background",
+        "note": "Check traffic signal count endpoint for progress"
+    }
+
+
+@router.get("/traffic-signal-count")
+async def traffic_signal_count():
+    """Get count of pre-loaded traffic signals."""
+    result = supabase.table("traffic_signals").select("signal_id", count="exact").execute()
+    return {"count": result.count}
+
+
+async def _load_traffic_signals_task():
+    """Background task to load traffic signals from Overpass."""
+    bounds = MUMBAI_BOUNDS
+    tile_size = 0.1  # ~11km tiles
+
+    all_signals = []
+    seen = set()
+    skipped = 0
+
+    lat_start = bounds["south"]
+    while lat_start < bounds["north"]:
+        lat_end = min(lat_start + tile_size, bounds["north"])
+        lon_start = bounds["west"]
+        while lon_start < bounds["east"]:
+            lon_end = min(lon_start + tile_size, bounds["east"])
+            signals = await _fetch_tile_traffic_signals(lat_start, lon_start, lat_end, lon_end, seen)
+            all_signals.extend(signals)
+            lon_start += tile_size
+        lat_start += tile_size
+
+    # Bulk insert in chunks
+    chunk_size = 500
+    for i in range(0, len(all_signals), chunk_size):
+        chunk = all_signals[i:i + chunk_size]
+        supabase.table("traffic_signals").insert(chunk).execute()
+
+    print(f"[TRAFFIC] Loaded {len(all_signals)} traffic signals (skipped {skipped} duplicates)")
+
+
+async def _fetch_tile_traffic_signals(
+    lat0: float, lon0: float, lat1: float, lon1: float,
+    seen: set | None = None,
+) -> list[dict]:
+    """Fetch traffic signal nodes in a single tile from Overpass."""
+    if seen is None:
+        seen = set()
+    results = []
+    query = f"""
+[out:json][timeout:60];
+node["highway"="traffic_signals"]({lat0},{lon0},{lat1},{lon1});
+out body;
+"""
+    async with httpx.AsyncClient(timeout=90.0) as client:
+        try:
+            resp = await client.post(
+                OVERPASS_URL,
+                data={"data": query},
+                headers={"User-Agent": "Smart Ambulance Route with AI"},
+            )
+            resp.raise_for_status()
+        except (httpx.HTTPError, ValueError):
+            try:
+                import asyncio
+                await asyncio.sleep(2)
+                resp = await client.post(
+                    OVERPASS_URL,
+                    data={"data": query},
+                    headers={"User-Agent": "Smart Ambulance Route with AI"},
+                )
+                resp.raise_for_status()
+            except (httpx.HTTPError, ValueError):
+                return results
+
+    data = resp.json()
+    for elem in data.get("elements", []):
+        if elem.get("type") != "node":
+            continue
+        lat = elem.get("lat")
+        lon = elem.get("lon")
+        if lat is None or lon is None:
+            continue
+        key = f"{lat:.6f},{lon:.6f}"
+        if key not in seen:
+            seen.add(key)
+            tags = elem.get("tags", {})
+            results.append({
+                "latitude": lat,
+                "longitude": lon,
+                "road_name": tags.get("name", tags.get("junction:ref", "")),
+                "junction_type": tags.get("junction", "traffic_signals"),
+                "source": "osm_overpass",
+            })
+    return results

@@ -1,4 +1,5 @@
 import httpx
+import math
 import xml.etree.ElementTree as ET
 from typing import Optional
 
@@ -124,6 +125,147 @@ async def fetch_osrm_route_nodes(
         raise ValueError(f"OSRM routing failed: {data}")
 
     return data["routes"][0]["legs"][0]["annotation"]["nodes"]
+
+
+async def fetch_road_distances_osrm(
+    origin_lat: float, origin_lon: float,
+    destinations: list[tuple[float, float]],
+) -> list[tuple[float, float]]:
+    """Fetch road distances (meters) and durations (seconds) from one origin to N destinations.
+
+    Uses OSRM table service for a single efficient call.
+    Returns list of (distance_m, duration_s) tuples matching destinations order.
+    Raises on failure so caller can fall back to Haversine.
+    """
+    if not destinations:
+        return []
+    coords = f"{origin_lon},{origin_lat}" + "".join(
+        f";{lon},{lat}" for lat, lon in destinations
+    )
+    url = f"{OSRM_ROUTING_API.replace('/route/', '/table/')}{coords}?annotations=duration,distance"
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.get(url)
+        response.raise_for_status()
+        data = response.json()
+    if data.get("code") != "Ok":
+        raise ValueError(f"OSRM table failed: {data}")
+    # Row 0 = origin; column 0 = origin-to-origin (skip it), columns 1..N = destinations
+    origin_dists = data["distances"][0]
+    origin_durs = data["durations"][0]
+    return list(zip(origin_dists[1:], origin_durs[1:]))
+
+
+OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+
+
+async def fetch_traffic_signals_along_route(
+    coordinates: list[tuple[float, float]],
+    buffer_km: float = 0.05,
+) -> list[dict]:
+    """Find real traffic signals along a route using Overpass API.
+
+    Queries OSM for nodes with highway=traffic_signals within a bounding box
+    around the route, then matches them to the nearest route coordinate.
+    Returns list of {lat, lon, signal_id, road_name, junction}.
+    """
+    if not coordinates:
+        return []
+
+    # Build bounding box from ALL route coordinates with margin
+    lats = [c[0] for c in coordinates]
+    lons = [c[1] for c in coordinates]
+    # buffer_km to degrees (~111km per degree latitude)
+    lat_margin = buffer_km / 111.0
+    # Longitude margin adjusted for latitude (Mumbai ~19°N)
+    avg_lat = sum(lats) / len(lats)
+    lon_margin = buffer_km / (111.0 * math.cos(math.radians(avg_lat)))
+
+    south = min(lats) - lat_margin
+    north = max(lats) + lat_margin
+    west = min(lons) - lon_margin
+    east = max(lons) + lon_margin
+
+    print(f"[TRAFFIC] Querying Overpass for traffic signals in bbox: S={south:.4f}, W={west:.4f}, N={north:.4f}, E={east:.4f}")
+
+    # Overpass QL: query traffic signal nodes in bounding box
+    # Format: south,west,north,east
+    query = f"""
+[out:json][timeout:30];
+(
+  node["highway"="traffic_signals"]({south:.5f},{west:.5f},{north:.5f},{east:.5f});
+);
+out body;
+"""
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        try:
+            resp = await client.post(OVERPASS_URL, data={"data": query})
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as e:
+            print(f"[TRAFFIC] Overpass query failed: {e}")
+            return []
+
+    elements = data.get("elements", [])
+    print(f"[TRAFFIC] Overpass returned {len(elements)} traffic signal nodes")
+
+    if not elements:
+        return []
+
+    # For each traffic signal, find the nearest route coordinate
+    sig_list = []
+    for el in elements:
+        slat = el.get("lat")
+        slon = el.get("lon")
+        if slat is None or slon is None:
+            continue
+
+        best_dist = float("inf")
+        for rlat, rlon in coordinates:
+            d = _haversine_fast(slat, slon, rlat, rlon)
+            if d < best_dist:
+                best_dist = d
+
+        if best_dist <= buffer_km:
+            tags = el.get("tags", {})
+            sig_list.append({
+                "lat": slat,
+                "lon": slon,
+                "signal_id": str(el["id"]),
+                "distance_km": round(best_dist, 4),
+                "road_name": tags.get("name", ""),
+                "junction": tags.get("junction", ""),
+            })
+
+    print(f"[TRAFFIC] Found {len(sig_list)} traffic signals within {buffer_km*1000:.0f}m of route")
+
+    # Sort by distance along route (index of nearest coordinate)
+    def _sort_key(s):
+        slat, slon = s["lat"], s["lon"]
+        min_idx = 0
+        min_d = float("inf")
+        for i, (rlat, rlon) in enumerate(coordinates):
+            d = _haversine_fast(slat, slon, rlat, rlon)
+            if d < min_d:
+                min_d = d
+                min_idx = i
+        return min_idx
+
+    sig_list.sort(key=_sort_key)
+    return sig_list
+
+
+def _haversine_fast(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Fast Haversine distance in km."""
+    R = 6371.0
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(math.radians(lat1))
+        * math.cos(math.radians(lat2))
+        * math.sin(dlon / 2) ** 2
+    )
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
 async def fetch_single_osm_node(node_id: int) -> tuple[float | None, float | None]:

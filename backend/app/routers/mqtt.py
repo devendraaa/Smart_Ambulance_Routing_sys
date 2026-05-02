@@ -15,6 +15,11 @@ class FixedCoordinate(BaseModel):
     longitude: float
 
 
+class SensorPublishRequest(BaseModel):
+    sensors: list[dict]
+    topic: str = "ambulance/sensors/active"
+
+
 @router.post("/publish-coordinates")
 async def publish_coordinates(data: CoordinateBatch):
     from app.services.mqtt_client import mqtt_client
@@ -29,3 +34,43 @@ async def publish_fixed(data: FixedCoordinate):
 
     mqtt_client.publish_fixed_coordinate(data.latitude, data.longitude)
     return {"status": "published"}
+
+
+@router.post("/publish-sensors")
+async def publish_sensors(data: SensorPublishRequest):
+    """Publish active sensor data to IoT devices via MQTT."""
+    from app.services.mqtt_client import mqtt_client
+
+    count = mqtt_client.publish_sensor_data(data.sensors, data.topic)
+    return {"status": "published", "count": count, "topic": data.topic}
+
+
+@router.post("/publish-route-sensors/{task_id}")
+async def publish_route_sensors(task_id: str, threshold_km: float = 0.002):
+    """
+    Fetch sensors near a route and publish them to MQTT for IoT devices.
+    IoT devices can subscribe to 'ambulance/sensors/active' to receive this data.
+    """
+    from app.services.mqtt_client import mqtt_client
+    from app.routers.sensors import get_sensors_near_route
+
+    result = await get_sensors_near_route(task_id, threshold_km)
+    sensors = result.get("sensors", [])
+
+    if not sensors:
+        return {"status": "no_sensors", "count": 0}
+
+    count = mqtt_client.publish_sensor_data(sensors)
+    return {"status": "published", "count": count, "topic": "ambulance/sensors/active"}
+
+
+@router.post("/stop-sensors")
+async def stop_sensors():
+    """
+    Send stop command to IoT devices to set their output pin LOW.
+    Devices subscribe to 'ambulance/sensors/stop' topic.
+    """
+    from app.services.mqtt_client import mqtt_client
+
+    mqtt_client.publish_stop_command()
+    return {"status": "stop_command_sent", "topic": "ambulance/sensors/stop"}

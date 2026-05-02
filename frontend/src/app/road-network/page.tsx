@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
+import { Map, Layers, AlertCircle, RefreshCw } from "lucide-react";
 
 // Dynamically import Leaflet components to avoid SSR issues
 const MapContainer = dynamic(
@@ -49,17 +51,13 @@ export default function RoadNetworkPage() {
 
   useEffect(() => {
     // Load Leaflet CSS
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-    document.head.appendChild(link);
+    if (!document.querySelector('link[href*="leaflet"]')) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      document.head.appendChild(link);
+    }
 
-    return () => {
-      document.head.removeChild(link);
-    };
-  }, []);
-
-  useEffect(() => {
     loadRoadNetwork();
   }, []);
 
@@ -68,7 +66,6 @@ export default function RoadNetworkPage() {
     setError(null);
 
     try {
-      // Fetch road network data for Mumbai bounds
       const response = await fetch(
         `/api/sensors/network?south=${MUMBAI_BOUNDS.south}&north=${MUMBAI_BOUNDS.north}&west=${MUMBAI_BOUNDS.west}&east=${MUMBAI_BOUNDS.east}&limit=100000`
       );
@@ -104,115 +101,171 @@ export default function RoadNetworkPage() {
     }
   };
 
+  const center: [number, number] = bounds
+    ? [(bounds.south + bounds.north) / 2, (bounds.west + bounds.east) / 2]
+    : [19.0458, 72.8484];
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50"
+      >
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-gray-600">Loading Mumbai road network...</p>
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full mx-auto mb-4"
+          />
+          <p className="text-gray-600">Loading Mumbai road network...</p>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center text-red-600">
-          <p>Error loading road network:</p>
-          <p className="mt-2 font-medium">{error}</p>
-          <button
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50"
+      >
+        <div className="text-center text-red-600 max-w-md mx-auto p-6">
+          <AlertCircle className="w-16 h-16 mx-auto mb-4 text-red-400" />
+          <p className="text-xl font-semibold mb-2">Error Loading Road Network</p>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <motion.button
             onClick={loadRoadNetwork}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="px-6 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-2 mx-auto"
           >
+            <RefreshCw className="w-4 h-4" />
             Retry
-          </button>
+          </motion.button>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   if (nodes.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <p className="text-gray-600">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50"
+      >
+        <div className="text-center max-w-md mx-auto p-6">
+          <Layers className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+          <p className="text-xl font-semibold text-gray-800 mb-2">No Road Network Data</p>
+          <p className="text-gray-500 mb-6">
             No road network data available. You may need to extract the road network first.
           </p>
-          <button
+          <motion.button
             onClick={() => {
-              // Trigger extraction via API (would need backend implementation)
               alert(
                 "To extract the road network, please run:\n" +
                 "POST /api/sensors/extract-full-network\n" +
                 "This process may take several hours to complete."
               );
             }}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="px-6 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors"
           >
             Learn How to Extract Network
-          </button>
+          </motion.button>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
-  // Calculate center point from bounds or nodes
-  const center: [number, number] = bounds
-    ? [(bounds.south + bounds.north) / 2, (bounds.west + bounds.east) / 2]
-    : [19.0458, 72.8484]; // Default Mumbai center
-
   return (
-    <div className="min-h-screen bg-white">
-      <header className="bg-blue-600 text-white py-4">
-        <div className="container mx-auto px-4">
-          <h1 className="text-2xl font-bold">Mumbai Road Network</h1>
-          <p className="text-sm">
-            Displaying {nodes.toLocaleString()} road intersection nodes from OpenStreetMap
-          </p>
-        </div>
-      </header>
-
-      <div className="container mx-auto px-4 py-6">
-        <div className="space-y-4">
-          <div className="flex justify-between items-center flex-wrap">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {/* Hero Header */}
+      <motion.section
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-gradient-hero text-white"
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
-              <span className="font-medium">Road Network Statistics:</span>
-              <span className="ml-2 text-blue-600">
-                {nodes.toLocaleString()} nodes
-              </span>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  // In a real app, this would filter or style differently
-                  alert("Filtering options would be implemented here");
-                }}
-                className="px-3 py-1 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 text-sm"
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 200, damping: 20 }}
+                className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-4"
               >
-                Filters
-              </button>
-              <button
-                onClick={() => {
-                  // Trigger refresh
-                  loadRoadNetwork();
-                }}
-                className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-              >
-                Refresh
-              </button>
+                <Map className="w-8 h-8" />
+              </motion.div>
+              <h1 className="text-3xl sm:text-4xl font-bold mb-2">
+                Mumbai Road Network
+              </h1>
+              <p className="text-blue-100">
+                Displaying {nodes.toLocaleString()} road intersection nodes from OpenStreetMap
+              </p>
             </div>
+            <motion.button
+              onClick={loadRoadNetwork}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white font-medium rounded-xl hover:bg-white/30 transition-colors flex items-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </motion.button>
           </div>
+        </div>
+      </motion.section>
 
-          {/* Map Container */}
-          <div className="h-[70vh] rounded-lg shadow-lg overflow-hidden">
+      {/* Stats Section */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 -mt-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="grid grid-cols-2 md:grid-cols-4 gap-4"
+        >
+          {[
+            { label: "Total Nodes", value: nodes.toLocaleString(), icon: Layers },
+            { label: "Mumbai Coverage", value: "100%", icon: Map },
+            { label: "Major Intersections", value: nodes.filter(n => n.intersection_type === "major_intersection").length.toLocaleString(), icon: AlertCircle },
+            { label: "Data Source", value: "OSM", icon: "🌐" },
+          ].map((stat, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 + i * 0.1 }}
+              className="bg-white rounded-2xl p-4 sm:p-6 text-center shadow-sm hover:shadow-md transition-shadow border border-gray-100"
+            >
+              <div className="text-3xl mb-2">
+                {typeof stat.icon === "string" ? stat.icon : <stat.icon className="w-8 h-8 text-blue-600 mx-auto" />}
+              </div>
+              <div className="text-xl sm:text-2xl font-bold text-blue-700">{stat.value}</div>
+              <div className="text-xs sm:text-sm text-gray-500 mt-1">{stat.label}</div>
+            </motion.div>
+          ))}
+        </motion.div>
+      </section>
+
+      {/* Map Container */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="bg-white rounded-3xl shadow-xl overflow-hidden"
+        >
+          <div className="h-[70vh]">
             <MapContainer
               center={center}
               zoom={12}
               className="h-full w-full"
               scrollWheelZoom={true}
             >
-              {/* Tile Layer */}
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -246,39 +299,58 @@ export default function RoadNetworkPage() {
           </div>
 
           {/* Legend */}
-          <div className="mt-6 bg-white p-4 rounded-lg shadow">
-            <h3 className="font-semibold mb-2">Legend</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded bg-red-500"></span>
-                <span>Major Intersection (Motorway/Trunk/Primary)</span>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="p-6 bg-gray-50 border-t border-gray-100"
+          >
+            <h3 className="font-semibold mb-4">Legend</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              {[
+                { color: "bg-red-500", label: "Major Intersection (Motorway/Trunk/Primary)" },
+                { color: "bg-orange-500", label: "Minor Intersection (Secondary/Tertiary)" },
+                { color: "bg-emerald-500", label: "Local Intersection (Residential/Unclassified)" },
+                { color: "bg-gray-500", label: "Other Road Nodes" },
+              ].map((item, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.7 + i * 0.1 }}
+                  className="flex items-center gap-2"
+                >
+                  <span className={`w-3 h-3 rounded ${item.color}`} />
+                  <span className="text-gray-600">{item.label}</span>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        </motion.div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-white border-t border-gray-100 py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">🚑</span>
+              <div>
+                <p className="font-semibold text-sm text-gray-800">
+                  Smart Ambulance Route
+                </p>
+                <p className="text-xs text-gray-500">
+                  Emergency Response System
+                </p>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded bg-orange-500"></span>
-                <span>Minor Intersection (Secondary/Tertiary)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded bg-green-500"></span>
-                <span>Local Intersection (Residential/Unclassified)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded bg-gray-500"></span>
-                <span>Other Road Nodes</span>
-              </div>
+            </div>
+            <div className="flex items-center gap-4 text-xs text-gray-400">
+              <span>Data Source: OpenStreetMap via Overpass API</span>
+              <span>•</span>
+              <span>Last updated: {new Date().toLocaleDateString()}</span>
             </div>
           </div>
         </div>
-      </div>
-
-      <footer className="bg-gray-100 text-center py-4 text-sm text-gray-600">
-        <p>
-          Data Source: OpenStreetMap via Overpass API • Last updated:{" "}
-          {new Date().toLocaleDateString()}
-        </p>
-        <p className="mt-1">
-          Note: For performance, only a subset of nodes may be displayed. Full dataset{" "}
-          available in database for routing algorithms.
-        </p>
       </footer>
     </div>
   );

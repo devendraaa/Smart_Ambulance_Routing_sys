@@ -131,3 +131,27 @@ async def get_full_route(task_id: str):
         ],
     }
 
+
+@router.get("/{task_id}/traffic-signals")
+async def get_traffic_signals(task_id: str):
+    """Find real traffic signal locations along a computed route using Overpass API."""
+    # Fetch route coordinates from database
+    coord_res = (
+        supabase.table("route_task_coordinates")
+        .select("latitude,longitude")
+        .eq("task_id", task_id)
+        .order("sequence_order")
+        .execute()
+    )
+    if not coord_res.data:
+        raise HTTPException(status_code=404, detail="Route coordinates not found")
+
+    coordinates = [(c["latitude"], c["longitude"]) for c in coord_res.data]
+    from app.services.osm_client import fetch_traffic_signals_along_route
+    try:
+        signals = await fetch_traffic_signals_along_route(coordinates)
+        return {"signals": signals, "count": len(signals)}
+    except Exception as e:
+        print(f"[TRAFFIC] Error fetching traffic signals: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+

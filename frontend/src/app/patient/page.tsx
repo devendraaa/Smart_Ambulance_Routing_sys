@@ -1,11 +1,15 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { User, Calendar, MapPin, Phone, AlertTriangle, Droplet, CheckCircle2, AlertCircle, Heart } from "lucide-react";
 
 const EMERGENCY_REASONS = [
-  { value: "Heart Attack", label: "Heart Attack" },
-  { value: "Road Accident", label: "Road Accident" },
-  { value: "Other", label: "Other" },
+  { value: "Heart Attack", label: "Heart Attack", icon: "🩺" },
+  { value: "Road Accident", label: "Road Accident", icon: "🚗" },
+  { value: "Other", label: "Other Emergency", icon: "🚨" },
 ];
 
 const BLOOD_TYPES = [
@@ -29,8 +33,8 @@ export default function PatientPage() {
   const [bloodType, setBloodType] = useState("");
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  // Load last saved patient
   useEffect(() => {
     try {
       const data = localStorage.getItem("patientData");
@@ -61,101 +65,203 @@ export default function PatientPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl p-6">
-      <h1 className="text-2xl font-bold mb-1">Patient Details</h1>
-      <p className="text-sm text-gray-500 mb-6">Enter patient information for emergency dispatch.</p>
-
-      <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Name */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
-          <input
-            type="text" value={name} onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Rajesh Kumar"
-            className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          />
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="min-h-[calc(100vh-8rem)] flex items-center justify-center p-4"
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ type: "spring", stiffness: 200, damping: 25 }}
+        className="w-full max-w-2xl"
+      >
+        {/* Header */}
+        <div className="text-center mb-8">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            className="w-20 h-20 bg-gradient-to-br from-red-500 to-red-400 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-red-200"
+          >
+            <Heart className="w-10 h-10 text-white" fill="white" />
+          </motion.div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Patient Details</h1>
+          <p className="text-gray-500">Enter patient information for emergency dispatch</p>
         </div>
 
-        {/* Age + Contact row */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Age *</label>
-            <input
-              type="number" min="1" max="150" value={age} onChange={(e) => setAge(e.target.value)}
-              placeholder="e.g. 45"
-              className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number *</label>
-            <input
-              type="tel" value={contact} onChange={(e) => setContact(e.target.value)}
-              placeholder="+91 9876543210"
-              className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-        </div>
-
-        {/* Address */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-          <textarea
-            value={address} onChange={(e) => setAddress(e.target.value)}
-            placeholder="Full address of the patient/incident location"
-            rows={3}
-            className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-          />
-        </div>
-
-        {/* Emergency Reason + Blood Type row */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Emergency Reason *</label>
-            <select
-              value={reason} onChange={(e) => setReason(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              required
-            >
-              <option value="">Select reason...</option>
-              {EMERGENCY_REASONS.map((r) => (
-                <option key={r.value} value={r.value}>{r.label}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Blood Type</label>
-            <select
-              value={bloodType} onChange={(e) => setBloodType(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-            >
-              {BLOOD_TYPES.map((bt) => (
-                <option key={bt.value} value={bt.value}>{bt.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Error */}
-        {error && <p className="text-red-600 text-sm">{error}</p>}
-
-        {/* Success */}
-        {saved && (
-          <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-center text-green-700">
-            Patient details saved successfully!
-          </div>
-        )}
-
-        {/* Submit */}
-        <button
-          type="submit"
-          className="w-full rounded-md bg-blue-600 px-4 py-2.5 font-medium text-white transition hover:bg-blue-700"
+        {/* Form Card */}
+        <motion.form
+          onSubmit={handleSubmit}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 sm:p-8 space-y-6"
         >
-          Save Patient Details
-        </button>
-      </form>
-    </div>
+          {/* Name & Age Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <motion.div whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 400 }}>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <User className="w-4 h-4 inline mr-1" />
+                Full Name *
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onFocus={() => setFocusedField("name")}
+                onBlur={() => setFocusedField(null)}
+                placeholder="e.g. Rajesh Kumar"
+                className={`w-full rounded-xl border-2 px-4 py-3 transition input-focus ${
+                  focusedField === "name" ? "border-blue-500 ring-4 ring-blue-100" : "border-gray-200"
+                }`}
+                required
+              />
+            </motion.div>
+
+            <motion.div whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 400 }}>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <Calendar className="w-4 h-4 inline mr-1" />
+                Age *
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="150"
+                value={age}
+                onChange={(e) => setAge(e.target.value)}
+                onFocus={() => setFocusedField("age")}
+                onBlur={() => setFocusedField(null)}
+                placeholder="e.g. 45"
+                className={`w-full rounded-xl border-2 px-4 py-3 transition input-focus ${
+                  focusedField === "age" ? "border-blue-500 ring-4 ring-blue-100" : "border-gray-200"
+                }`}
+                required
+              />
+            </motion.div>
+          </div>
+
+          {/* Contact & Address */}
+          <motion.div whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 400 }}>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <Phone className="w-4 h-4 inline mr-1" />
+              Contact Number *
+            </label>
+            <input
+              type="tel"
+              value={contact}
+              onChange={(e) => setContact(e.target.value)}
+              onFocus={() => setFocusedField("contact")}
+              onBlur={() => setFocusedField(null)}
+              placeholder="+91 9876543210"
+              className={`w-full rounded-xl border-2 px-4 py-3 transition input-focus ${
+                focusedField === "contact" ? "border-blue-500 ring-4 ring-blue-100" : "border-gray-200"
+              }`}
+              required
+            />
+          </motion.div>
+
+          <motion.div whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 400 }}>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <MapPin className="w-4 h-4 inline mr-1" />
+              Address
+            </label>
+            <textarea
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Full address of the patient/incident location"
+              rows={3}
+              className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 transition resize-none"
+            />
+          </motion.div>
+
+          {/* Emergency Reason & Blood Type */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <motion.div whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 400 }}>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <AlertTriangle className="w-4 h-4 inline mr-1" />
+                Emergency Reason *
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {EMERGENCY_REASONS.map((r) => (
+                  <motion.button
+                    key={r.value}
+                    type="button"
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => setReason(r.value)}
+                    className={`p-3 rounded-xl border-2 transition text-sm ${
+                      reason === r.value
+                        ? "border-red-500 bg-red-50 text-red-700"
+                        : "border-gray-200 hover:border-gray-300 text-gray-600"
+                    }`}
+                  >
+                    <div className="text-xl mb-1">{r.icon}</div>
+                    <div className="font-medium">{r.label}</div>
+                  </motion.button>
+                ))}
+              </div>
+            </motion.div>
+
+            <motion.div whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 400 }}>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <Droplet className="w-4 h-4 inline mr-1" />
+                Blood Type
+              </label>
+              <select
+                value={bloodType}
+                onChange={(e) => setBloodType(e.target.value)}
+                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 transition bg-white"
+              >
+                {BLOOD_TYPES.map((bt) => (
+                  <option key={bt.value} value={bt.value}>{bt.label}</option>
+                ))}
+              </select>
+            </motion.div>
+          </div>
+
+          {/* Error Message */}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm"
+              >
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Success Message */}
+          <AnimatePresence>
+            {saved && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="flex items-center gap-2 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700"
+              >
+                <CheckCircle2 className="w-5 h-5" />
+                <span className="font-medium">Patient details saved successfully!</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Submit Button */}
+          <motion.button
+            type="submit"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.97 }}
+            className="w-full rounded-xl bg-gradient-to-r from-red-600 to-red-500 px-6 py-4 font-semibold text-white text-lg shadow-lg shadow-red-200 hover:shadow-xl hover:shadow-red-300 transition-shadow flex items-center justify-center gap-2"
+          >
+            <Heart className="w-5 h-5" />
+            Save Patient Details
+          </motion.button>
+        </motion.form>
+      </motion.div>
+    </motion.div>
   );
 }

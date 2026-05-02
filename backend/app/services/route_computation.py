@@ -32,6 +32,19 @@ def _find_nearest_sensors(
     """
     route_sensors = []
     seen_ids = set()
+
+    print(f"[DEBUG] _find_nearest_sensors: {len(coordinates)} coords, {len(sensor_locations)} sensors, max_dist={max_distance_km}km")
+
+    # Sample diagnostics: check distance from first 3 route coords to first 3 sensors
+    if coordinates and sensor_locations:
+        for ci in range(min(3, len(coordinates))):
+            clat, clon = coordinates[ci]
+            for si in range(min(3, len(sensor_locations))):
+                s = sensor_locations[si]
+                d = _haversine(clat, clon, s["latitude"], s["longitude"])
+                print(f"[DEBUG]   coord[{ci}] ({clat:.6f},{clon:.6f}) <-> sensor[{si}] ({s['latitude']:.6f},{s['longitude']:.6f}) dist={d:.3f}km")
+
+    checked = 0
     for lat, lon in coordinates:
         best = None
         best_dist = max_distance_km
@@ -40,9 +53,16 @@ def _find_nearest_sensors(
             if d < best_dist:
                 best_dist = d
                 best = {**s, "distance_km": round(d, 3)}
-        if best and best["sensor_id"] not in seen_ids:
-            seen_ids.add(best["sensor_id"])
-            route_sensors.append(best)
+        if best:
+            sid = best.get("sensor_id")
+            if sid not in seen_ids:
+                seen_ids.add(sid)
+                route_sensors.append(best)
+        checked += 1
+        if checked % 500 == 0:
+            print(f"[DEBUG] _find_nearest_sensors: checked {checked}/{len(coordinates)}, found {len(route_sensors)}")
+
+    print(f"[DEBUG] _find_nearest_sensors: done. Found {len(route_sensors)} unique sensors along route")
     return route_sensors
 
 
@@ -130,9 +150,15 @@ async def execute_route_computation(
     ).execute()
     road_sensor_list = road_sensor_result.data if road_sensor_result.data else []
     route_road_sensors = []
+    print(f"[DEBUG] sensor_locations query returned {len(road_sensor_list)} rows")
+    if road_sensor_list:
+        print(f"[DEBUG] Sample sensor: {road_sensor_list[0]}")
     if road_sensor_list and coordinates:
         update_task(status="running", progress=0.95, processed_nodes=int(total * 0.95), total_nodes=total)
         route_road_sensors = _find_nearest_sensors(coordinates, road_sensor_list)
+        print(f"[DEBUG] _find_nearest_sensors returned {len(route_road_sensors)} sensors")
+        if route_road_sensors:
+            print(f"[DEBUG] Sample result: {route_road_sensors[0]}")
 
     # Step 6: Save result (distance, duration, sensors)
     result_data = {
@@ -143,7 +169,13 @@ async def execute_route_computation(
     if route_road_sensors:
         result_data["road_sensors_count"] = len(route_road_sensors)
         result_data["road_sensors"] = [
-            {"sensor_id": s["sensor_id"], "distance_km": s["distance_km"]}
+            {
+                "sensor_id": s["sensor_id"],
+                "latitude": s["latitude"],
+                "longitude": s["longitude"],
+                "road_name": s.get("road_name", ""),
+                "distance_km": s["distance_km"],
+            }
             for s in route_road_sensors
         ]
 
@@ -153,6 +185,21 @@ async def execute_route_computation(
         processed_nodes=total,
         result_json=result_data,
     )
+
+    # Publish active route sensors to MQTT for IoT devices
+    if route_road_sensors:
+        from app.services.mqtt_client import mqtt_client
+
+        print(f"[MQTT] Publishing {len(route_road_sensors)} sensors to ambulance/sensors/active")
+        for s in route_road_sensors:
+            print(f"[MQTT]   sensor {s['sensor_id']} @ ({s['latitude']}, {s['longitude']}) dist={s['distance_km']}km")
+        try:
+            mqtt_client.publish_sensor_data(route_road_sensors)
+            print("[MQTT] Publish succeeded")
+        except Exception as e:
+            print(f"[MQTT] Publish FAILED: {e}")
+    else:
+        print("[MQTT] No route sensors to publish — check sensor_locations table and route path")
 
     return {
         "task_id": str(task_id),

@@ -68,6 +68,35 @@ export async function getFullRoute(taskId: string) {
   }>(`/api/route/${taskId}/full`);
 }
 
+export async function fetchTrafficSignals(taskId: string) {
+  return fetchAPI<{
+    signals: {
+      lat: number;
+      lon: number;
+      signal_id: string;
+      distance_km: number;
+      road_name: string;
+      junction: string;
+    }[];
+    count: number;
+  }>(`/api/route/${taskId}/traffic-signals`);
+}
+
+export async function getTaskRoadSensors(taskId: string) {
+  const data = await fetchAPI<{
+    result?: {
+      road_sensors?: {
+        sensor_id: string;
+        latitude: number;
+        longitude: number;
+        road_name: string;
+        distance_km: number;
+      }[];
+    };
+  }>(`/api/route/${taskId}`);
+  return { road_sensors: data.result?.road_sensors || [] };
+}
+
 export async function getTaskTurnPoints(taskId: string) {
   return fetchAPI<{
     turn_points: { lat: number; lon: number; sequence: number }[];
@@ -171,6 +200,49 @@ export async function fetchRoadSensors() {
   >("/api/sensors/road");
 }
 
+// --- Sensors (manual + CSV upload) ---
+export async function addSensor(data: { latitude: number; longitude: number; degree?: number }) {
+  return fetchAPI<{
+    id: string;
+    latitude: number;
+    longitude: number;
+    degree?: number;
+  }>("/api/sensors/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function uploadSensorsCSV(csvText: string) {
+  return fetchAPI<{ inserted: number; message: string }>("/api/sensors/upload-csv", {
+    method: "POST",
+    body: JSON.stringify({ csv_data: csvText }),
+  });
+}
+
+export async function fetchManualSensors() {
+  return fetchAPI<{
+    id: string;
+    latitude: number;
+    longitude: number;
+    degree?: number;
+    created_at?: string;
+  }[]>("/api/sensors/");
+}
+
+export async function fetchSensorsNearRoute(taskId: string, thresholdKm: number = 0.002) {
+  return fetchAPI<{
+    sensors: {
+      id: string;
+      latitude: number;
+      longitude: number;
+      degree?: number;
+      distance_km: number;
+    }[];
+    count: number;
+  }>(`/api/sensors/near-route/${taskId}?threshold_km=${thresholdKm}`);
+}
+
 // --- Road Network API ---
 export async function fetchRoadNetwork(
   south: number = 18.85,
@@ -202,4 +274,11 @@ export async function extractFullRoadNetwork() {
     message: string;
     note: string;
   }>("/api/sensors/extract-full-network", { method: "POST" });
+}
+
+// --- MQTT Stop Sensor ---
+export async function stopSensors() {
+  return fetchAPI<{ status: string; topic: string }>("/api/mqtt/stop-sensors", {
+    method: "POST",
+  });
 }

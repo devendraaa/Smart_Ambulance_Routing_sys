@@ -29,5 +29,53 @@ class MQTTClient:
         payload = json.dumps({"latitude": lat, "longitude": lon})
         self.client.publish(topic, payload)
 
+    def publish_sensor_data(
+        self,
+        sensors: list[dict],
+        topic: str = "ambulance/sensors/active",
+    ):
+        """Publish active sensor data to IoT devices via MQTT.
+
+        Sends all sensors as a JSON array. Retained so late-connecting
+        devices receive the data.
+        """
+        if not self.client.is_connected():
+            print("[MQTT] Not connected, attempting reconnect...")
+            self.client.reconnect()
+
+        payload = json.dumps([
+            {
+                "sensor_id": s.get("sensor_id"),
+                "lat": s.get("latitude"),
+                "lng": s.get("longitude"),
+                "road_name": s.get("road_name", ""),
+                "distance_km": s.get("distance_km"),
+            }
+            for s in sensors
+        ])
+        print(f"[MQTT] Payload ({len(payload)} bytes) to {topic}")
+        result = self.client.publish(topic, payload, retain=True)
+        print(f"[MQTT] Publish result: rc={result.rc}, mid={result.mid}, retained=True")
+        return len(sensors)
+
+    def publish_stop_command(
+        self,
+        topic: str = "ambulance/sensors/stop",
+    ):
+        """Publish a stop command to set IoT device pin LOW.
+        Not retained - device should only respond when explicitly triggered.
+        """
+        if not self.client.is_connected():
+            print("[MQTT] Not connected, attempting reconnect...")
+            self.client.reconnect()
+        payload = json.dumps({"command": "stop", "pin": "low"})
+        result = self.client.publish(topic, payload, retain=False)
+        print(f"[MQTT] Stop command sent (not retained): rc={result.rc}, mid={result.mid}")
+
+        # Clear any previously retained message on this topic
+        self.client.publish(topic, "", retain=True)
+        print(f"[MQTT] Cleared retained message on {topic}")
+        return True
+
 
 mqtt_client = MQTTClient()

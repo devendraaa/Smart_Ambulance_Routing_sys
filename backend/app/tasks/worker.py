@@ -6,6 +6,35 @@ from app.services.route_computation import execute_route_computation
 task_queue: queue.Queue[dict[str, Any]] = queue.Queue()
 
 
+def _publish_route_sensors_to_mqtt(task_id: str):
+    """Fetch sensors near a completed route and publish to MQTT for IoT devices."""
+    from app.database import supabase
+    from app.services.mqtt_client import mqtt_client
+    from app.routers.sensors import get_sensors_near_route_standalone
+
+    try:
+        # Use 0.05 km (50m) threshold so sensors near the route are captured
+        sensors = get_sensors_near_route_standalone(task_id, threshold_km=0.05)
+        if sensors:
+            # Map 'id' -> 'sensor_id' for MQTT payload compatibility
+            mapped = [
+                {
+                    "sensor_id": s.get("id"),
+                    "latitude": s["latitude"],
+                    "longitude": s["longitude"],
+                    "distance_km": s.get("distance_km"),
+                }
+                for s in sensors
+            ]
+            print(f"[MQTT] Publishing {len(mapped)} sensors (threshold 50m) for task {task_id}")
+            mqtt_client.publish_sensor_data(mapped)
+            print(f"[MQTT] Published {len(mapped)} nearby sensors for task {task_id}")
+        else:
+            print(f"[MQTT] No sensors found near route for task {task_id}")
+    except Exception as e:
+        print(f"[MQTT] Failed to publish sensors for task {task_id}: {e}")
+
+
 def _worker_loop():
     """Single background worker thread that processes route computation tasks."""
     while True:
@@ -28,6 +57,10 @@ def _worker_loop():
                 )
             )
             loop.close()
+
+            # Publish nearby sensors to MQTT for IoT devices
+            _publish_route_sensors_to_mqtt(task_data["task_id"])
+
         except Exception as e:
             from app.database import supabase
             supabase.table("route_tasks").update({

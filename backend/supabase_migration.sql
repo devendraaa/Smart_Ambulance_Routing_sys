@@ -14,8 +14,12 @@ CREATE TABLE IF NOT EXISTS sensors (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     latitude DOUBLE PRECISION NOT NULL,
     longitude DOUBLE PRECISION NOT NULL,
+    degree DOUBLE PRECISION,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Add degree column if table already exists
+ALTER TABLE sensors ADD COLUMN IF NOT EXISTS degree DOUBLE PRECISION;
 
 -- Route computation tasks
 CREATE TABLE IF NOT EXISTS route_tasks (
@@ -77,3 +81,32 @@ CREATE TABLE IF NOT EXISTS sensor_locations (
 CREATE INDEX IF NOT EXISTS idx_sensor_locations_lat ON sensor_locations(latitude);
 CREATE INDEX IF NOT EXISTS idx_sensor_locations_lon ON sensor_locations(longitude);
 CREATE INDEX IF NOT EXISTS idx_sensor_locations_sensor_id ON sensor_locations(sensor_id);
+
+-- Traffic signals (pre-loaded from Overpass)
+CREATE TABLE IF NOT EXISTS traffic_signals (
+    signal_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    latitude DOUBLE PRECISION NOT NULL,
+    longitude DOUBLE PRECISION NOT NULL,
+    road_name VARCHAR(255),
+    junction_type VARCHAR(50),
+    source VARCHAR(50) DEFAULT 'osm_overpass',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_traffic_signals_lat ON traffic_signals(latitude);
+CREATE INDEX IF NOT EXISTS idx_traffic_signals_lon ON traffic_signals(longitude);
+
+-- Route traffic signals (matched per route task)
+CREATE TABLE IF NOT EXISTS route_traffic_signals (
+    id BIGSERIAL PRIMARY KEY,
+    task_id UUID REFERENCES route_tasks(id) ON DELETE CASCADE NOT NULL,
+    signal_id UUID REFERENCES traffic_signals(signal_id) ON DELETE SET NULL,
+    latitude DOUBLE PRECISION NOT NULL,
+    longitude DOUBLE PRECISION NOT NULL,
+    distance_km DOUBLE PRECISION,
+    sequence_order INTEGER,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_route_traffic_signals_task_id
+    ON route_traffic_signals(task_id);
