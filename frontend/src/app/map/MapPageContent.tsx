@@ -413,7 +413,7 @@ export default function MapPageContent({ taskId }: MapPageContentProps) {
       {/* Header with Stats */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Route Analysis</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">All Sensor Active of Current Route</h1>
           <p className="text-gray-500 mt-1 text-sm">Task: {taskId?.slice(0, 8)}...</p>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 w-full">
