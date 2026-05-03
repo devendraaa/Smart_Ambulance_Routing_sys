@@ -27,42 +27,56 @@ def _find_nearest_sensors(
     max_distance_km: float = 1.0,
 ) -> list[dict]:
     """
-    For each route coordinate, find the nearest road intersection sensor.
-    Returns list of unique sensors along the route.
+    Find sensors near the route and sort them by their position along the route.
+    Returns list of sensors in sequence from route start to end.
     """
-    route_sensors = []
-    seen_ids = set()
-
     print(f"[DEBUG] _find_nearest_sensors: {len(coordinates)} coords, {len(sensor_locations)} sensors, max_dist={max_distance_km}km")
 
-    # Sample diagnostics: check distance from first 3 route coords to first 3 sensors
-    if coordinates and sensor_locations:
-        for ci in range(min(3, len(coordinates))):
-            clat, clon = coordinates[ci]
-            for si in range(min(3, len(sensor_locations))):
-                s = sensor_locations[si]
-                d = _haversine(clat, clon, s["latitude"], s["longitude"])
-                print(f"[DEBUG]   coord[{ci}] ({clat:.6f},{clon:.6f}) <-> sensor[{si}] ({s['latitude']:.6f},{s['longitude']:.6f}) dist={d:.3f}km")
+    # For each sensor, find the closest route coordinate and its index
+    sensor_with_position = []
 
-    checked = 0
-    for lat, lon in coordinates:
-        best = None
-        best_dist = max_distance_km
-        for s in sensor_locations:
-            d = _haversine(lat, lon, s["latitude"], s["longitude"])
-            if d < best_dist:
-                best_dist = d
-                best = {**s, "distance_km": round(d, 3)}
-        if best:
-            sid = best.get("sensor_id")
-            if sid not in seen_ids:
-                seen_ids.add(sid)
-                route_sensors.append(best)
-        checked += 1
-        if checked % 500 == 0:
-            print(f"[DEBUG] _find_nearest_sensors: checked {checked}/{len(coordinates)}, found {len(route_sensors)}")
+    for s in sensor_locations:
+        min_dist = float("inf")
+        closest_coord_idx = -1
+        s_lat = s["latitude"]
+        s_lon = s["longitude"]
 
-    print(f"[DEBUG] _find_nearest_sensors: done. Found {len(route_sensors)} unique sensors along route")
+        # Find closest point on route to this sensor
+        for idx, (lat, lon) in enumerate(coordinates):
+            d = _haversine(lat, lon, s_lat, s_lon)
+            if d < min_dist:
+                min_dist = d
+                closest_coord_idx = idx
+                if d < 0.001:  # Within 1 meter, close enough
+                    break
+
+        # Only include sensors within max_distance_km of the route
+        if min_dist <= max_distance_km:
+            sensor_with_position.append({
+                **s,
+                "distance_km": round(min_dist, 3),
+                "route_position_idx": closest_coord_idx,  # Position along route
+            })
+
+    # Sort sensors by their position along the route (from start to end)
+    sensor_with_position.sort(key=lambda x: x["route_position_idx"])
+
+    # Remove duplicates (same sensor_id) keeping the first occurrence (closest to start)
+    seen_ids = set()
+    route_sensors = []
+    for s in sensor_with_position:
+        sid = s.get("sensor_id")
+        if sid not in seen_ids:
+            seen_ids.add(sid)
+            # Remove internal tracking field before returning
+            result = {k: v for k, v in s.items() if k != "route_position_idx"}
+            route_sensors.append(result)
+
+    print(f"[DEBUG] _find_nearest_sensors: found {len(route_sensors)} unique sensors in route sequence")
+    if route_sensors:
+        print(f"[DEBUG] First sensor: {route_sensors[0].get('sensor_id')} at position {sensor_with_position[0]['route_position_idx'] if sensor_with_position else 'N/A'}")
+        print(f"[DEBUG] Last sensor: {route_sensors[-1].get('sensor_id')} at position {sensor_with_position[-1]['route_position_idx'] if sensor_with_position else 'N/A'}")
+
     return route_sensors
 
 

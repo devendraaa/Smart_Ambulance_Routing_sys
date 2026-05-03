@@ -17,6 +17,7 @@ type NearbySensor = {
   longitude: number;
   degree?: number;
   distance_km: number;
+  sequence?: number;  // Sequence number along the route (1-based)
 };
 
 interface MapPageContentProps {
@@ -40,6 +41,7 @@ export default function MapPageContent({ taskId }: MapPageContentProps) {
 	  distance_km: number;
 	  road_name: string;
 	  junction: string;
+    sequence?: number;  // Sequence number along the route (1-based)
   };
   const [trafficSignals, setTrafficSignals] = useState<TrafficSignal[]>([]);
   const [stopLoading, setStopLoading] = useState(false);
@@ -229,7 +231,7 @@ export default function MapPageContent({ taskId }: MapPageContentProps) {
                 weight: 3,
               }).addTo(map).bindPopup(
                 `<div style="font-family:sans-serif;min-width:200px">
-                  <b style="color:#dc2626">Active Sensor #${i + 1}</b><br/>
+                  <b style="color:#dc2626">Active Sensor #${s.sequence || i + 1}</b><br/>
                   Lat: ${s.latitude.toFixed(6)}<br/>
                   Lon: ${s.longitude.toFixed(6)}<br/>
                   ${s.degree !== undefined ? `Degree: ${s.degree}°<br/>` : ''}
@@ -256,7 +258,7 @@ export default function MapPageContent({ taskId }: MapPageContentProps) {
                 weight: 3,
               }).addTo(map).bindPopup(
                 `<div style="font-family:sans-serif;min-width:220px">
-                  <b style="color:#ca8a04">Traffic Signal #${i + 1}</b><br/>
+                  <b style="color:#ca8a04">Traffic Signal #${s.sequence || i + 1}</b><br/>
                   Lat: ${s.lat.toFixed(6)}<br/>
                   Lon: ${s.lon.toFixed(6)}<br/>
                   ${s.road_name ? `Road: ${s.road_name}<br/>` : ''}
@@ -702,7 +704,7 @@ export default function MapPageContent({ taskId }: MapPageContentProps) {
                     </div>
                   </div>
                 </div>
-                <span className="text-xs text-gray-400 font-mono">#{i + 1}</span>
+                <span className="text-xs text-gray-400 font-mono">#{s.sequence || i + 1}</span>
               </div>
             ))}
           </div>
@@ -746,7 +748,7 @@ export default function MapPageContent({ taskId }: MapPageContentProps) {
                     </div>
                   </div>
                 </div>
-                <span className="text-xs text-gray-400 font-mono">#{i + 1}</span>
+                <span className="text-xs text-gray-400 font-mono">#{s.sequence || i + 1}</span>
               </div>
             ))}
           </div>

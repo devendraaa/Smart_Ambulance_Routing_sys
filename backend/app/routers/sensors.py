@@ -535,13 +535,13 @@ async def get_sensors_near_route(
 ):
     """
     Find manually added sensors within threshold_km of the computed route.
+    Returns sensors sorted by their position along the route (start to end).
     Default threshold is 0.002 km (2 meters).
-    Uses bounding box pre-filtering for performance with large sensor datasets.
     """
-    # Fetch route coordinates
+    # Fetch route coordinates in order
     route_result = (
         supabase.table("route_task_coordinates")
-        .select("latitude,longitude")
+        .select("latitude,longitude,sequence_order")
         .eq("task_id", task_id)
         .order("sequence_order")
         .execute()
@@ -550,12 +550,10 @@ async def get_sensors_near_route(
     if not route_result.data:
         return {"sensors": [], "count": 0}
 
-    route_coords = [(c["latitude"], c["longitude"]) for c in route_result.data]
+    route_coords = [(c["latitude"], c["longitude"], c["sequence_order"]) for c in route_result.data]
 
-    # Calculate bounding box from route + threshold (convert km to degrees approx)
-    # 1 deg lat ≈ 111 km, 1 deg lon ≈ 111 km at equator (approx for Mumbai)
+    # Calculate bounding box from route + threshold
     lat_threshold_deg = threshold_km / 111.0
-    # For longitude, adjust by latitude (Mumbai is ~19° N)
     avg_lat = sum(c[0] for c in route_coords) / len(route_coords)
     lon_threshold_deg = threshold_km / (111.0 * math.cos(math.radians(avg_lat)))
 
@@ -564,7 +562,7 @@ async def get_sensors_near_route(
     min_lon = min(c[1] for c in route_coords) - lon_threshold_deg
     max_lon = max(c[1] for c in route_coords) + lon_threshold_deg
 
-    # Fetch sensors within bounding box, capped at 1000 (avoid lag with 13K dataset)
+    # Fetch sensors within bounding box
     all_sensors = (
         supabase.table("sensors")
         .select("*")
@@ -576,31 +574,46 @@ async def get_sensors_near_route(
         .execute()
     ).data
 
-    print(f"[DEBUG] get_sensors_near_route: {len(all_sensors)} sensors within bounding box (capped at 1000)")
+    print(f"[DEBUG] get_sensors_near_route: {len(all_sensors)} sensors within bounding box")
 
     if not all_sensors:
         return {"sensors": [], "count": 0}
 
-    # Find sensors within threshold distance of any route coordinate
-    nearby_sensors = []
+    # Find sensors near route and track their position along the route
+    sensors_with_position = []
     for s in all_sensors:
         min_dist = float("inf")
+        closest_idx = -1
         s_lat = s["latitude"]
         s_lon = s["longitude"]
-        for r_lat, r_lon in route_coords:
+        for r_lat, r_lon, seq in route_coords:
             d = haversine(s_lat, s_lon, r_lat, r_lon)
             if d < min_dist:
                 min_dist = d
-                if d <= threshold_km:  # Early exit if we found a match
+                closest_idx = seq  # Use sequence_order as position along route
+                if d <= threshold_km:
                     break
         if min_dist <= threshold_km:
-            nearby_sensors.append({
+            sensors_with_position.append({
                 "id": str(s["id"]) if not isinstance(s["id"], str) else s["id"],
                 "latitude": s_lat,
                 "longitude": s_lon,
                 "degree": s.get("degree"),
                 "distance_km": round(min_dist, 6),
+                "_route_position": closest_idx,  # Internal use for sorting
             })
+
+    # Sort by position along route (start to end)
+    sensors_with_position.sort(key=lambda x: x["_route_position"])
+
+    # Add sequence numbers and remove internal tracking field
+    nearby_sensors = []
+    for idx, s in enumerate(sensors_with_position):
+        result = {k: v for k, v in s.items() if k != "_route_position"}
+        result["sequence"] = idx + 1  # Add 1-based sequence number
+        nearby_sensors.append(result)
+
+    print(f"[DEBUG] get_sensors_near_route: returning {len(nearby_sensors)} sensors in route sequence")
 
     return {"sensors": nearby_sensors, "count": len(nearby_sensors)}
 
@@ -623,15 +636,15 @@ def haversine(lat1, lon1, lat2, lon2) -> float:
 def get_sensors_near_route_standalone(task_id: str, threshold_km: float = 0.002) -> list[dict]:
     """
     Standalone sync function to find sensors near a route.
+    Returns sensors sorted by their position along the route (start to end).
     Can be called from worker threads (unlike the async FastAPI endpoint).
-    Returns a list of nearby sensor dicts (not a JSON response).
     """
     from app.database import supabase
 
-    # Fetch route coordinates
+    # Fetch route coordinates with sequence order
     route_result = (
         supabase.table("route_task_coordinates")
-        .select("latitude,longitude")
+        .select("latitude,longitude,sequence_order")
         .eq("task_id", task_id)
         .order("sequence_order")
         .execute()
@@ -640,7 +653,7 @@ def get_sensors_near_route_standalone(task_id: str, threshold_km: float = 0.002)
     if not route_result.data:
         return []
 
-    route_coords = [(c["latitude"], c["longitude"]) for c in route_result.data]
+    route_coords = [(c["latitude"], c["longitude"], c["sequence_order"]) for c in route_result.data]
 
     # Calculate bounding box from route + threshold
     lat_threshold_deg = threshold_km / 111.0
@@ -667,26 +680,39 @@ def get_sensors_near_route_standalone(task_id: str, threshold_km: float = 0.002)
     if not all_sensors:
         return []
 
-    # Find sensors within threshold distance
-    nearby = []
+    # Find sensors near route and track position along route
+    sensors_with_position = []
     for s in all_sensors:
         min_dist = float("inf")
+        closest_idx = -1
         s_lat = s["latitude"]
         s_lon = s["longitude"]
-        for r_lat, r_lon in route_coords:
+        for r_lat, r_lon, seq in route_coords:
             d = haversine(s_lat, s_lon, r_lat, r_lon)
             if d < min_dist:
                 min_dist = d
+                closest_idx = seq
                 if d <= threshold_km:
                     break
         if min_dist <= threshold_km:
-            nearby.append({
+            sensors_with_position.append({
                 "id": str(s["id"]) if not isinstance(s["id"], str) else s["id"],
                 "latitude": s_lat,
                 "longitude": s_lon,
                 "degree": s.get("degree"),
                 "distance_km": round(min_dist, 6),
+                "_route_position": closest_idx,
             })
+
+    # Sort by position along route
+    sensors_with_position.sort(key=lambda x: x["_route_position"])
+
+    # Add sequence numbers and remove internal tracking field
+    nearby = []
+    for idx, s in enumerate(sensors_with_position):
+        result = {k: v for k, v in s.items() if k != "_route_position"}
+        result["sequence"] = idx + 1  # Add 1-based sequence number
+        nearby.append(result)
 
     return nearby
 

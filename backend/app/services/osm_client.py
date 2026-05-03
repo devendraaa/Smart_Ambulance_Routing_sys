@@ -251,6 +251,11 @@ out body;
         return min_idx
 
     sig_list.sort(key=_sort_key)
+
+    # Add sequence numbers (1-based)
+    for idx, s in enumerate(sig_list):
+        s["sequence"] = idx + 1
+
     return sig_list
 
 
