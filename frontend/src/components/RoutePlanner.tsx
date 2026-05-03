@@ -199,7 +199,7 @@ export default function RoutePlanner() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="space-y-6 bg-white rounded-3xl shadow-lg border border-gray-100 p-6 sm:p-8"
+      className="space-y-6 bg-white rounded-3xl shadow-lg border border-gray-100 p-6 sm:p-8 overflow-hidden"
     >
       {/* Header */}
       <div className="text-center mb-2">
@@ -296,7 +296,7 @@ export default function RoutePlanner() {
             exit={{ opacity: 0, y: -20 }}
             transition={{ delay: 0.15 }}
             ref={nearbyRef}
-            className="space-y-3"
+            className="w-full"
           >
             {/* Section Header */}
             <div className="flex items-center gap-2">
@@ -311,7 +311,7 @@ export default function RoutePlanner() {
             </div>
 
             {/* Hospital Cards */}
-            <div className="grid gap-2">
+            <div className="space-y-2 w-full">
               {loadingNearby && nearbyHospitals.length === 0 && (
                 <div className="grid gap-2">
                   {[1, 2, 3].map((i) => (
@@ -327,7 +327,7 @@ export default function RoutePlanner() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.08 }}
                   onClick={() => selectNearbyHospital(h)}
-                  className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 ${
+                  className={`relative cursor-pointer rounded-xl border-2 p-4 w-full transition-all duration-200 ${
                     selectedHospital === h.id
                       ? "border-blue-500 bg-blue-50 shadow-md shadow-blue-100"
                       : "border-gray-100 bg-white hover:border-blue-200 hover:shadow-md hover:shadow-blue-50"
