@@ -38,6 +38,9 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 /* Custom Scrollbar */
@@ -228,4 +231,26 @@ body {
 
 .emergency-pulse {
   animation: emergency-pulse 2s ease-in-out infinite;
+}
+
+/* Mobile Responsive Utilities */
+@media (max-width: 640px) {
+  button, a, input, select, textarea {
+    min-height: 44px;
+  }
+
+  input[type="text"],
+  input[type="number"],
+  input[type="tel"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Ensure proper text rendering on mobile */
+@media (max-width: 480px) {
+  .text-4xl { font-size: 1.875rem; }
+  .text-5xl { font-size: 2.25rem; }
+  .text-6xl { font-size: 2.5rem; }
 }

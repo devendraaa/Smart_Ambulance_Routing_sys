@@ -74,7 +74,7 @@ export default function Navbar() {
     <motion.nav
       initial={{ y: -100 }}
       animate={{ y: 0 }}
-      className={`sticky top-0 z-50 transition-all duration-300 relative ${
+      className={`sticky top-0 z-[1000] transition-all duration-300 relative ${
         scrolled
           ? "bg-white/80 backdrop-blur-lg shadow-lg border-b border-gray-200/50"
           : "bg-white/60 backdrop-blur-md shadow-sm border-b border-gray-100/50"

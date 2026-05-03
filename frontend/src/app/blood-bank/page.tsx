@@ -193,7 +193,7 @@ export default function BloodBankPage() {
               </div>
 
               {/* Blood Types Grid */}
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {bank.blood_availability.map((a: any) => {
                   const colors = LITER_COLORS[a.blood_type] || { bg: "bg-gray-50", border: "border-gray-200", text: "text-gray-600" };
                   const low = a.available_liters < 2.0;

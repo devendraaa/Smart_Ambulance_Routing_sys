@@ -470,7 +470,7 @@ export default function RoutePlanner() {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="absolute z-10 mt-2 w-full overflow-auto rounded-xl border border-gray-200 bg-white shadow-xl max-h-48"
+              className="absolute z-[1000] mt-2 w-full overflow-auto rounded-xl border border-gray-200 bg-white shadow-xl max-h-48"
             >
               {suggestions.map((h, i) => (
                 <motion.li
@@ -501,7 +501,7 @@ export default function RoutePlanner() {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="absolute z-10 mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-4 text-center text-sm text-gray-400 shadow-xl"
+              className="absolute z-[1000] mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-4 text-center text-sm text-gray-400 shadow-xl"
             >
               No hospitals found nearby. Try a different search.
             </motion.div>

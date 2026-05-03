@@ -575,40 +575,40 @@ export default function MapPageContent({ taskId }: MapPageContentProps) {
         transition={{ delay: 0.2 }}
         className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden"
       >
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-100 flex items-center gap-2 flex-wrap">
           {viewMode === 'main' ? (
             <>
-              <Navigation className="w-5 h-5 text-blue-600" />
-              <h2 className="text-lg font-semibold text-gray-900">Main Route</h2>
-              <span className="text-sm text-gray-500 ml-2">- Optimized path with start and end points</span>
+              <Navigation className="w-5 h-5 text-blue-600 flex-shrink-0" />
+              <h2 className="text-lg font-semibold text-gray-900 truncate">Main Route</h2>
+              <span className="text-sm text-gray-500 ml-2 hidden sm:inline">- Optimized path with start and end points</span>
             </>
           ) : viewMode === 'nodes' ? (
             <>
-              <Layers className="w-5 h-5 text-orange-600" />
-              <h2 className="text-lg font-semibold text-gray-900">All Nodes</h2>
-              <span className="text-sm text-gray-500 ml-2">- Every coordinate and turn point</span>
+              <Layers className="w-5 h-5 text-orange-600 flex-shrink-0" />
+              <h2 className="text-lg font-semibold text-gray-900 truncate">All Nodes</h2>
+              <span className="text-sm text-gray-500 ml-2 hidden sm:inline">- Every coordinate and turn point</span>
             </>
           ) : viewMode === 'active' ? (
             <>
-              <Radio className="w-5 h-5 text-red-600" />
-              <h2 className="text-lg font-semibold text-gray-900">Active Sensors</h2>
-              <span className="text-sm text-gray-500 ml-2">- Sensors within 2m of route ({nearbySensors.length} found)</span>
+              <Radio className="w-5 h-5 text-red-600 flex-shrink-0" />
+              <h2 className="text-lg font-semibold text-gray-900 truncate">Active Sensors</h2>
+              <span className="text-sm text-gray-500 ml-2 hidden sm:inline">- Sensors within 2m of route ({nearbySensors.length} found)</span>
             </>
           ) : viewMode === 'traffic' ? (
             <>
-              <TrafficCone className="w-5 h-5 text-amber-600" />
-              <h2 className="text-lg font-semibold text-gray-900">Traffic Signals</h2>
-              <span className="text-sm text-gray-500 ml-2">- Traffic signals along route ({trafficSignals.length} found)</span>
+              <TrafficCone className="w-5 h-5 text-amber-600 flex-shrink-0" />
+              <h2 className="text-lg font-semibold text-gray-900 truncate">Traffic Signals</h2>
+              <span className="text-sm text-gray-500 ml-2 hidden sm:inline">- Traffic signals along route ({trafficSignals.length} found)</span>
             </>
           ) : (
             <>
-              <StopCircle className="w-5 h-5 text-gray-800" />
-              <h2 className="text-lg font-semibold text-gray-900">Stop Sensor</h2>
-              <span className="text-sm text-gray-500 ml-2">- Send stop command to AMB82-Mini</span>
+              <StopCircle className="w-5 h-5 text-gray-800 flex-shrink-0" />
+              <h2 className="text-lg font-semibold text-gray-900 truncate">Stop Sensor</h2>
+              <span className="text-sm text-gray-500 ml-2 hidden sm:inline">- Send stop command to AMB82-Mini</span>
             </>
           )}
         </div>
-        <div ref={mapRef} className="h-[550px] w-full" />
+        <div ref={mapRef} className="h-[400px] sm:h-[550px] w-full relative z-0" />
         {/* Info bar */}
         <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex items-center gap-4 text-xs text-gray-600">
           <div className="flex items-center gap-1">

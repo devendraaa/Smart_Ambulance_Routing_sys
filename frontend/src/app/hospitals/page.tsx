@@ -218,7 +218,7 @@ export default function HospitalsPage() {
                 </p>
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {[
                     { label: "Total", value: h.total_beds, icon: "🛏️" },
                     { label: "Available", value: h.available_beds, icon: "✓", color: bedColor },
@@ -227,7 +227,7 @@ export default function HospitalsPage() {
                   ].map((stat) => (
                     <div
                       key={stat.label}
-                      className={`rounded-xl p-2 text-center ${stat.color?.split(" ").slice(0, 1).join("") || "bg-gray-50"}`}
+                      className={`rounded-xl p-2 text-center border ${stat.color || "bg-gray-50 border-gray-100"}`}
                     >
                       <div className="text-xs">{stat.icon}</div>
                       <div className={`text-sm font-bold ${stat.color?.split(" ")[0] || "text-gray-700"}`}>

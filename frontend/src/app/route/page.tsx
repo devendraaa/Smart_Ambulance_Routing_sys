@@ -332,7 +332,7 @@ function RoutePageContent() {
             </div>
 
             {/* Map Container */}
-            <div ref={mapRef} className="h-[500px] w-full" />
+            <div ref={mapRef} className="h-[400px] sm:h-[500px] w-full relative z-0" />
           </div>
 
           {/* Stats */}

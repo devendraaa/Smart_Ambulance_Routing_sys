@@ -19,6 +19,12 @@ export const metadata: Metadata = {
   description: "AI-powered ambulance route optimization for emergency medical services",
 };
 
+export const viewport = {
+  width: "device-width" as const,
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -33,8 +39,8 @@ export default function RootLayout({
         <ClientAuthWrapper>
           <Navbar />
 
-          {/* Main Content */}
-          <main className="flex-1 min-h-[calc(100vh-4rem)]">
+          {/* Main Content - pt-16 md:pt-20 ensures content starts below sticky navbar */}
+          <main className="flex-1 pt-16 md:pt-20 relative z-0">
             {children}
           </main>
 
