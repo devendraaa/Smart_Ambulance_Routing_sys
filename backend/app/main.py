@@ -1,10 +1,23 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+# 🔥 ADD THIS BLOCK HERE
+import osmnx as ox
+
+ox.settings.headers = {
+    "User-Agent": "smart-ambulance-system (devendra@example.com)"
+}
+
+ox.settings.overpass_settings = '[out:json][timeout:25]'
+
+# ------------------------------
+
 from app.routers import routes, hospitals, sensors, mqtt
 from app.routers import hospitals_new
 from app.routers import blood_banks
 from app.tasks.worker import background_worker_thread
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -16,7 +29,7 @@ app = FastAPI(title="Smart Ambulance API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # fine for now
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -28,6 +41,7 @@ app.include_router(hospitals_new.router, prefix="/api/hospitals", tags=["hospita
 app.include_router(sensors.router, prefix="/api/sensors", tags=["sensors"])
 app.include_router(mqtt.router, prefix="/api/mqtt", tags=["mqtt"])
 app.include_router(blood_banks.router, prefix="/api/blood-banks", tags=["blood-banks"])
+
 
 @app.get("/api/health")
 async def health():
