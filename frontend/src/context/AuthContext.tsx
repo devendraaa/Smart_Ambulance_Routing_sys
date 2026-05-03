@@ -8,7 +8,7 @@ import {
   ReactNode,
 } from "react";
 import { User } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase"; // ✅ FIXED
 
 type AuthContextType = {
   user: User | null;
@@ -26,7 +26,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
 
   useEffect(() => {
     const getUser = async () => {
