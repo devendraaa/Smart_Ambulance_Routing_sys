@@ -77,5 +77,37 @@ class MQTTClient:
         print(f"[MQTT] Cleared retained message on {topic}")
         return True
 
+    def publish_amb_location(
+        self,
+        sensor_id: str,
+        lat: float,
+        lng: float,
+        road_name: str = "",
+        distance_km: float = 0.0,
+        topic: str = "ambulance/amb-location",
+    ):
+        """Publish ambulance's nearest sensor location to amb82mini device.
+
+        Sends the sensor number (sensor_id), coordinates, and distance.
+        Retained so late-connecting devices receive the data.
+        """
+        if not self.client.is_connected():
+            print("[MQTT] Not connected, attempting reconnect...")
+            self.client.reconnect()
+
+        payload = json.dumps({
+            "sensor_id": sensor_id,
+            "lat": lat,
+            "lng": lng,
+            "road_name": road_name,
+            "distance_km": distance_km,
+            "timestamp": __import__("time").time(),
+        })
+
+        print(f"[MQTT] Publishing amb location to {topic}: sensor={sensor_id}, lat={lat}, lng={lng}")
+        result = self.client.publish(topic, payload, retain=True)
+        print(f"[MQTT] Publish result: rc={result.rc}, mid={result.mid}, retained=True")
+        return True
+
 
 mqtt_client = MQTTClient()

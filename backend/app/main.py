@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routers import routes, hospitals, sensors, mqtt
 from app.routers import hospitals_new
 from app.routers import blood_banks
+from app.routers import installed_sensors
+from app.routers import geocode
 from app.tasks.worker import background_worker_thread
 
 @asynccontextmanager
@@ -27,6 +29,8 @@ app.include_router(hospitals_new.router, prefix="/api/hospitals", tags=["hospita
 app.include_router(sensors.router, prefix="/api/sensors", tags=["sensors"])
 app.include_router(mqtt.router, prefix="/api/mqtt", tags=["mqtt"])
 app.include_router(blood_banks.router, prefix="/api/blood-banks", tags=["blood-banks"])
+app.include_router(installed_sensors.router, prefix="/api/installed-sensors", tags=["installed-sensors"])
+app.include_router(geocode.router, prefix="/api/geocode", tags=["geocode"])
 
 @app.get("/api/health")
 async def health():

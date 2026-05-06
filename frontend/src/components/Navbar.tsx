@@ -14,14 +14,22 @@ const navLinks = [
   { href: "/blood-bank", label: "Blood Bank", icon: "🩸" },
 ];
 
-const sensorLinks = [
+const baseSensorLinks = [
   { href: "/sensor", label: "Sensor Management", icon: "📡" },
+  { href: "/installed-sensors", label: "Installed Sensors", icon: "📍" },
   { href: "/sensor-map", label: "Sensor Map", icon: "🗺️" },
-  { href: "/map", label: "Route Map", icon: "📍" },
+  { href: "/map", label: "Route Map", icon: "🗺️" },
 ];
 
 export default function Navbar() {
   const [mapLink, setMapLink] = useState("/map");
+  const [ambLocationLink, setAmbLocationLink] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const taskId = localStorage.getItem("lastTaskId");
+      if (taskId) return `/amb-location?task=${taskId}`;
+    }
+    return "/amb-location";
+  });
   const [loggedIn, setLoggedIn] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
   const [sensorDropdownOpen, setSensorDropdownOpen] = useState(false);
@@ -32,6 +40,12 @@ export default function Navbar() {
   const userDropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
+  // Dynamic sensor links with Amb Location pointing to last task
+  const sensorLinks = [
+    ...baseSensorLinks,
+    { href: ambLocationLink, label: "Amb Location", icon: "📍" },
+  ];
+
   useEffect(() => {
     setLoggedIn(isLoggedIn());
     setUsername(getUsername());
@@ -39,6 +53,7 @@ export default function Navbar() {
     const taskId = localStorage.getItem("lastTaskId");
     if (taskId) {
       setMapLink(`/map?task=${taskId}`);
+      setAmbLocationLink(`/amb-location?task=${taskId}`);
     }
 
     const handleScroll = () => {

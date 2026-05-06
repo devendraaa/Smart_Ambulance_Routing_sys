@@ -83,18 +83,16 @@ export async function fetchTrafficSignals(taskId: string) {
 }
 
 export async function getTaskRoadSensors(taskId: string) {
-  const data = await fetchAPI<{
-    result?: {
-      road_sensors?: {
-        sensor_id: string;
-        latitude: number;
-        longitude: number;
-        road_name: string;
-        distance_km: number;
-      }[];
-    };
-  }>(`/api/route/${taskId}`);
-  return { road_sensors: data.result?.road_sensors || [] };
+  return fetchAPI<{
+    road_sensors: {
+      sensor_id: string;
+      latitude: number;
+      longitude: number;
+      road_name: string;
+      distance_km: number;
+    }[];
+    count: number;
+  }>(`/api/route/${taskId}/road-sensors`);
 }
 
 export async function getTaskTurnPoints(taskId: string) {
@@ -230,6 +228,53 @@ export async function fetchManualSensors() {
   }[]>("/api/sensors/");
 }
 
+// --- Installed Sensors (separate table) ---
+export async function fetchInstalledSensors() {
+  return fetchAPI<{
+    id: string;
+    latitude: number;
+    longitude: number;
+    location_name?: string;
+    degree?: number;
+    created_at?: string;
+  }[]>("/api/installed-sensors/");
+}
+
+export async function addInstalledSensor(data: { latitude: number; longitude: number; degree?: number }) {
+  return fetchAPI<{
+    id: string;
+    latitude: number;
+    longitude: number;
+    degree?: number;
+  }>("/api/installed-sensors/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteInstalledSensor(sensorId: string) {
+  const res = await fetch(
+    `${API_URL}/api/installed-sensors/${sensorId}`,
+    { method: "DELETE", headers: { "Content-Type": "application/json" } }
+  );
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Delete failed: ${body || res.statusText}`);
+  }
+}
+
+export async function refreshSensorLocation(sensorId: string) {
+  const res = await fetch(
+    `${API_URL}/api/installed-sensors/${sensorId}/refresh-location`,
+    { method: "POST", headers: { "Content-Type": "application/json" } }
+  );
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Refresh failed: ${body || res.statusText}`);
+  }
+  return res.json();
+}
+
 export async function fetchSensorsNearRoute(taskId: string, thresholdKm: number = 0.002) {
   return fetchAPI<{
     sensors: {
@@ -276,9 +321,42 @@ export async function extractFullRoadNetwork() {
   }>("/api/sensors/extract-full-network", { method: "POST" });
 }
 
+// --- Reverse Geocoding (via backend proxy to Nominatim) ---
+export async function reverseGeocode(lat: number, lon: number): Promise<string> {
+  try {
+    const data = await fetchAPI<{ display_name: string }>(
+      `/api/geocode/reverse?lat=${lat}&lon=${lon}`
+    );
+    return data.display_name || `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+  } catch {
+    return `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+  }
+}
+
 // --- MQTT Stop Sensor ---
 export async function stopSensors() {
   return fetchAPI<{ status: string; topic: string }>("/api/mqtt/stop-sensors", {
     method: "POST",
+  });
+}
+
+// --- Amb Location (publish nearest sensor to amb82mini) ---
+export async function publishAmbLocation(data: {
+  sensor_id: string;
+  latitude: number;
+  longitude: number;
+  road_name?: string;
+  distance_km?: number;
+  topic?: string;
+}) {
+  return fetchAPI<{
+    status: string;
+    topic: string;
+    sensor_id: string;
+    lat: number;
+    lng: number;
+  }>("/api/mqtt/publish-amb-location", {
+    method: "POST",
+    body: JSON.stringify(data),
   });
 }

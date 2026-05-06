@@ -29,6 +29,10 @@ export function logout() {
   localStorage.removeItem("isLoggedIn");
   localStorage.removeItem("username");
   localStorage.removeItem("user");
+  // Clear all Supabase auth tokens from localStorage
+  Object.keys(localStorage)
+    .filter((key) => key.startsWith("sb-"))
+    .forEach((key) => localStorage.removeItem(key));
 }
 
 export async function signUp(email: string, password: string, username: string) {

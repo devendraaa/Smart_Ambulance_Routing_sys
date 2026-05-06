@@ -74,3 +74,39 @@ async def stop_sensors():
 
     mqtt_client.publish_stop_command()
     return {"status": "stop_command_sent", "topic": "ambulance/sensors/stop"}
+
+
+class AmbLocationPublish(BaseModel):
+    sensor_id: str
+    latitude: float
+    longitude: float
+    road_name: str = ""
+    distance_km: float = 0.0
+    topic: str = "ambulance/amb-location"
+
+
+@router.post("/publish-amb-location")
+async def publish_amb_location(data: AmbLocationPublish):
+    """
+    Publish ambulance's current nearest sensor location to amb82mini device via MQTT.
+    The amb82mini device subscribes to 'ambulance/amb-location' topic.
+    Sends lat, lon, sensor_id (number), and distance for the nearest sensor.
+    """
+    from app.services.mqtt_client import mqtt_client
+
+    mqtt_client.publish_amb_location(
+        sensor_id=data.sensor_id,
+        lat=data.latitude,
+        lng=data.longitude,
+        road_name=data.road_name,
+        distance_km=data.distance_km,
+        topic=data.topic,
+    )
+
+    return {
+        "status": "published",
+        "topic": data.topic,
+        "sensor_id": data.sensor_id,
+        "lat": data.latitude,
+        "lng": data.longitude,
+    }

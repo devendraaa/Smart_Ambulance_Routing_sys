@@ -155,3 +155,25 @@ async def get_traffic_signals(task_id: str):
         print(f"[TRAFFIC] Error fetching traffic signals: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.get("/{task_id}/road-sensors")
+async def get_route_road_sensors(task_id: str):
+    """
+    Get active road sensors for a completed route task.
+    Returns the road_sensors array from the task's result_json.
+    """
+    result = supabase.table("route_tasks").select("status,result_json").eq("id", task_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    task = result.data[0]
+    if task["status"] != "completed":
+        raise HTTPException(status_code=400, detail=f"Task not completed (status: {task['status']})")
+
+    result_json = task.get("result_json")
+    if not result_json or not isinstance(result_json, dict):
+        return {"road_sensors": [], "count": 0}
+
+    road_sensors = result_json.get("road_sensors", [])
+    return {"road_sensors": road_sensors, "count": len(road_sensors)}
+

@@ -11,7 +11,7 @@ import Link from "next/link";
 import { getFullRoute, getTaskRoadSensors, fetchTrafficSignals, publishAmbLocation, stopSensors } from "@/lib/api";
 import { useEffect, useRef, useState, useCallback } from "react";
 
-type ViewMode = 'main' | 'nodes' | 'active-sensors' | 'traffic-signals' | 'amb-location';
+type ViewMode = 'main' | 'nodes' | 'active-sensors' | 'traffic-signals';
 
 type RoadSensor = {
   sensor_id: string;
@@ -53,18 +53,12 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number): numb
 function RoutePageContent() {
   const searchParams = useSearchParams();
   const taskId = searchParams.get("task");
-  const viewParam = searchParams.get("view");
   const router = useRouter();
   const status = useRouteTask(taskId);
 
   const [coordinates, setCoordinates] = useState<{ lat: number; lon: number }[]>([]);
   const [turnPoints, setTurnPoints] = useState<{ lat: number; lon: number }[]>([]);
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    if (viewParam === 'amb-location' || viewParam === 'main' || viewParam === 'nodes' || viewParam === 'active-sensors' || viewParam === 'traffic-signals') {
-      return viewParam;
-    }
-    return 'main';
-  });
+  const [viewMode, setViewMode] = useState<ViewMode>('main');
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const leafletLoaded = useRef(false);
@@ -190,7 +184,7 @@ function RoutePageContent() {
     }
   }, []);
 
-  // Start Amb Location tracking (every 4 seconds)
+  // Start Amb Location tracking
   const startAmbTracking = useCallback(() => {
     if (!navigator.geolocation) {
       setGeoError("Geolocation is not supported by your browser.");
@@ -200,13 +194,7 @@ function RoutePageContent() {
     setAmbActive(true);
     setGeoError(null);
 
-    // Clear any existing interval
-    if (watchIdRef.current !== null) {
-      clearInterval(watchIdRef.current);
-    }
-
-    // Get initial position immediately
-    navigator.geolocation.getCurrentPosition(
+    watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
         const lat = position.coords.latitude;
         const lon = position.coords.longitude;
@@ -222,39 +210,21 @@ function RoutePageContent() {
       (err) => {
         console.error("Geolocation error:", err);
         setGeoError(`Location error: ${err.message}`);
+        stopAmbTracking();
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 3000,
+      }
     );
-
-    // Set up 4-second interval for continuous tracking
-    watchIdRef.current = window.setInterval(() => {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const lat = position.coords.latitude;
-          const lon = position.coords.longitude;
-          setCurrentLat(lat);
-          setCurrentLon(lon);
-
-          const nearestData = findNearest(lat, lon);
-          if (nearestData) {
-            setNearest(nearestData);
-            publishToDevice(nearestData);
-          }
-        },
-        (err) => {
-          console.error("Geolocation error:", err);
-          setGeoError(`Location error: ${err.message}`);
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-    }, GEO_INTERVAL);
   }, [findNearest, publishToDevice]);
 
   // Stop Amb Location tracking
   const stopAmbTracking = useCallback(() => {
     setAmbActive(false);
     if (watchIdRef.current !== null) {
-      clearInterval(watchIdRef.current);
+      navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
     }
   }, []);
@@ -265,38 +235,6 @@ function RoutePageContent() {
       stopAmbTracking();
     };
   }, [stopAmbTracking]);
-
-  // Update URL when viewMode changes (preserve task parameter)
-  useEffect(() => {
-    if (viewMode === 'main') {
-      // Don't add view=main to URL (default)
-      if (searchParams.has('view')) {
-        const newParams = new URLSearchParams(searchParams.toString());
-        newParams.delete('view');
-        const newUrl = taskId ? `/route?task=${taskId}` : '/route';
-        router.replace(newUrl, { scroll: false });
-      }
-    } else {
-      const newUrl = taskId
-        ? `/route?task=${taskId}&view=${viewMode}`
-        : `/route?view=${viewMode}`;
-      router.replace(newUrl, { scroll: false });
-    }
-    // Don't run on initial mount (viewMode set from URL)
-    // Only run when viewMode changes after mount
-  }, [viewMode, taskId]);
-
-  // Auto-start amb tracking when viewMode becomes 'amb-location'
-  useEffect(() => {
-    if (viewMode === 'amb-location' && !ambActive && status?.status === 'completed') {
-      startAmbTracking();
-    } else if (viewMode !== 'amb-location' && ambActive) {
-      stopAmbTracking();
-    }
-    return () => {
-      // Don't stop on view mode change - only stop on unmount
-    };
-  }, [viewMode, status?.status]);
 
   // Initialize map when coordinates are available
   useEffect(() => {
@@ -431,72 +369,6 @@ function RoutePageContent() {
               allLatLngs.push([s.lat, s.lon]);
             });
           }
-        } else if (viewMode === 'amb-location') {
-          // AMB LOCATION VIEW: Show current location, all sensors, nearest sensor
-          if (roadSensors.length > 0) {
-            // Show all active sensors as gray dots
-            roadSensors.forEach((s: RoadSensor, i: number) => {
-              const isNearest = nearest?.sensor.sensor_id === s.sensor_id;
-              L.circleMarker([s.latitude, s.longitude], {
-                radius: isNearest ? 10 : 5,
-                color: isNearest ? '#10b981' : '#9ca3af',
-                fillColor: isNearest ? '#10b981' : '#d1d5db',
-                fillOpacity: isNearest ? 1.0 : 0.5,
-                weight: isNearest ? 3 : 1,
-              }).addTo(map).bindPopup(
-                `<div style="font-family:sans-serif;min-width:200px">
-                  <b style="color:${isNearest ? '#10b981' : '#6b7280'}">
-                    ${isNearest ? '★ NEAREST SENSOR' : 'Sensor'} #${i + 1}
-                  </b><br/>
-                  ID: ${s.sensor_id.slice(-8).toUpperCase()}<br/>
-                  Lat: ${s.latitude.toFixed(6)}<br/>
-                  Lon: ${s.longitude.toFixed(6)}<br/>
-                  Road: ${s.road_name || 'N/A'}<br/>
-                  ${isNearest ? `<b style="color:#10b981">Dist from amb: ${nearest?.distance_from_amb.toFixed(3)} km</b>` : `Dist on route: ${s.distance_km.toFixed(3)} km`}
-                </div>`
-              );
-              allLatLngs.push([s.latitude, s.longitude]);
-            });
-
-            // Show current ambulance location if available
-            if (currentLat !== null && currentLon !== null) {
-              // Current location marker (blue pulse)
-              const ambIcon = L.divIcon({
-                html: `<div style="position:relative;">
-                  <div style="background:#3b82f6;width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:bold;z-index:1000;">A</div>
-                  <div style="position:absolute;top:-5px;left:-5px;width:30px;height:30px;border-radius:50%;background:rgba(59,130,246,0.3);animation:pulse 2s infinite;"></div>
-                  <style>@keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:0}}</style>
-                </div>`,
-                iconSize: [20, 20],
-                iconAnchor: [10, 10],
-              });
-              L.marker([currentLat, currentLon], { icon: ambIcon }).addTo(map).bindPopup(
-                `<div style="font-family:sans-serif;min-width:180px">
-                  <b style="color:#3b82f6">🚑 Ambulance Location</b><br/>
-                  Lat: ${currentLat.toFixed(6)}<br/>
-                  Lon: ${currentLon.toFixed(6)}<br/>
-                  ${nearest ? `Nearest sensor: #${formatSensorNumber(nearest.sensor.sensor_id)}<br/>Dist: ${nearest.distance_from_amb.toFixed(3)} km` : 'Finding nearest sensor...'}
-                </div>`
-              );
-              allLatLngs.push([currentLat, currentLon]);
-
-              // Draw line from current location to nearest sensor
-              if (nearest) {
-                L.polyline([[currentLat, currentLon], [nearest.sensor.latitude, nearest.sensor.longitude]], {
-                  color: '#ef4444',
-                  weight: 3,
-                  opacity: 0.7,
-                  dashArray: '10, 10',
-                  lineCap: 'round',
-                }).addTo(map).bindPopup(
-                  `<div style="font-family:sans-serif;">
-                    <b style="color:#ef4444">Distance to nearest sensor</b><br/>
-                    ${nearest.distance_from_amb.toFixed(3)} km
-                  </div>`
-                );
-              }
-            }
-          }
         }
 
         // Fit map to show all elements
@@ -521,19 +393,6 @@ function RoutePageContent() {
                 <div class="flex items-center gap-2"><div class="w-8 h-1.5 rounded-full" style="background:#2563eb"></div><span class="text-gray-600">Route Path</span></div>
                 <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full" style="background:#10b981;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.3)"></div><span class="text-gray-600">Start (S)</span></div>
                 <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full" style="background:#ef4444;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.3)"></div><span class="text-gray-600">End (E)</span></div>
-              </div>
-            `;
-          } else if (viewMode === 'amb-location') {
-            div.innerHTML = `
-              <div class="font-bold text-gray-700 mb-2 flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
-                Legend
-              </div>
-              <div class="space-y-1.5">
-                <div class="flex items-center gap-2"><div class="w-5 h-5 rounded-full" style="background:#3b82f6;border:2px solid white;display:flex;align-items:center;justify-content:center;color:white;font-size:8px;font-weight:bold;">A</div><span class="text-gray-600">Ambulance (A)</span></div>
-                <div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full" style="background:#9ca3af"></div><span class="text-gray-600">Active Sensors (${roadSensors.length})</span></div>
-                <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full" style="background:#10b981;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.3)"></div><span class="text-gray-600">Nearest Sensor</span></div>
-                <div class="flex items-center gap-2"><div class="w-8 h-1.5 rounded-full" style="background:#ef4444;border-style:dashed"></div><span class="text-gray-600">Distance Line</span></div>
               </div>
             `;
           } else {
@@ -676,13 +535,7 @@ function RoutePageContent() {
                 <div className="flex items-center gap-2">
                   <Map className="w-5 h-5 text-blue-600" />
                   <h2 className="text-lg font-semibold text-gray-900">Route Map</h2>
-                  <span className="text-sm text-gray-500 ml-2">-
-                    {viewMode === 'main' ? 'Main route with start/end points' :
-                     viewMode === 'nodes' ? 'All route nodes with turn points' :
-                     viewMode === 'active-sensors' ? 'Active sensors near route' :
-                     viewMode === 'traffic-signals' ? 'Traffic signals along route' :
-                     'Amb location tracking'}
-                  </span>
+                  <span className="text-sm text-gray-500 ml-2">- {viewMode === 'main' ? 'Main route with start/end points' : 'All nodes with turn points'}</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button
@@ -742,6 +595,26 @@ function RoutePageContent() {
                   >
                     <StopCircle className="w-4 h-4" />
                     Stop Sensor
+                  </button>
+                  <button
+                    onClick={ambActive ? stopAmbTracking : startAmbTracking}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                      ambActive
+                        ? "bg-red-600 text-white shadow-lg shadow-red-200"
+                        : "bg-teal-600 text-white shadow-lg shadow-teal-200 hover:bg-teal-700"
+                    }`}
+                  >
+                    {ambActive ? (
+                      <>
+                        <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                        Stop Amb
+                      </>
+                    ) : (
+                      <>
+                        <Radio className="w-4 h-4" />
+                        Amb Location
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
