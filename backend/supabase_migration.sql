@@ -110,3 +110,25 @@ CREATE TABLE IF NOT EXISTS route_traffic_signals (
 
 CREATE INDEX IF NOT EXISTS idx_route_traffic_signals_task_id
     ON route_traffic_signals(task_id);
+
+-- Patient appointments and data
+CREATE TABLE IF NOT EXISTS patient_appointments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    patient_name VARCHAR(255) NOT NULL,
+    age INTEGER,
+    address TEXT,
+    religion VARCHAR(100),
+    appointment_date TIMESTAMPTZ, -- Changed to TIMESTAMPTZ to include time slot
+    case_type VARCHAR(100), -- General OPD, Child OPD, Heart & Emergency, etc.
+    hospital_id INTEGER,
+    hospital_name VARCHAR(255),
+    status VARCHAR(50) DEFAULT 'scheduled', -- scheduled, completed, cancelled
+    patient_email VARCHAR(255), -- Email of the patient (linked to Supabase auth user)
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index for faster queries
+CREATE INDEX IF NOT EXISTS idx_patient_appointments_date ON patient_appointments(appointment_date);
+CREATE INDEX IF NOT EXISTS idx_patient_appointments_status ON patient_appointments(status);
+CREATE INDEX IF NOT EXISTS idx_patient_appointments_email ON patient_appointments(patient_email);

@@ -23,12 +23,18 @@ export function getUser(): { id: string; email: string } | null {
   }
 }
 
+export function getUserType(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("userType");
+}
+
 export function logout() {
   if (typeof window === "undefined") return;
   supabase.auth.signOut();
   localStorage.removeItem("isLoggedIn");
   localStorage.removeItem("username");
   localStorage.removeItem("user");
+  localStorage.removeItem("userType");
   // Clear all Supabase auth tokens from localStorage
   Object.keys(localStorage)
     .filter((key) => key.startsWith("sb-"))
@@ -47,7 +53,7 @@ export async function signUp(email: string, password: string, username: string) 
   return { data, error };
 }
 
-export async function signIn(email: string, password: string) {
+export async function signIn(email: string, password: string, userType?: string) {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -65,6 +71,11 @@ export async function signIn(email: string, password: string) {
       email: data.user?.email || email,
     })
   );
+
+  // Store user type if provided
+  if (userType) {
+    localStorage.setItem("userType", userType);
+  }
 
   return { data, error };
 }

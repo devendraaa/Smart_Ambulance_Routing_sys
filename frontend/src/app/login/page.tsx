@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Lock, User, AlertCircle, Mail } from "lucide-react";
+import { Lock, User, AlertCircle, Mail, Menu } from "lucide-react";
 import { signIn } from "@/lib/auth";
 
 export default function LoginPage() {
@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [userType, setUserType] = useState("driver"); // driver, patient, or doctor
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -19,8 +20,15 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await signIn(identifier, password);
-      router.push("/");
+      await signIn(identifier, password, userType);
+      // Redirect based on user type
+      if (userType === "patient") {
+        router.push("/patient");
+      } else if (userType === "doctor") {
+        router.push("/doctor");
+      } else {
+        router.push("/");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid credentials");
     } finally {
@@ -52,6 +60,22 @@ export default function LoginPage() {
 
           {/* Login Form */}
           <form onSubmit={handleLogin} className="space-y-6">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                <Menu className="w-4 h-4 inline mr-2" />
+                Login As
+                <select
+                  value={userType}
+                  onChange={(e) => setUserType(e.target.value)}
+                  className="ml-3 rounded-xl border-2 border-gray-200 px-3 py-2 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                >
+                  <option value="driver">Driver</option>
+                  <option value="patient">Patient</option>
+                  <option value="doctor">Doctor</option>
+                </select>
+              </label>
+            </div>
+
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 <Mail className="w-4 h-4 inline mr-2" />
