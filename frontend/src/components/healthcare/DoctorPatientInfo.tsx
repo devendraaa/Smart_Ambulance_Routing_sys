@@ -115,7 +115,7 @@ export default function DoctorPatientInfo() {
         } else {
           const { data: medData } = await supabase
             .from("patient_medicines")
-            .select("patient_email")
+            .select("id, patient_email")
             .eq("patient_email", searchQuery.trim())
             .limit(1)
             .single();
