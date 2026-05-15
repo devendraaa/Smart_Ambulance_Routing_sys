@@ -48,6 +48,9 @@ ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS patient_mobile VARCHAR(20);
 ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS patient_case VARCHAR(50);
 ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS patient_blood_group VARCHAR(10);
 ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS patient_date DATE;
+ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS ambulance_number VARCHAR(50);
+ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS driver_name VARCHAR(100);
+ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS driver_mobile VARCHAR(20);
 
 -- Route task coordinates
 CREATE TABLE IF NOT EXISTS route_task_coordinates (

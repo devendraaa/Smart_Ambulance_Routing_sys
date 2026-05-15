@@ -43,6 +43,12 @@ async def start_route_computation(data: RouteComputeRequest):
         insert_data["patient_blood_group"] = data.patient_blood_group
     if data.patient_date:
         insert_data["patient_date"] = data.patient_date
+    if data.ambulance_number:
+        insert_data["ambulance_number"] = data.ambulance_number
+    if data.driver_name:
+        insert_data["driver_name"] = data.driver_name
+    if data.driver_mobile:
+        insert_data["driver_mobile"] = data.driver_mobile
 
     supabase.table("route_tasks").insert(insert_data).execute()
 
@@ -87,6 +93,13 @@ async def get_emergency_cases(
     cases = []
     for task in result.data:
         if task.get("patient_name") or task.get("patient_case") or task.get("patient_mobile"):
+            result_json = task.get("result_json")
+            distance_km = None
+            duration_min = None
+            if result_json and isinstance(result_json, dict):
+                distance_km = result_json.get("distance_km")
+                duration_min = result_json.get("duration_min")
+
             cases.append(EmergencyCaseResponse(
                 task_id=task["id"],
                 hospital_name=task.get("hospital_name", ""),
@@ -101,6 +114,11 @@ async def get_emergency_cases(
                 patient_date=task.get("patient_date"),
                 status=task.get("status", ""),
                 created_at=task.get("created_at", ""),
+                distance_km=distance_km,
+                duration_min=duration_min,
+                ambulance_number=task.get("ambulance_number"),
+                driver_name=task.get("driver_name"),
+                driver_mobile=task.get("driver_mobile"),
             ))
 
     return cases
@@ -160,6 +178,12 @@ async def get_task_status(task_id: str):
         response_data["patient_blood_group"] = task["patient_blood_group"]
     if task.get("patient_date"):
         response_data["patient_date"] = task["patient_date"]
+    if task.get("ambulance_number"):
+        response_data["ambulance_number"] = task["ambulance_number"]
+    if task.get("driver_name"):
+        response_data["driver_name"] = task["driver_name"]
+    if task.get("driver_mobile"):
+        response_data["driver_mobile"] = task["driver_mobile"]
 
     return RouteTaskStatusResponse(**response_data)
 

@@ -51,12 +51,23 @@ export default function RoutePlanner() {
   const [patientCase, setPatientCase] = useState("");
   const [patientBloodGroup, setPatientBloodGroup] = useState("");
   const [patientDate, setPatientDate] = useState("");
+  // Ambulance details
+  const [ambulanceNumber, setAmbulanceNumber] = useState("");
+  const [driverName, setDriverName] = useState("");
+  const [driverMobile, setDriverMobile] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Set current date on mount
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
     setPatientDate(today);
+  }, []);
+
+  // Auto-fill driver details from login
+  useEffect(() => {
+    setAmbulanceNumber(localStorage.getItem("ambulanceNumber") || "");
+    setDriverName(localStorage.getItem("driverName") || "");
+    setDriverMobile(localStorage.getItem("driverMobile") || "");
   }, []);
   const containerRef = useRef<HTMLDivElement>(null);
   const nearbyRef = useRef<HTMLDivElement>(null);
@@ -175,6 +186,9 @@ export default function RoutePlanner() {
       patient_case?: string;
       patient_blood_group?: string;
       patient_date?: string;
+      ambulance_number?: string;
+      driver_name?: string;
+      driver_mobile?: string;
     } = {
       origin_lat: originLat!,
       origin_lon: originLon!,
@@ -191,9 +205,15 @@ export default function RoutePlanner() {
     if (patientCase) payload.patient_case = patientCase;
     if (patientBloodGroup) payload.patient_blood_group = patientBloodGroup;
     if (patientDate) payload.patient_date = patientDate;
+    if (ambulanceNumber) payload.ambulance_number = ambulanceNumber;
+    if (driverName) payload.driver_name = driverName;
+    if (driverMobile) payload.driver_mobile = driverMobile;
 
     // Save patient details to localStorage
     if (patientName) localStorage.setItem("patientName", patientName);
+    if (ambulanceNumber) localStorage.setItem("ambulanceNumber", ambulanceNumber);
+    if (driverName) localStorage.setItem("driverName", driverName);
+    if (driverMobile) localStorage.setItem("driverMobile", driverMobile);
     if (patientAge) localStorage.setItem("patientAge", patientAge);
     if (patientSex) localStorage.setItem("patientSex", patientSex);
     if (patientMobile) localStorage.setItem("patientMobile", patientMobile);

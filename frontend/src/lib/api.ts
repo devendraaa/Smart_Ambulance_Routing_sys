@@ -40,6 +40,9 @@ export async function startRouteCompute(data: {
   patient_case?: string;
   patient_blood_group?: string;
   patient_date?: string;
+  ambulance_number?: string;
+  driver_name?: string;
+  driver_mobile?: string;
 }) {
   return fetchAPI<{ task_id: string; status: string }>("/api/route/compute", {
     method: "POST",
@@ -390,6 +393,11 @@ export type EmergencyCase = {
   patient_date?: string;
   status: string;
   created_at: string;
+  distance_km?: number;
+  duration_min?: number;
+  ambulance_number?: string;
+  driver_name?: string;
+  driver_mobile?: string;
 };
 
 export async function fetchEmergencyCases(hospitalName?: string, startDate?: string, endDate?: string) {

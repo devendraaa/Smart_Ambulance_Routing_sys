@@ -15,6 +15,9 @@ class RouteComputeRequest(BaseModel):
     patient_case: Optional[str] = None
     patient_blood_group: Optional[str] = None
     patient_date: Optional[str] = None
+    ambulance_number: Optional[str] = None
+    driver_name: Optional[str] = None
+    driver_mobile: Optional[str] = None
 
 
 class RouteTaskStartResponse(BaseModel):
@@ -40,6 +43,9 @@ class RouteTaskStatusResponse(BaseModel):
     patient_case: Optional[str] = None
     patient_blood_group: Optional[str] = None
     patient_date: Optional[str] = None
+    ambulance_number: Optional[str] = None
+    driver_name: Optional[str] = None
+    driver_mobile: Optional[str] = None
 
 
 class CoordinateEntry(BaseModel):
@@ -66,3 +72,8 @@ class EmergencyCaseResponse(BaseModel):
     patient_date: Optional[str] = None
     status: str
     created_at: str
+    distance_km: Optional[float] = None
+    duration_min: Optional[float] = None
+    ambulance_number: Optional[str] = None
+    driver_name: Optional[str] = None
+    driver_mobile: Optional[str] = None

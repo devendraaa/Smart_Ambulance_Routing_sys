@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { Lock, User, AlertCircle, Mail, Menu } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Lock, User, AlertCircle, Mail, Menu, Truck, Phone } from "lucide-react";
 import { signIn } from "@/lib/auth";
 
 export default function LoginPage() {
@@ -14,6 +14,20 @@ export default function LoginPage() {
   const [userType, setUserType] = useState("driver"); // driver, patient, or doctor
   const router = useRouter();
 
+  // Driver specific fields
+  const [driverName, setDriverName] = useState("");
+  const [driverMobile, setDriverMobile] = useState("");
+  const [ambulanceNumber, setAmbulanceNumber] = useState("");
+
+  // Load saved driver details from localStorage
+  useEffect(() => {
+    if (userType === "driver") {
+      setDriverName(localStorage.getItem("driverName") || "");
+      setDriverMobile(localStorage.getItem("driverMobile") || "");
+      setAmbulanceNumber(localStorage.getItem("ambulanceNumber") || "");
+    }
+  }, [userType]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -21,6 +35,14 @@ export default function LoginPage() {
 
     try {
       await signIn(identifier, password, userType);
+
+      // Save driver details to localStorage
+      if (userType === "driver") {
+        if (driverName) localStorage.setItem("driverName", driverName);
+        if (driverMobile) localStorage.setItem("driverMobile", driverMobile);
+        if (ambulanceNumber) localStorage.setItem("ambulanceNumber", ambulanceNumber);
+      }
+
       // Redirect based on user type
       if (userType === "patient") {
         router.push("/patient");
@@ -116,6 +138,64 @@ export default function LoginPage() {
                 {error}
               </motion.div>
             )}
+
+            {/* Driver specific fields */}
+            <AnimatePresence>
+              {userType === "driver" && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="space-y-4 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Truck className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm font-semibold text-blue-800">Driver Details</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        <User className="w-3 h-3 inline mr-1" />
+                        Driver Name
+                      </label>
+                      <input
+                        type="text"
+                        value={driverName}
+                        onChange={(e) => setDriverName(e.target.value)}
+                        placeholder="Your name"
+                        className="w-full rounded-lg border-2 border-blue-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        <Phone className="w-3 h-3 inline mr-1" />
+                        Mobile Number
+                      </label>
+                      <input
+                        type="tel"
+                        value={driverMobile}
+                        onChange={(e) => setDriverMobile(e.target.value)}
+                        placeholder="+91 98765 43210"
+                        className="w-full rounded-lg border-2 border-blue-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        <Truck className="w-3 h-3 inline mr-1" />
+                        Vehicle Number
+                      </label>
+                      <input
+                        type="text"
+                        value={ambulanceNumber}
+                        onChange={(e) => setAmbulanceNumber(e.target.value)}
+                        placeholder="MH-01-AB-1234"
+                        className="w-full rounded-lg border-2 border-blue-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <button
               type="submit"
