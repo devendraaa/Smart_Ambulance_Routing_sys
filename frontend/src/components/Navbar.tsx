@@ -243,6 +243,30 @@ function DriverNavbar() {
                   </Link>
                 ))}
               </div>
+
+              <div className="mt-4 pt-4 border-t border-gray-200/50">
+                {loggedIn ? (
+                  <div className="flex items-center justify-between px-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-lg flex items-center justify-center text-white text-xs font-bold">
+                        {username?.charAt(0)?.toUpperCase() || "U"}
+                      </div>
+                      <span className="text-sm text-gray-700 font-medium truncate">{username}</span>
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-xl flex items-center gap-2"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                ) : (
+                  <Link href="/login" onClick={() => setMobileMenuOpen(false)}
+                    className="block w-full text-center px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 rounded-xl">
+                    Login
+                  </Link>
+                )}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
