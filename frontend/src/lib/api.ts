@@ -33,6 +33,13 @@ export async function startRouteCompute(data: {
   hospital_name: string;
   hospital_lat?: number;
   hospital_lon?: number;
+  patient_name?: string;
+  patient_age?: string;
+  patient_sex?: string;
+  patient_mobile?: string;
+  patient_case?: string;
+  patient_blood_group?: string;
+  patient_date?: string;
 }) {
   return fetchAPI<{ task_id: string; status: string }>("/api/route/compute", {
     method: "POST",
@@ -52,6 +59,13 @@ export async function getTaskStatus(taskId: string) {
     error?: string;
     result?: Record<string, unknown>;
     map_url?: string;
+    patient_name?: string;
+    patient_age?: string;
+    patient_sex?: string;
+    patient_mobile?: string;
+    patient_case?: string;
+    patient_blood_group?: string;
+    patient_date?: string;
   }>(`/api/route/${taskId}`);
 }
 
@@ -359,4 +373,36 @@ export async function publishAmbLocation(data: {
     method: "POST",
     body: JSON.stringify(data),
   });
+}
+
+// Emergency cases API
+export type EmergencyCase = {
+  task_id: string;
+  hospital_name: string;
+  origin_lat: number;
+  origin_lon: number;
+  patient_name?: string;
+  patient_age?: string;
+  patient_sex?: string;
+  patient_mobile?: string;
+  patient_case?: string;
+  patient_blood_group?: string;
+  patient_date?: string;
+  status: string;
+  created_at: string;
+};
+
+export async function fetchEmergencyCases(hospitalName?: string, startDate?: string, endDate?: string) {
+  let url = "/api/route/emergency/cases?";
+  const params = new URLSearchParams();
+  if (hospitalName) params.append("hospital_name", hospitalName);
+  if (startDate) params.append("start_date", startDate);
+  if (endDate) params.append("end_date", endDate);
+  url += params.toString();
+
+  return fetchAPI<EmergencyCase[]>(url);
+}
+
+export async function fetchEmergencyHospitals() {
+  return fetchAPI<{ hospitals: string[] }>("/api/route/emergency/hospitals");
 }

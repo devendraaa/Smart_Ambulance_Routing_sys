@@ -6,7 +6,7 @@ import { startRouteCompute, searchHospitals, fetchHospitalsList } from "@/lib/ap
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin, Hospital, Navigation, Loader2, CheckCircle2, AlertCircle,
-  Crosshair, Clock, Bed, Stethoscope, ChevronDown, Zap
+  Crosshair, Clock, Bed, Stethoscope, ChevronDown, Zap, User, Phone, Calendar, AlertTriangle, Droplet
 } from "lucide-react";
 
 type NearbyHospital = {
@@ -43,7 +43,21 @@ export default function RoutePlanner() {
   const [nearbyHospitals, setNearbyHospitals] = useState<NearbyHospital[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(false);
   const [selectedHospital, setSelectedHospital] = useState<number | null>(null);
+  // Patient details state
+  const [patientName, setPatientName] = useState("");
+  const [patientAge, setPatientAge] = useState("");
+  const [patientSex, setPatientSex] = useState("");
+  const [patientMobile, setPatientMobile] = useState("");
+  const [patientCase, setPatientCase] = useState("");
+  const [patientBloodGroup, setPatientBloodGroup] = useState("");
+  const [patientDate, setPatientDate] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Set current date on mount
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    setPatientDate(today);
+  }, []);
   const containerRef = useRef<HTMLDivElement>(null);
   const nearbyRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -154,6 +168,13 @@ export default function RoutePlanner() {
       hospital_name: string;
       hospital_lat?: number;
       hospital_lon?: number;
+      patient_name?: string;
+      patient_age?: string;
+      patient_sex?: string;
+      patient_mobile?: string;
+      patient_case?: string;
+      patient_blood_group?: string;
+      patient_date?: string;
     } = {
       origin_lat: originLat!,
       origin_lon: originLon!,
@@ -163,6 +184,23 @@ export default function RoutePlanner() {
       payload.hospital_lat = parseFloat(hospitalLat);
       payload.hospital_lon = parseFloat(hospitalLon);
     }
+    if (patientName) payload.patient_name = patientName;
+    if (patientAge) payload.patient_age = patientAge;
+    if (patientSex) payload.patient_sex = patientSex;
+    if (patientMobile) payload.patient_mobile = patientMobile;
+    if (patientCase) payload.patient_case = patientCase;
+    if (patientBloodGroup) payload.patient_blood_group = patientBloodGroup;
+    if (patientDate) payload.patient_date = patientDate;
+
+    // Save patient details to localStorage
+    if (patientName) localStorage.setItem("patientName", patientName);
+    if (patientAge) localStorage.setItem("patientAge", patientAge);
+    if (patientSex) localStorage.setItem("patientSex", patientSex);
+    if (patientMobile) localStorage.setItem("patientMobile", patientMobile);
+    if (patientCase) localStorage.setItem("patientCase", patientCase);
+    if (patientBloodGroup) localStorage.setItem("patientBloodGroup", patientBloodGroup);
+    if (patientDate) localStorage.setItem("patientDate", patientDate);
+
     try {
       const data = await startRouteCompute(payload);
       localStorage.setItem("lastTaskId", data.task_id);
@@ -214,6 +252,147 @@ export default function RoutePlanner() {
         <h2 className="text-2xl font-bold text-gray-900">Plan Ambulance Route</h2>
         <p className="text-sm text-gray-500 mt-1">Enter location and destination to compute optimal route</p>
       </div>
+
+      {/* ─── Patient Details Section ─── */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="bg-gradient-to-br from-rose-50 to-orange-50 rounded-2xl p-5 border border-orange-100"
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-8 h-8 bg-gradient-to-br from-rose-500 to-orange-500 rounded-lg flex items-center justify-center">
+            <User className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-gray-800">Patient Details</h3>
+            <p className="text-xs text-gray-500">Enter patient information for emergency records</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          {/* Date */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+              <Calendar className="w-3.5 h-3.5 inline mr-1" />
+              Date
+            </label>
+            <input
+              type="date"
+              value={patientDate}
+              onChange={(e) => setPatientDate(e.target.value)}
+              className="w-full rounded-xl border-2 border-orange-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition"
+            />
+          </div>
+
+          {/* Patient Name */}
+          <div className="col-span-2">
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+              <User className="w-3.5 h-3.5 inline mr-1" />
+              Patient Name
+            </label>
+            <input
+              type="text"
+              value={patientName}
+              onChange={(e) => setPatientName(e.target.value)}
+              placeholder="Enter patient name"
+              className="w-full rounded-xl border-2 border-orange-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition"
+            />
+          </div>
+
+          {/* Age */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+              <Calendar className="w-3.5 h-3.5 inline mr-1" />
+              Age
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="150"
+              value={patientAge}
+              onChange={(e) => setPatientAge(e.target.value)}
+              placeholder="e.g. 35"
+              className="w-full rounded-xl border-2 border-orange-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition"
+            />
+          </div>
+
+          {/* Sex */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+              <User className="w-3.5 h-3.5 inline mr-1" />
+              Sex
+            </label>
+            <select
+              value={patientSex}
+              onChange={(e) => setPatientSex(e.target.value)}
+              className="w-full rounded-xl border-2 border-orange-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition"
+            >
+              <option value="">Select sex</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          {/* Blood Group */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+              <Droplet className="w-3.5 h-3.5 inline mr-1" />
+              Blood Group
+            </label>
+            <select
+              value={patientBloodGroup}
+              onChange={(e) => setPatientBloodGroup(e.target.value)}
+              className="w-full rounded-xl border-2 border-orange-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition"
+            >
+              <option value="">Select</option>
+              <option value="A+">A+</option>
+              <option value="A-">A-</option>
+              <option value="B+">B+</option>
+              <option value="B-">B-</option>
+              <option value="AB+">AB+</option>
+              <option value="AB-">AB-</option>
+              <option value="O+">O+</option>
+              <option value="O-">O-</option>
+            </select>
+          </div>
+
+          {/* Mobile Number */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+              <Phone className="w-3.5 h-3.5 inline mr-1" />
+              Mobile Number
+            </label>
+            <input
+              type="tel"
+              value={patientMobile}
+              onChange={(e) => setPatientMobile(e.target.value)}
+              placeholder="+91 98765 43210"
+              className="w-full rounded-xl border-2 border-orange-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition"
+            />
+          </div>
+
+          {/* Case Type - spans full width */}
+          <div className="col-span-2 sm:col-span-3 lg:col-span-6">
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 inline mr-1" />
+              Emergency Case Type
+            </label>
+            <select
+              value={patientCase}
+              onChange={(e) => setPatientCase(e.target.value)}
+              className="w-full rounded-xl border-2 border-orange-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition"
+            >
+              <option value="">Select emergency case type</option>
+              <option value="Accident">Accident</option>
+              <option value="Heart Attack">Heart Attack</option>
+              <option value="Burn">Burn</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+      </motion.div>
 
       {/* Geolocation Button */}
       <motion.div

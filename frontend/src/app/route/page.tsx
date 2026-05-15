@@ -661,6 +661,73 @@ function RoutePageContent() {
         />
       </motion.div>
 
+      {/* Patient Details Card - Shown when completed */}
+      {status.status === "completed" && (status.patient_name || status.patient_mobile) && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="mt-4 bg-gradient-to-br from-rose-50 to-orange-50 rounded-2xl border border-orange-100 p-5"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-rose-500 to-orange-500 rounded-lg flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-gray-800">Patient Information</h3>
+              <p className="text-xs text-gray-500">Emergency case details</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
+            {status.patient_date && (
+              <div className="bg-white/60 rounded-xl p-3">
+                <p className="text-xs text-gray-500 font-medium">Date</p>
+                <p className="text-sm font-bold text-gray-900">{status.patient_date}</p>
+              </div>
+            )}
+            {status.patient_case && (
+              <div className="bg-red-50 rounded-xl p-3 border border-red-200">
+                <p className="text-xs text-red-600 font-medium">Case Type</p>
+                <p className="text-sm font-bold text-red-800">{status.patient_case}</p>
+              </div>
+            )}
+            {status.patient_name && (
+              <div className="bg-white/60 rounded-xl p-3">
+                <p className="text-xs text-gray-500 font-medium">Patient Name</p>
+                <p className="text-sm font-bold text-gray-900 truncate">{status.patient_name}</p>
+              </div>
+            )}
+            {status.patient_age && (
+              <div className="bg-white/60 rounded-xl p-3">
+                <p className="text-xs text-gray-500 font-medium">Age</p>
+                <p className="text-sm font-bold text-gray-900">{status.patient_age} years</p>
+              </div>
+            )}
+            {status.patient_sex && (
+              <div className="bg-white/60 rounded-xl p-3">
+                <p className="text-xs text-gray-500 font-medium">Sex</p>
+                <p className="text-sm font-bold text-gray-900">{status.patient_sex}</p>
+              </div>
+            )}
+            {status.patient_blood_group && (
+              <div className="bg-red-50 rounded-xl p-3 border border-red-200">
+                <p className="text-xs text-red-600 font-medium">Blood Group</p>
+                <p className="text-sm font-bold text-red-800">{status.patient_blood_group}</p>
+              </div>
+            )}
+            {status.patient_mobile && (
+              <div className="bg-white/60 rounded-xl p-3">
+                <p className="text-xs text-gray-500 font-medium">Mobile</p>
+                <p className="text-sm font-bold text-gray-900">{status.patient_mobile}</p>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+
       {/* Map Section - Shown when completed */}
       {status.status === "completed" && (
         <motion.div

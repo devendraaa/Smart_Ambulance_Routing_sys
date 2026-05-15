@@ -18,6 +18,7 @@ const navLinks = [
 
 const baseSensorLinks = [
   { href: "/sensor", label: "Sensor Management", icon: "📡" },
+  { href: "/sensor-map", label: "Sensor Map", icon: "🗺️" },
   { href: "/installed-sensors", label: "Installed Sensors", icon: "📍" },
 ];
 
