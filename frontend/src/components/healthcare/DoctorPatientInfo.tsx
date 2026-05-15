@@ -51,6 +51,7 @@ interface PatientDiet {
   foods: string;
   instructions: string;
   created_at: string;
+  is_active: boolean;
 }
 
 const MEDICINE_FREQUENCIES = ["Once daily", "Twice daily", "Thrice daily", "Four times a day", "Every 8 hours", "As needed"];
