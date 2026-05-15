@@ -8,6 +8,13 @@ class RouteComputeRequest(BaseModel):
     hospital_name: str
     hospital_lat: Optional[float] = None
     hospital_lon: Optional[float] = None
+    patient_name: Optional[str] = None
+    patient_age: Optional[str] = None
+    patient_sex: Optional[str] = None
+    patient_mobile: Optional[str] = None
+    patient_case: Optional[str] = None
+    patient_blood_group: Optional[str] = None
+    patient_date: Optional[str] = None
 
 
 class RouteTaskStartResponse(BaseModel):
@@ -26,6 +33,13 @@ class RouteTaskStatusResponse(BaseModel):
     error: Optional[str] = None
     result: Optional[dict] = None
     map_url: Optional[str] = None
+    patient_name: Optional[str] = None
+    patient_age: Optional[str] = None
+    patient_sex: Optional[str] = None
+    patient_mobile: Optional[str] = None
+    patient_case: Optional[str] = None
+    patient_blood_group: Optional[str] = None
+    patient_date: Optional[str] = None
 
 
 class CoordinateEntry(BaseModel):
@@ -36,3 +50,19 @@ class CoordinateEntry(BaseModel):
 
 class CoordinateResponse(BaseModel):
     coordinates: list[CoordinateEntry]
+
+
+class EmergencyCaseResponse(BaseModel):
+    task_id: str
+    hospital_name: str
+    origin_lat: float
+    origin_lon: float
+    patient_name: Optional[str] = None
+    patient_age: Optional[str] = None
+    patient_sex: Optional[str] = None
+    patient_mobile: Optional[str] = None
+    patient_case: Optional[str] = None
+    patient_blood_group: Optional[str] = None
+    patient_date: Optional[str] = None
+    status: str
+    created_at: str

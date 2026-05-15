@@ -15,6 +15,13 @@ export function useRouteTask(taskId: string | null) {
     error?: string;
     result?: Record<string, unknown>;
     map_url?: string;
+    patient_name?: string;
+    patient_age?: string;
+    patient_sex?: string;
+    patient_mobile?: string;
+    patient_case?: string;
+    patient_blood_group?: string;
+    patient_date?: string;
   } | null>(null);
 
   const fetchStatus = useCallback(async () => {

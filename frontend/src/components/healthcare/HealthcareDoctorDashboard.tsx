@@ -9,6 +9,7 @@ import DoctorAppointmentsTab from "./DoctorAppointmentsTab";
 import DoctorMedicinesTab from "./DoctorMedicinesTab";
 import DoctorReportsTab from "./DoctorReportsTab";
 import DoctorDietTab from "./DoctorDietTab";
+import DoctorEmergencyTab from "./DoctorEmergencyTab";
 
 function TabContent() {
   const searchParams = useSearchParams();
@@ -28,6 +29,8 @@ function TabContent() {
     switch (activeTab) {
       case "patient-info":
         return <DoctorPatientInfo />;
+      case "emergency":
+        return <DoctorEmergencyTab />;
       case "appointments":
         return <DoctorAppointmentsTab />;
       case "medicines":

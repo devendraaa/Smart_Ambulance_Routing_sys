@@ -40,6 +40,15 @@ CREATE TABLE IF NOT EXISTS route_tasks (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Add patient details columns to route_tasks
+ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS patient_name VARCHAR(100);
+ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS patient_age VARCHAR(10);
+ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS patient_sex VARCHAR(20);
+ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS patient_mobile VARCHAR(20);
+ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS patient_case VARCHAR(50);
+ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS patient_blood_group VARCHAR(10);
+ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS patient_date DATE;
+
 -- Route task coordinates
 CREATE TABLE IF NOT EXISTS route_task_coordinates (
     id BIGSERIAL PRIMARY KEY,
