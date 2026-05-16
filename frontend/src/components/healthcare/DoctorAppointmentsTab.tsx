@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Calendar, Search, Filter, Pill, FileText, Utensils, X, Plus, Trash2 } from "lucide-react";
+import { Calendar, Search, Filter, Pill, FileText, Utensils, X, Plus, Trash2, ChevronRight, User, Stethoscope, Clock } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { fetchHospitalsList } from "@/lib/api";
 
@@ -81,7 +81,6 @@ function PatientDetailPanel({
   const [tests, setTests] = useState<PatientTest[]>([]);
   const [diets, setDiets] = useState<PatientDiet[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddForm, setShowAddForm] = useState(false);
 
   const isCurrentAppointment = isToday(appointment.appointment_date);
 
@@ -91,31 +90,18 @@ function PatientDetailPanel({
 
   const loadPatientData = async () => {
     setLoading(true);
+    const patientEmail = appointment.patient_email;
+    console.log("Loading data for patient:", patientEmail);
     try {
-      // Load medicines
-      const { data: medsData } = await supabase
-        .from("patient_medicines")
-        .select("*")
-        .eq("patient_email", appointment.patient_email)
-        .order("created_at", { ascending: false });
-
-      // Load tests
-      const { data: testsData } = await supabase
-        .from("patient_tests")
-        .select("*")
-        .eq("patient_email", appointment.patient_email)
-        .order("created_at", { ascending: false });
-
-      // Load diets
-      const { data: dietsData } = await supabase
-        .from("patient_diets")
-        .select("*")
-        .eq("patient_email", appointment.patient_email)
-        .order("created_at", { ascending: false });
-
-      setMedicines(medsData || []);
-      setTests(testsData || []);
-      setDiets(dietsData || []);
+      const [medsData, testsData, dietsData] = await Promise.all([
+        supabase.from("patient_medicines").select("*").eq("patient_email", patientEmail).order("created_at", { ascending: false }),
+        supabase.from("patient_tests").select("*").eq("patient_email", patientEmail).order("created_at", { ascending: false }),
+        supabase.from("patient_diets").select("*").eq("patient_email", patientEmail).order("created_at", { ascending: false })
+      ]);
+      console.log("Medicines:", medsData.data?.length, "Tests:", testsData.data?.length, "Diets:", dietsData.data?.length);
+      setMedicines(medsData.data || []);
+      setTests(testsData.data || []);
+      setDiets(dietsData.data || []);
     } catch (err) {
       console.error("Error loading patient data:", err);
     } finally {
@@ -123,91 +109,88 @@ function PatientDetailPanel({
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "completed": return <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">Completed</span>;
-      case "confirmed": return <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">Confirmed</span>;
-      case "ordered": return <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">Ordered</span>;
-      default: return <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-700">{status}</span>;
-    }
-  };
-
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl max-w-4xl w-full p-6 max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">{appointment.patient_name}</h2>
-            <p className="text-sm text-gray-500">{appointment.patient_email}</p>
-            <p className="text-xs text-gray-400 mt-1">
-              Appointment: {new Date(appointment.appointment_date).toLocaleDateString("en-IN")}
-              {isCurrentAppointment && <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs">Today</span>}
-              {!isCurrentAppointment && <span className="ml-2 px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs">Past</span>}
-            </p>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] overflow-y-auto">
+      {/* Backdrop click to close */}
+      <div className="min-h-screen flex items-start justify-center p-3 sm:p-4 pt-16 sm:pt-20">
+        <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden">
+          {/* Header with Gradient */}
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-4 sm:px-6 sm:py-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <User className="w-5 h-5 text-white" />
+                  <h2 className="text-lg sm:text-xl font-bold text-white truncate">{appointment.patient_name}</h2>
+                  {isCurrentAppointment && (
+                    <span className="px-2 py-0.5 bg-white/20 text-white text-xs rounded-full">Today</span>
+                  )}
+                </div>
+                <p className="text-blue-100 text-xs sm:text-sm truncate">{appointment.patient_email}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-blue-100 text-xs flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    {new Date(appointment.appointment_date).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                  {appointment.hospital_name && (
+                    <span className="text-blue-100 text-xs">• {appointment.hospital_name}</span>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                className="p-1.5 sm:p-2 bg-white/20 hover:bg-white/30 rounded-lg transition"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="w-6 h-6" />
-          </button>
-        </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 border-b border-gray-200 mb-4">
-          <button
-            onClick={() => setActiveTab("medicines")}
-            className={`px-4 py-2 font-medium text-sm rounded-t-lg transition ${activeTab === "medicines" ? "bg-blue-100 text-blue-700 border-b-2 border-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-          >
-            <Pill className="w-4 h-4 inline mr-2" />
-            Medicines ({medicines.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("reports")}
-            className={`px-4 py-2 font-medium text-sm rounded-t-lg transition ${activeTab === "reports" ? "bg-blue-100 text-blue-700 border-b-2 border-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-          >
-            <FileText className="w-4 h-4 inline mr-2" />
-            Reports ({tests.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("diet")}
-            className={`px-4 py-2 font-medium text-sm rounded-t-lg transition ${activeTab === "diet" ? "bg-blue-100 text-blue-700 border-b-2 border-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-          >
-            <Utensils className="w-4 h-4 inline mr-2" />
-            Diet ({diets.length})
-          </button>
-        </div>
+          {/* Tabs */}
+          <div className="flex border-b border-gray-200 bg-gray-50">
+            <button
+              onClick={() => setActiveTab("medicines")}
+              className={`flex-1 px-3 py-3 font-medium text-xs sm:text-sm flex items-center justify-center gap-1.5 transition ${activeTab === "medicines" ? "bg-white text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
+            >
+              <Pill className="w-4 h-4" />
+              <span>Meds</span>
+              <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full text-[10px]">{medicines.length}</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("reports")}
+              className={`flex-1 px-3 py-3 font-medium text-xs sm:text-sm flex items-center justify-center gap-1.5 transition ${activeTab === "reports" ? "bg-white text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>Tests</span>
+              <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full text-[10px]">{tests.length}</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("diet")}
+              className={`flex-1 px-3 py-3 font-medium text-xs sm:text-sm flex items-center justify-center gap-1.5 transition ${activeTab === "diet" ? "bg-white text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
+            >
+              <Utensils className="w-4 h-4" />
+              <span>Diet</span>
+              <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full text-[10px]">{diets.length}</span>
+            </button>
+          </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto">
-          {loading ? (
-            <div className="text-center py-8 text-gray-500">Loading...</div>
-          ) : (
-            <>
-              {activeTab === "medicines" && (
-                <MedicinesSection
-                  patientEmail={appointment.patient_email}
-                  medicines={medicines}
-                  isEditable={isCurrentAppointment}
-                  onRefresh={loadPatientData}
-                />
-              )}
-              {activeTab === "reports" && (
-                <ReportsSection
-                  patientEmail={appointment.patient_email}
-                  tests={tests}
-                  isEditable={isCurrentAppointment}
-                  onRefresh={loadPatientData}
-                />
-              )}
-              {activeTab === "diet" && (
-                <DietSection
-                  patientEmail={appointment.patient_email}
-                  diets={diets}
-                  isEditable={isCurrentAppointment}
-                  onRefresh={loadPatientData}
-                />
-              )}
-            </>
-          )}
+          {/* Content */}
+          <div className="p-3 sm:p-4 max-h-[60vh] overflow-y-auto">
+            {loading ? (
+              <div className="text-center py-8 text-gray-500">Loading...</div>
+            ) : (
+              <>
+                {activeTab === "medicines" && (
+                  <MedicinesSection patientEmail={appointment.patient_email} medicines={medicines} isEditable={isCurrentAppointment} onRefresh={loadPatientData} />
+                )}
+                {activeTab === "reports" && (
+                  <ReportsSection patientEmail={appointment.patient_email} tests={tests} isEditable={isCurrentAppointment} onRefresh={loadPatientData} />
+                )}
+                {activeTab === "diet" && (
+                  <DietSection patientEmail={appointment.patient_email} diets={diets} isEditable={isCurrentAppointment} onRefresh={loadPatientData} />
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -279,41 +262,45 @@ function MedicinesSection({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {isEditable && (
         <button
           onClick={() => setShowAddModal(true)}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2"
+          className="w-full sm:w-auto px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium flex items-center justify-center gap-2"
         >
-          <Plus className="w-4 h-4" /> Add Medicine
+          <Plus className="w-4 h-4" /> Add Prescription
         </button>
       )}
 
       {medicines.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">No medicines found</div>
+        <div className="text-center py-8">
+          <Pill className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+          <p className="text-gray-500 text-sm">No prescriptions for this patient</p>
+          <p className="text-gray-400 text-xs mt-1">Click "Add Prescription" to create one</p>
+        </div>
       ) : (
         <div className="space-y-2">
           {medicines.map((med) => (
-            <div key={med.id} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-              <div className="flex justify-between items-start">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-semibold text-gray-900">{med.medicine_name}</h4>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${med.is_active ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-600"}`}>
+            <div key={med.id} className="p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-200">
+              <div className="flex justify-between items-start gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-semibold text-gray-900 text-sm">{med.medicine_name}</h4>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${med.is_active ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-600"}`}>
                       {med.is_active ? "Active" : "Inactive"}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-600 mt-1">
-                    <span className="font-medium">Dosage:</span> {med.dosage || "N/A"} |
-                    <span className="font-medium"> Freq:</span> {med.frequency} |
-                    <span className="font-medium"> Timing:</span> {med.timing} |
-                    <span className="font-medium"> Duration:</span> {med.duration}
+                  <p className="text-xs sm:text-sm text-gray-600 mt-1.5 leading-relaxed">
+                    <span className="font-medium">D:</span> {med.dosage || "N/A"} &bull;
+                    <span className="font-medium"> F:</span> {med.frequency} &bull;
+                    <span className="font-medium"> T:</span> {med.timing} &bull;
+                    <span className="font-medium"> Dur:</span> {med.duration}
                   </p>
-                  {med.instructions && <p className="text-xs text-gray-500 mt-1">Note: {med.instructions}</p>}
+                  {med.instructions && <p className="text-[10px] sm:text-xs text-gray-500 mt-1.5">Note: {med.instructions}</p>}
                 </div>
                 {isEditable && (
-                  <button onClick={() => deleteMedicine(med.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
-                    <Trash2 className="w-4 h-4" />
+                  <button onClick={() => deleteMedicine(med.id)} className="p-1.5 sm:p-2 text-red-600 hover:bg-red-50 rounded-lg flex-shrink-0">
+                    <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </button>
                 )}
               </div>
@@ -323,81 +310,53 @@ function MedicinesSection({
       )}
 
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[60]">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+        <div className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 z-[60] overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-md my-4 mx-1 sm:mx-0 p-4 sm:p-6">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Add Medicine</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+              <h3 className="text-base sm:text-lg font-semibold">Add Medicine</h3>
+              <button onClick={() => setShowAddModal(false)} className="p-1 hover:bg-gray-100 rounded">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
             </div>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Medicine Name *</label>
-                <input
-                  type="text"
-                  value={newMedicine.medicine_name}
-                  onChange={(e) => setNewMedicine({ ...newMedicine, medicine_name: e.target.value })}
-                  placeholder="e.g., Paracetamol"
-                  className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none"
-                />
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Medicine Name *</label>
+                <input type="text" value={newMedicine.medicine_name} onChange={(e) => setNewMedicine({ ...newMedicine, medicine_name: e.target.value })} placeholder="e.g., Paracetamol" className="w-full rounded-lg border-2 border-gray-200 px-3 sm:px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Dosage</label>
-                  <select
-                    value={newMedicine.dosage}
-                    onChange={(e) => setNewMedicine({ ...newMedicine, dosage: e.target.value })}
-                    className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none bg-white"
-                  >
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Dosage</label>
+                  <select value={newMedicine.dosage} onChange={(e) => setNewMedicine({ ...newMedicine, dosage: e.target.value })} className="w-full rounded-lg border-2 border-gray-200 px-3 sm:px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none bg-white">
                     <option value="">Select</option>
                     {DOSAGE_OPTIONS.map((d) => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
-                  <select
-                    value={newMedicine.frequency}
-                    onChange={(e) => setNewMedicine({ ...newMedicine, frequency: e.target.value })}
-                    className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none bg-white"
-                  >
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Frequency</label>
+                  <select value={newMedicine.frequency} onChange={(e) => setNewMedicine({ ...newMedicine, frequency: e.target.value })} className="w-full rounded-lg border-2 border-gray-200 px-3 sm:px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none bg-white">
                     {FREQUENCY_OPTIONS.map((f) => <option key={f} value={f}>{f}</option>)}
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Timing</label>
-                  <select
-                    value={newMedicine.timing}
-                    onChange={(e) => setNewMedicine({ ...newMedicine, timing: e.target.value })}
-                    className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none bg-white"
-                  >
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Timing</label>
+                  <select value={newMedicine.timing} onChange={(e) => setNewMedicine({ ...newMedicine, timing: e.target.value })} className="w-full rounded-lg border-2 border-gray-200 px-3 sm:px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none bg-white">
                     {TIMING_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
-                  <select
-                    value={newMedicine.duration}
-                    onChange={(e) => setNewMedicine({ ...newMedicine, duration: e.target.value })}
-                    className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none bg-white"
-                  >
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Duration</label>
+                  <select value={newMedicine.duration} onChange={(e) => setNewMedicine({ ...newMedicine, duration: e.target.value })} className="w-full rounded-lg border-2 border-gray-200 px-3 sm:px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none bg-white">
                     {DURATION_OPTIONS.map((d) => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Instructions</label>
-                <textarea
-                  value={newMedicine.instructions}
-                  onChange={(e) => setNewMedicine({ ...newMedicine, instructions: e.target.value })}
-                  placeholder="Any special instructions..."
-                  rows={2}
-                  className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none resize-none"
-                />
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Instructions</label>
+                <textarea value={newMedicine.instructions} onChange={(e) => setNewMedicine({ ...newMedicine, instructions: e.target.value })} placeholder="Any instructions..." rows={2} className="w-full rounded-lg border-2 border-gray-200 px-3 sm:px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none resize-none" />
               </div>
-              <button onClick={handleAddMedicine} className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">
-                Add Medicine
-              </button>
+              <button onClick={handleAddMedicine} className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm">Add Medicine</button>
             </div>
           </div>
         </div>
@@ -449,82 +408,63 @@ function ReportsSection({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {isEditable && (
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2"
-        >
+        <button onClick={() => setShowAddModal(true)} className="w-full sm:w-auto px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium flex items-center justify-center gap-2">
           <Plus className="w-4 h-4" /> Add Test
         </button>
       )}
 
       {tests.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">No tests found</div>
+        <div className="text-center py-8">
+          <FileText className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+          <p className="text-gray-500 text-sm">No test reports for this patient</p>
+          <p className="text-gray-400 text-xs mt-1">Click "Add Test" to order one</p>
+        </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">Test Type</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">Date</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">Status</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">Report</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {tests.map((test) => (
-                <tr key={test.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2 font-medium text-gray-900">{test.test_type}</td>
-                  <td className="px-4 py-2 text-gray-600">{new Date(test.created_at).toLocaleDateString("en-IN")}</td>
-                  <td className="px-4 py-2">{getStatusBadge(test.status)}</td>
-                  <td className="px-4 py-2">
-                    {test.report_url ? (
-                      <a href={test.report_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                        View
-                      </a>
-                    ) : (
-                      <span className="text-gray-400">Not uploaded</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-2">
+          {tests.map((test) => (
+            <div key={test.id} className="p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-200">
+              <div className="flex justify-between items-start gap-2">
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-semibold text-gray-900 text-sm">{test.test_type}</h4>
+                  <p className="text-xs text-gray-500 mt-1">{new Date(test.created_at).toLocaleDateString("en-IN")}</p>
+                </div>
+                <div className="flex flex-col items-end gap-1.5">
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${test.status === "completed" ? "bg-green-100 text-green-700" : test.status === "confirmed" ? "bg-blue-100 text-blue-700" : "bg-yellow-100 text-yellow-700"}`}>
+                    {test.status}
+                  </span>
+                  {test.report_url ? (
+                    <a href={test.report_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-600 hover:underline">View Report</a>
+                  ) : (
+                    <span className="text-[10px] text-gray-400">No report</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[60]">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+        <div className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 z-[60] overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-md my-4 mx-1 sm:mx-0 p-4 sm:p-6">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Book Test</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+              <h3 className="text-base sm:text-lg font-semibold">Book Test</h3>
+              <button onClick={() => setShowAddModal(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5 text-gray-500" /></button>
             </div>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Test Type</label>
-                <select
-                  value={newTest.test_type}
-                  onChange={(e) => setNewTest({ ...newTest, test_type: e.target.value })}
-                  className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none bg-white"
-                >
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Test Type</label>
+                <select value={newTest.test_type} onChange={(e) => setNewTest({ ...newTest, test_type: e.target.value })} className="w-full rounded-lg border-2 border-gray-200 px-3 sm:px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none bg-white">
                   {TEST_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                <textarea
-                  value={newTest.notes}
-                  onChange={(e) => setNewTest({ ...newTest, notes: e.target.value })}
-                  placeholder="Any instructions..."
-                  rows={2}
-                  className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none resize-none"
-                />
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea value={newTest.notes} onChange={(e) => setNewTest({ ...newTest, notes: e.target.value })} placeholder="Any instructions..." rows={2} className="w-full rounded-lg border-2 border-gray-200 px-3 sm:px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none resize-none" />
               </div>
-              <button onClick={handleAddTest} className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">
-                Book Test
-              </button>
+              <button onClick={handleAddTest} className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm">Book Test</button>
             </div>
           </div>
         </div>
@@ -593,41 +533,41 @@ function DietSection({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {isEditable && (
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2"
-        >
+        <button onClick={() => setShowAddModal(true)} className="w-full sm:w-auto px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium flex items-center justify-center gap-2">
           <Plus className="w-4 h-4" /> Add Diet Plan
         </button>
       )}
 
       {diets.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">No diet plans found</div>
+        <div className="text-center py-8">
+          <Utensils className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+          <p className="text-gray-500 text-sm">No diet plans for this patient</p>
+          <p className="text-gray-400 text-xs mt-1">Click "Add Diet Plan" to create one</p>
+        </div>
       ) : (
         <div className="space-y-2">
           {diets.map((diet) => (
-            <div key={diet.id} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-semibold text-gray-900">{diet.diet_name}</h4>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">{diet.diet_type}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${diet.is_active ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-600"}`}>
+            <div key={diet.id} className="p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-200">
+              <div className="flex justify-between items-start gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-semibold text-gray-900 text-sm">{diet.diet_name}</h4>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">{diet.diet_type}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${diet.is_active ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-600"}`}>
                       {diet.is_active ? "Active" : "Inactive"}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {diet.calories && <span className="mr-3"><span className="font-medium">Calories:</span> {diet.calories}</span>}
-                    {diet.timing && <span className="mr-3"><span className="font-medium">Timing:</span> {diet.timing}</span>}
+                  <p className="text-xs sm:text-sm text-gray-600 mt-1.5 leading-relaxed">
+                    {diet.calories && <span className="font-medium">Cal:</span>}{diet.calories && ` ${diet.calories}`}{diet.calories && diet.timing && " • "}{diet.timing && <><span className="font-medium">Time:</span> {diet.timing}</>}
                   </p>
-                  {diet.foods && <p className="text-sm text-gray-500 mt-1"><span className="font-medium">Foods:</span> {diet.foods}</p>}
-                  {diet.instructions && <p className="text-xs text-gray-400 mt-1">Note: {diet.instructions}</p>}
+                  {diet.foods && <p className="text-[10px] sm:text-xs text-gray-500 mt-1.5 truncate"><span className="font-medium">Foods:</span> {diet.foods}</p>}
+                  {diet.instructions && <p className="text-[10px] text-gray-400 mt-1">Note: {diet.instructions}</p>}
                 </div>
                 {isEditable && (
-                  <button onClick={() => deleteDiet(diet.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
-                    <Trash2 className="w-4 h-4" />
+                  <button onClick={() => deleteDiet(diet.id)} className="p-1.5 sm:p-2 text-red-600 hover:bg-red-50 rounded-lg flex-shrink-0">
+                    <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </button>
                 )}
               </div>
@@ -637,52 +577,32 @@ function DietSection({
       )}
 
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[60]">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 max-h-[80vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 z-[60] overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-md my-4 mx-1 sm:mx-0 p-4 sm:p-6 max-h-[85vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Add Diet Plan</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+              <h3 className="text-base sm:text-lg font-semibold">Add Diet Plan</h3>
+              <button onClick={() => setShowAddModal(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5 text-gray-500" /></button>
             </div>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Diet Name *</label>
-                <input
-                  type="text"
-                  value={newDiet.diet_name}
-                  onChange={(e) => setNewDiet({ ...newDiet, diet_name: e.target.value })}
-                  placeholder="e.g., Morning Diet Plan"
-                  className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none"
-                />
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Diet Name *</label>
+                <input type="text" value={newDiet.diet_name} onChange={(e) => setNewDiet({ ...newDiet, diet_name: e.target.value })} placeholder="e.g., Morning Diet Plan" className="w-full rounded-lg border-2 border-gray-200 px-3 sm:px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Diet Type</label>
-                  <select
-                    value={newDiet.diet_type}
-                    onChange={(e) => setNewDiet({ ...newDiet, diet_type: e.target.value })}
-                    className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none bg-white"
-                  >
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Diet Type</label>
+                  <select value={newDiet.diet_type} onChange={(e) => setNewDiet({ ...newDiet, diet_type: e.target.value })} className="w-full rounded-lg border-2 border-gray-200 px-3 sm:px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none bg-white">
                     {DIET_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Calories</label>
-                  <input
-                    type="text"
-                    value={newDiet.calories}
-                    onChange={(e) => setNewDiet({ ...newDiet, calories: e.target.value })}
-                    placeholder="e.g., 2000 kcal"
-                    className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none"
-                  />
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Calories</label>
+                  <input type="text" value={newDiet.calories} onChange={(e) => setNewDiet({ ...newDiet, calories: e.target.value })} placeholder="e.g., 2000 kcal" className="w-full rounded-lg border-2 border-gray-200 px-3 sm:px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none" />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Timing</label>
-                <select
-                  value={newDiet.timing}
-                  onChange={(e) => setNewDiet({ ...newDiet, timing: e.target.value })}
-                  className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none bg-white"
-                >
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Timing</label>
+                <select value={newDiet.timing} onChange={(e) => setNewDiet({ ...newDiet, timing: e.target.value })} className="w-full rounded-lg border-2 border-gray-200 px-3 sm:px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none bg-white">
                   <option value="Morning (8 AM)">Morning (8 AM)</option>
                   <option value="Mid-morning (11 AM)">Mid-morning (11 AM)</option>
                   <option value="Lunch (1 PM)">Lunch (1 PM)</option>
@@ -692,26 +612,26 @@ function DietSection({
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Foods (one per line)</label>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Foods (comma separated)</label>
                 <textarea
                   value={newDiet.foods}
                   onChange={(e) => setNewDiet({ ...newDiet, foods: e.target.value })}
-                  placeholder="Milk - 1 glass&#10;Oats - 50g&#10;Banana - 1"
-                  rows={3}
-                  className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none resize-none"
+                  placeholder="Milk, Oats, Banana"
+                  rows={2}
+                  className="w-full rounded-lg border-2 border-gray-200 px-3 sm:px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none resize-none"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Instructions</label>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Instructions</label>
                 <textarea
                   value={newDiet.instructions}
                   onChange={(e) => setNewDiet({ ...newDiet, instructions: e.target.value })}
                   placeholder="Any special instructions..."
                   rows={2}
-                  className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none resize-none"
+                  className="w-full rounded-lg border-2 border-gray-200 px-3 sm:px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none resize-none"
                 />
               </div>
-              <button onClick={handleAddDiet} className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">
+              <button onClick={handleAddDiet} className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm">
                 Add Diet Plan
               </button>
             </div>
@@ -740,173 +660,129 @@ export default function DoctorAppointmentsTab() {
     try {
       const data = await fetchHospitalsList();
       const uniqueNames = [...new Set(data.hospitals.map(h => h.name).filter(Boolean))];
-
-      // Get appointment counts per hospital
-      const { data: appointmentsData } = await supabase
-        .from("patient_appointments")
-        .select("hospital_name");
-
+      const { data: appointmentsData } = await supabase.from("patient_appointments").select("hospital_name");
       const countMap: Record<string, number> = {};
-      appointmentsData?.forEach(apt => {
-        if (apt.hospital_name) {
-          countMap[apt.hospital_name] = (countMap[apt.hospital_name] || 0) + 1;
-        }
-      });
-
-      const hospitalsWithCount = uniqueNames.map(name => ({
-        name,
-        count: countMap[name] || 0
-      }));
-
-      setHospitals(hospitalsWithCount);
-    } catch (err) {
-      console.error("Error loading hospitals:", err);
-    }
+      appointmentsData?.forEach(apt => { if (apt.hospital_name) countMap[apt.hospital_name] = (countMap[apt.hospital_name] || 0) + 1; });
+      setHospitals(uniqueNames.map(name => ({ name, count: countMap[name] || 0 })));
+    } catch (err) { console.error("Error loading hospitals:", err); }
   };
 
   const loadAppointments = async () => {
     try {
-      const { data, error } = await supabase
-        .from("patient_appointments")
-        .select("*")
-        .order("created_at", { ascending: false });
-
+      const { data, error } = await supabase.from("patient_appointments").select("*").order("created_at", { ascending: false });
       if (error) throw error;
       setAppointments(data || []);
-    } catch (err) {
-      console.error("Error loading appointments:", err);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { console.error("Error loading appointments:", err); }
+    finally { setLoading(false); }
   };
 
   const filteredAppointments = appointments.filter((apt) => {
-    const matchesSearch = apt.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      apt.patient_email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      apt.hospital_name?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = apt.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) || apt.patient_email.toLowerCase().includes(searchQuery.toLowerCase()) || apt.hospital_name?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = filterStatus === "all" || apt.status === filterStatus;
     const matchesHospital = filterHospital === "all" || apt.hospital_name === filterHospital;
     return matchesSearch && matchesStatus && matchesHospital;
   });
 
-  const updateAppointmentStatus = async (aptId: string, newStatus: string) => {
-    try {
-      await supabase
-        .from("patient_appointments")
-        .update({ status: newStatus })
-        .eq("id", aptId);
-
-      setAppointments(appointments.map((apt) =>
-        apt.id === aptId ? { ...apt, status: newStatus } : apt
-      ));
-      setSelectedAppointment(null);
-    } catch (err) {
-      console.error("Error updating status:", err);
-    }
-  };
-
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+    <div className="space-y-4 sm:space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center justify-between">
+        <h2 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center gap-2">
           <Calendar className="w-5 h-5 text-blue-600" />
-          All Patient Appointments
+          <span className="hidden xs:inline">All Patient Appointments</span>
+          <span className="xs:hidden">Appointments</span>
         </h2>
-        <div className="flex flex-wrap gap-2">
+      </div>
+
+      {/* Filters - Stack on mobile */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
             placeholder="Search patient..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="rounded-lg border-2 border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            className="w-full pl-9 pr-3 py-2.5 rounded-xl border-2 border-gray-200 text-sm focus:border-blue-500 focus:outline-none"
           />
-          <select
-            value={filterHospital}
-            onChange={(e) => setFilterHospital(e.target.value)}
-            className="rounded-lg border-2 border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none bg-white"
-          >
-            <option value="all">All Hospitals</option>
-            {hospitals.map((h) => (
-              <option key={h.name} value={h.name}>{h.name} ({h.count})</option>
-            ))}
-          </select>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="rounded-lg border-2 border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none bg-white"
-          >
-            <option value="all">All Status</option>
-            <option value="scheduled">Scheduled</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
         </div>
+        <select
+          value={filterHospital}
+          onChange={(e) => setFilterHospital(e.target.value)}
+          className="px-3 py-2.5 rounded-xl border-2 border-gray-200 text-sm focus:border-blue-500 focus:outline-none bg-white min-w-[140px]"
+        >
+          <option value="all">All Hospitals</option>
+          {hospitals.map((h) => (<option key={h.name} value={h.name}>{h.name.slice(0, 15)}...</option>))}
+        </select>
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="px-3 py-2.5 rounded-xl border-2 border-gray-200 text-sm focus:border-blue-500 focus:outline-none bg-white min-w-[120px]"
+        >
+          <option value="all">Status</option>
+          <option value="scheduled">Scheduled</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
       </div>
 
       {loading ? (
-        <div className="text-center py-8 text-gray-500">Loading appointments...</div>
+        <div className="text-center py-8 text-gray-500">Loading...</div>
       ) : filteredAppointments.length === 0 ? (
         <div className="text-center py-8 text-gray-500">No appointments found</div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Patient</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Case Type</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Hospital</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Date</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredAppointments.map((apt) => (
-                <tr key={apt.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-gray-900">{apt.patient_name}</p>
-                    <p className="text-xs text-gray-500">{apt.patient_email}</p>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">{apt.case_type}</td>
-                  <td className="px-4 py-3 text-gray-600">{apt.hospital_name || "N/A"}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-600">{new Date(apt.appointment_date).toLocaleDateString("en-IN")}</span>
-                      {isToday(apt.appointment_date) && (
-                        <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">Today</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      apt.status === "scheduled" ? "bg-blue-100 text-blue-700" :
-                      apt.status === "completed" ? "bg-green-100 text-green-700" :
-                      "bg-red-100 text-red-700"
-                    }`}>
-                      {apt.status}
+        /* Cards instead of table for mobile */
+        <div className="space-y-3">
+          {filteredAppointments.map((apt) => (
+            <div
+              key={apt.id}
+              onClick={() => setSelectedAppointment(apt)}
+              className="bg-white rounded-xl border border-gray-200 p-4 hover:border-blue-300 transition cursor-pointer"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-gray-900 truncate">{apt.patient_name}</h3>
+                    {isToday(apt.appointment_date) && (
+                      <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-medium">Today</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 truncate">{apt.patient_email}</p>
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <span className="text-xs text-gray-600 flex items-center gap-1">
+                      <Stethoscope className="w-3 h-3" />
+                      {apt.case_type?.slice(0, 12) || "General"}
                     </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => setSelectedAppointment(apt)}
-                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                    >
-                      View / Update
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <span className="text-xs text-gray-400">|</span>
+                    <span className="text-xs text-gray-600 flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      {new Date(apt.appointment_date).toLocaleDateString("en-IN", { day: 'numeric', month: 'short' })}
+                    </span>
+                    {apt.hospital_name && (
+                      <>
+                        <span className="text-xs text-gray-400">|</span>
+                        <span className="text-xs text-gray-500 truncate max-w-[80px]">{apt.hospital_name}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <span className={`text-[10px] px-2 py-1 rounded-full font-medium ${
+                    apt.status === "scheduled" ? "bg-blue-100 text-blue-700" :
+                    apt.status === "completed" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                  }`}>
+                    {apt.status}
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Patient Detail Panel */}
       {selectedAppointment && (
-        <PatientDetailPanel
-          appointment={selectedAppointment}
-          onClose={() => setSelectedAppointment(null)}
-        />
+        <PatientDetailPanel appointment={selectedAppointment} onClose={() => setSelectedAppointment(null)} />
       )}
     </div>
   );
