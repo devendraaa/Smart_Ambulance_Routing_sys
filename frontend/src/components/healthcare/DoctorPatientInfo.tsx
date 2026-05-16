@@ -77,6 +77,7 @@ export default function DoctorPatientInfo() {
   const [tests, setTests] = useState<PatientTest[]>([]);
   const [diets, setDiets] = useState<PatientDiet[]>([]);
   const [activeSection, setActiveSection] = useState<"appointments" | "medicines" | "reports" | "diet">("appointments");
+  const [clearSearch, setClearSearch] = useState(false);
 
   // Add Medicine form state
   const [showMedicineForm, setShowMedicineForm] = useState(false);
@@ -111,7 +112,8 @@ export default function DoctorPatientInfo() {
           .single();
 
         if (aptData) {
-          setPatient({ id: aptData.id, email: aptData.patient_email });
+          setPatient({ id: aptData.id, email: aptData.patient_email, name: aptData.patient_name });
+          setClearSearch(true);
           await loadPatientData(aptData.patient_email);
         } else {
           const { data: medData } = await supabase
@@ -123,6 +125,7 @@ export default function DoctorPatientInfo() {
 
           if (medData) {
             setPatient({ id: medData.id, email: medData.patient_email });
+            setClearSearch(true);
             await loadPatientData(medData.patient_email);
           } else {
             alert("Patient not found");
@@ -138,6 +141,7 @@ export default function DoctorPatientInfo() {
 
         if (aptData) {
           setPatient({ id: aptData.id, email: aptData.patient_email, name: aptData.patient_name });
+          setClearSearch(true);
           await loadPatientData(aptData.patient_email);
         } else {
           alert("Patient not found");
@@ -267,55 +271,150 @@ export default function DoctorPatientInfo() {
     }
   };
 
+  const clearPatient = () => {
+    setPatient(null);
+    setAppointments([]);
+    setMedicines([]);
+    setTests([]);
+    setDiets([]);
+    setSearchQuery("");
+    setClearSearch(false);
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Search Section */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 sm:p-6 border border-blue-100">
-        <h2 className="text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
-          <Search className="w-5 h-5 text-blue-600" />
-          Search Patient
-        </h2>
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-          <select
-            value={searchType}
-            onChange={(e) => setSearchType(e.target.value as "email" | "name")}
-            className="rounded-xl border-2 border-blue-200 px-3 sm:px-4 py-2 sm:py-2.5 focus:border-blue-500 focus:outline-none bg-white text-sm"
-          >
-            <option value="email">Search by Email</option>
-            <option value="name">Search by Name</option>
-          </select>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={searchType === "email" ? "Enter patient email" : "Enter patient name"}
-            className="flex-1 rounded-xl border-2 border-blue-200 px-3 sm:px-4 py-2 sm:py-2.5 focus:border-blue-500 focus:outline-none text-sm"
-            onKeyDown={(e) => e.key === "Enter" && searchPatient()}
-          />
-          <button
-            onClick={searchPatient}
-            disabled={loading}
-            className="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition disabled:opacity-50 text-sm"
-          >
-            {loading ? "Searching..." : "Search"}
-          </button>
+      {/* Search Section - Only show when no patient selected */}
+      {!patient && (
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 sm:p-8 shadow-xl">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Search className="w-8 h-8 text-white" />
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2">Find Patient</h2>
+            <p className="text-blue-100 text-sm">Search by patient email or name to view records</p>
+          </div>
+          <div className="max-w-2xl mx-auto">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <select
+                value={searchType}
+                onChange={(e) => setSearchType(e.target.value as "email" | "name")}
+                className="rounded-xl border-2 border-white/30 bg-white/20 px-4 py-3 focus:border-white focus:outline-none text-white placeholder-white/70 text-sm backdropdrop backdrop-blur-sm"
+                style={{ colorScheme: 'dark' }}
+              >
+                <option value="email" style={{color: '#1f2937'}}>Search by Email</option>
+                <option value="name" style={{color: '#1f2937'}}>Search by Name</option>
+              </select>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={searchType === "email" ? "Enter patient email" : "Enter patient name"}
+                className="flex-1 rounded-xl border-2 border-white/30 bg-white/20 px-4 py-3 focus:border-white focus:outline-none text-white placeholder-white/70 text-sm backdrop-blur"
+                style={{ colorScheme: 'dark' }}
+                onKeyDown={(e) => e.key === "Enter" && searchPatient()}
+              />
+              <button
+                onClick={searchPatient}
+                disabled={loading}
+                className="px-8 py-3 bg-white text-blue-600 hover:bg-blue-50 rounded-xl font-semibold transition disabled:opacity-50 text-sm shadow-lg"
+              >
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Searching...
+                  </span>
+                ) : (
+                  "Search"
+                )}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Patient Info & Data Sections */}
       {patient && (
         <>
-          {/* Patient Basic Info */}
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                <User className="w-6 h-6 text-blue-600" />
+          {/* Patient Header Card */}
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-5 shadow-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center">
+                  <User className="w-7 h-7 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">{patient.name || "Patient"}</h3>
+                  <p className="text-blue-100 text-sm">{patient.email}</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">Patient Information</h3>
-                <p className="text-sm text-gray-500">{patient.email}</p>
-              </div>
+              <button
+                onClick={clearPatient}
+                className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg font-medium text-sm transition flex items-center gap-2"
+              >
+                <Search className="w-4 h-4" />
+                Search Another
+              </button>
             </div>
+          </div>
+
+          {/* Sub-section Tabs */}
+          <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2">
+            <button
+              onClick={() => setActiveSection("appointments")}
+              className={`px-4 sm:px-5 py-2.5 rounded-lg font-medium text-xs sm:text-sm whitespace-nowrap transition flex items-center gap-2 ${
+                activeSection === "appointments"
+                  ? "bg-blue-600 text-white shadow-md"
+                  : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              Appointments
+              <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs ${activeSection === "appointments" ? "bg-white/20" : "bg-gray-100"}`}>
+                {appointments.length}
+              </span>
+            </button>
+            <button
+              onClick={() => setActiveSection("medicines")}
+              className={`px-4 sm:px-5 py-2.5 rounded-lg font-medium text-xs sm:text-sm whitespace-nowrap transition flex items-center gap-2 ${
+                activeSection === "medicines"
+                  ? "bg-blue-600 text-white shadow-md"
+                  : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
+              }`}
+            >
+              <Pill className="w-4 h-4" />
+              Medicines
+              <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs ${activeSection === "medicines" ? "bg-white/20" : "bg-gray-100"}`}>
+                {medicines.length}
+              </span>
+            </button>
+            <button
+              onClick={() => setActiveSection("reports")}
+              className={`px-4 sm:px-5 py-2.5 rounded-lg font-medium text-xs sm:text-sm whitespace-nowrap transition flex items-center gap-2 ${
+                activeSection === "reports"
+                  ? "bg-blue-600 text-white shadow-md"
+                  : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              Reports
+              <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs ${activeSection === "reports" ? "bg-white/20" : "bg-gray-100"}`}>
+                {tests.length}
+              </span>
+            </button>
+            <button
+              onClick={() => setActiveSection("diet")}
+              className={`px-4 sm:px-5 py-2.5 rounded-lg font-medium text-xs sm:text-sm whitespace-nowrap transition flex items-center gap-2 ${
+                activeSection === "diet"
+                  ? "bg-blue-600 text-white shadow-md"
+                  : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
+              }`}
+            >
+              <Utensils className="w-4 h-4" />
+              Diet Plans
+              <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs ${activeSection === "diet" ? "bg-white/20" : "bg-gray-100"}`}>
+                {diets.length}
+              </span>
+            </button>
           </div>
 
           {/* Section Tabs */}
@@ -367,7 +466,7 @@ export default function DoctorPatientInfo() {
           </div>
 
           {/* Section Content */}
-          <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
             {/* APPOINTMENTS */}
             {activeSection === "appointments" && (
               <div className="space-y-3">

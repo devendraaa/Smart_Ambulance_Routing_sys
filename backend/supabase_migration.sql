@@ -144,3 +144,6 @@ CREATE TABLE IF NOT EXISTS patient_appointments (
 CREATE INDEX IF NOT EXISTS idx_patient_appointments_date ON patient_appointments(appointment_date);
 CREATE INDEX IF NOT EXISTS idx_patient_appointments_status ON patient_appointments(status);
 CREATE INDEX IF NOT EXISTS idx_patient_appointments_email ON patient_appointments(patient_email);
+
+-- Add patient_phone column for appointment booking
+ALTER TABLE patient_appointments ADD COLUMN IF NOT EXISTS patient_phone VARCHAR(20);

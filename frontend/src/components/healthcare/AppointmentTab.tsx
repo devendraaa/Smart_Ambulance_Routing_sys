@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Calendar, MapPin, Phone, AlertTriangle, Droplet, Heart, UserPlus, CheckCircle2, Clock, FileText, Stethoscope, MapPinOff, Navigation } from "lucide-react";
+import { Calendar, MapPin, Phone, AlertTriangle, Droplet, Heart, UserPlus, CheckCircle2, Clock, FileText, Stethoscope, MapPinOff, Navigation, X, PartyPopper } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { fetchHospitalsList, fetchHospitalInfo, HospitalInfo } from "@/lib/api";
 
@@ -107,6 +107,7 @@ function generateHospitalSlots(): HospitalSlot[] {
 export default function AppointmentTab() {
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
+  const [patientPhone, setPatientPhone] = useState("");
   const [address, setAddress] = useState("");
   const [religion, setReligion] = useState("");
   const [appointmentDate, setAppointmentDate] = useState("");
@@ -125,6 +126,8 @@ export default function AppointmentTab() {
   const [userLocation, setUserLocation] = useState<{lat: number; lon: number} | null>(null);
   const [gettingLocation, setGettingLocation] = useState(false);
   const [selectedSlotDate, setSelectedSlotDate] = useState<string>("");
+  const [showAppointmentPopup, setShowAppointmentPopup] = useState(false);
+  const [bookedAppointment, setBookedAppointment] = useState<Appointment | null>(null);
 
   // Get user location and fetch nearby hospitals
   const fetchNearbyHospitals = useCallback(async (lat?: number, lon?: number) => {
@@ -259,6 +262,8 @@ export default function AppointmentTab() {
 
     if (!name.trim()) { setError("Patient name is required"); return; }
     if (!age.trim() || parseInt(age) < 1 || parseInt(age) > 150) { setError("Enter a valid age (1-150)"); return; }
+    if (!patientPhone.trim()) { setError("Patient phone number is required"); return; }
+    if (!/^\d{10}$/.test(patientPhone.trim())) { setError("Enter a valid 10-digit phone number"); return; }
     if (!address.trim()) { setError("Address is required"); return; }
     if (!religion.trim()) { setError("Religion is required"); return; }
     if (!appointmentDate) { setError("Appointment date is required"); return; }
@@ -296,6 +301,7 @@ export default function AppointmentTab() {
         .insert([{
           patient_name: name.trim(),
           age: parseInt(age),
+          patient_phone: patientPhone.trim(),
           address: address.trim(),
           religion: religion.trim(),
           appointment_date: appointmentDateISO,
@@ -308,11 +314,24 @@ export default function AppointmentTab() {
 
       if (error) throw error;
 
-      setSuccess("Appointment booked successfully!");
-      setShowSuccess(true);
-      setName(""); setAge(""); setAddress(""); setReligion(""); setAppointmentDate(""); setCaseType(""); setSelectedHospital("");
+      // Store booked appointment for popup
+      const newAppointment: Appointment = {
+        id: Date.now().toString(),
+        patient_name: name.trim(),
+        age: parseInt(age),
+        address: address.trim(),
+        religion: religion.trim(),
+        appointment_date: appointmentDateISO,
+        case_type: caseType,
+        hospital_name: hospital?.name,
+        status: 'scheduled',
+        created_at: new Date().toISOString()
+      };
+      setBookedAppointment(newAppointment);
+      setShowAppointmentPopup(true);
+
+      setName(""); setAge(""); setPatientPhone(""); setAddress(""); setReligion(""); setAppointmentDate(""); setCaseType(""); setSelectedHospital("");
       fetchAppointments();
-      setTimeout(() => setShowSuccess(false), 3000);
     } catch (err: any) {
       console.error('Booking error:', err);
       setError(err?.message || err?.error?.message || JSON.stringify(err) || "Failed to book appointment");
@@ -373,6 +392,20 @@ export default function AppointmentTab() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5"><Heart className="w-4 h-4 inline mr-1" />Age *</label>
               <input type="number" min="1" max="150" value={age} onChange={(e) => setAge(e.target.value)} placeholder="Enter age" className="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 focus:border-emerald-500 focus:outline-none transition" required />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5"><Phone className="w-4 h-4 inline mr-1" />Phone Number *</label>
+              <input type="tel" value={patientPhone} onChange={(e) => setPatientPhone(e.target.value)} placeholder="Enter 10-digit mobile number" maxLength={10} className="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 focus:border-emerald-500 focus:outline-none transition" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5"><Droplet className="w-4 h-4 inline mr-1" />Religion *</label>
+              <select value={religion} onChange={(e) => setReligion(e.target.value)} className="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 focus:border-emerald-500 focus:outline-none transition bg-white" required>
+                <option value="">Select religion</option>
+                {RELIGIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+              </select>
             </div>
           </div>
 
@@ -454,19 +487,10 @@ export default function AppointmentTab() {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
+          <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5"><MapPin className="w-4 h-4 inline mr-1" />Address *</label>
               <textarea value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Enter full address" rows={2} className="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 focus:border-emerald-500 focus:outline-none transition resize-none" required />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5"><Droplet className="w-4 h-4 inline mr-1" />Religion *</label>
-              <select value={religion} onChange={(e) => setReligion(e.target.value)} className="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 focus:border-emerald-500 focus:outline-none transition bg-white" required>
-                <option value="">Select religion</option>
-                {RELIGIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-              </select>
-            </div>
-          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -579,6 +603,101 @@ export default function AppointmentTab() {
           </div>
         )}
       </motion.div>
+
+      {/* Appointment Confirmation Popup */}
+      {showAppointmentPopup && bookedAppointment && (
+        <div className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 pt-16 sm:pt-20 z-[9999] overflow-y-auto">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white w-full max-w-[340px] sm:max-w-[380px] rounded-2xl overflow-hidden shadow-2xl border border-gray-100"
+          >
+            {/* Header */}
+            <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-3 sm:px-5 sm:py-4 flex items-center gap-3">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
+                <PartyPopper className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-white">Appointment Confirmed!</h2>
+                <p className="text-emerald-100 text-[10px] sm:text-xs">Booking placed successfully</p>
+              </div>
+            </div>
+
+            {/* Appointment Details */}
+            <div className="p-3 sm:p-4 space-y-2.5">
+              {/* Date & Time */}
+              <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Calendar className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] text-emerald-600 font-medium">Date & Time</p>
+                    <p className="text-sm font-bold text-gray-900 truncate">
+                      {new Date(bookedAppointment.appointment_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                    {bookedAppointment.appointment_date && new Date(bookedAppointment.appointment_date).getHours() > 0 && (
+                      <p className="text-xs font-semibold text-emerald-700 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {new Date(bookedAppointment.appointment_date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Patient Info Row */}
+              <div className="flex gap-2">
+                <div className="flex-1 bg-gray-50 rounded-lg p-2.5">
+                  <p className="text-[10px] text-gray-500">Patient</p>
+                  <p className="text-xs font-semibold text-gray-800 truncate">{bookedAppointment.patient_name}</p>
+                </div>
+                <div className="w-16 bg-gray-50 rounded-lg p-2.5">
+                  <p className="text-[10px] text-gray-500">Age</p>
+                  <p className="text-xs font-semibold text-gray-800">{bookedAppointment.age}</p>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <div className="flex-1 bg-gray-50 rounded-lg p-2.5">
+                  <p className="text-[10px] text-gray-500">Case</p>
+                  <p className="text-xs font-semibold text-gray-800 truncate">{bookedAppointment.case_type}</p>
+                </div>
+                <div className="w-20 bg-emerald-50 rounded-lg p-2.5 flex items-center justify-center">
+                  <span className="text-[10px] font-medium text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Scheduled</span>
+                </div>
+              </div>
+
+              {/* Hospital */}
+              {bookedAppointment.hospital_name && (
+                <div className="bg-blue-50 rounded-lg p-2.5 border border-blue-100 flex items-center gap-2">
+                  <Stethoscope className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-blue-600">Hospital</p>
+                    <p className="text-xs font-semibold text-gray-800 truncate">{bookedAppointment.hospital_name}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Reminder */}
+              <div className="bg-amber-50 rounded-lg p-2 border border-amber-100 flex items-start gap-2">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <p className="text-[10px] text-amber-800">Carry ID proof & arrive 15 min early</p>
+              </div>
+            </div>
+
+            {/* Close Button */}
+            <div className="px-3 pb-3 sm:px-4 sm:pb-4">
+              <button
+                onClick={() => setShowAppointmentPopup(false)}
+                className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-medium text-sm shadow-md"
+              >
+                Got It!
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

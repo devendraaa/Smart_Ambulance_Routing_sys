@@ -11,9 +11,6 @@ const DOCTOR_TABS = [
   { id: "patient-info", label: "Patient Info", href: "/doctor?tab=patient-info", icon: "👤" },
   { id: "emergency", label: "Emergency", href: "/doctor?tab=emergency", icon: "🚨" },
   { id: "appointments", label: "Appointments", href: "/doctor?tab=appointments", icon: "📅" },
-  { id: "medicines", label: "Medicines", href: "/doctor?tab=medicines", icon: "💊" },
-  { id: "reports", label: "Reports", href: "/doctor?tab=reports", icon: "📋" },
-  { id: "diet", label: "Diet Plans", href: "/doctor?tab=diet", icon: "🥗" },
   { id: "hospital-info", label: "Hospital Info", href: "/doctor?tab=hospital-info", icon: "🏥" },
 ];
 
