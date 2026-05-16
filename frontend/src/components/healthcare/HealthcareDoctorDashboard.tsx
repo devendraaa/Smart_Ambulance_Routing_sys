@@ -10,6 +10,7 @@ import DoctorMedicinesTab from "./DoctorMedicinesTab";
 import DoctorReportsTab from "./DoctorReportsTab";
 import DoctorDietTab from "./DoctorDietTab";
 import DoctorEmergencyTab from "./DoctorEmergencyTab";
+import HospitalInfoTab from "./HospitalInfoTab";
 
 function TabContent() {
   const searchParams = useSearchParams();
@@ -39,6 +40,8 @@ function TabContent() {
         return <DoctorReportsTab />;
       case "diet":
         return <DoctorDietTab />;
+      case "hospital-info":
+        return <HospitalInfoTab />;
       default:
         return <DoctorPatientInfo />;
     }

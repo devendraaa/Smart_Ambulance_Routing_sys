@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Calendar, Search, Filter, Pill, FileText, Utensils, X, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { fetchHospitalsList } from "@/lib/api";
 
 interface Appointment {
   id: string;
@@ -726,11 +727,42 @@ export default function DoctorAppointmentsTab() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterHospital, setFilterHospital] = useState<string>("all");
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [hospitals, setHospitals] = useState<{ name: string; count: number }[]>([]);
 
   useEffect(() => {
     loadAppointments();
+    loadHospitals();
   }, []);
+
+  const loadHospitals = async () => {
+    try {
+      const data = await fetchHospitalsList();
+      const uniqueNames = [...new Set(data.hospitals.map(h => h.name).filter(Boolean))];
+
+      // Get appointment counts per hospital
+      const { data: appointmentsData } = await supabase
+        .from("patient_appointments")
+        .select("hospital_name");
+
+      const countMap: Record<string, number> = {};
+      appointmentsData?.forEach(apt => {
+        if (apt.hospital_name) {
+          countMap[apt.hospital_name] = (countMap[apt.hospital_name] || 0) + 1;
+        }
+      });
+
+      const hospitalsWithCount = uniqueNames.map(name => ({
+        name,
+        count: countMap[name] || 0
+      }));
+
+      setHospitals(hospitalsWithCount);
+    } catch (err) {
+      console.error("Error loading hospitals:", err);
+    }
+  };
 
   const loadAppointments = async () => {
     try {
@@ -753,7 +785,8 @@ export default function DoctorAppointmentsTab() {
       apt.patient_email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       apt.hospital_name?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = filterStatus === "all" || apt.status === filterStatus;
-    return matchesSearch && matchesStatus;
+    const matchesHospital = filterHospital === "all" || apt.hospital_name === filterHospital;
+    return matchesSearch && matchesStatus && matchesHospital;
   });
 
   const updateAppointmentStatus = async (aptId: string, newStatus: string) => {
@@ -779,7 +812,7 @@ export default function DoctorAppointmentsTab() {
           <Calendar className="w-5 h-5 text-blue-600" />
           All Patient Appointments
         </h2>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <input
             type="text"
             placeholder="Search patient..."
@@ -787,6 +820,16 @@ export default function DoctorAppointmentsTab() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="rounded-lg border-2 border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
           />
+          <select
+            value={filterHospital}
+            onChange={(e) => setFilterHospital(e.target.value)}
+            className="rounded-lg border-2 border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none bg-white"
+          >
+            <option value="all">All Hospitals</option>
+            {hospitals.map((h) => (
+              <option key={h.name} value={h.name}>{h.name} ({h.count})</option>
+            ))}
+          </select>
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}

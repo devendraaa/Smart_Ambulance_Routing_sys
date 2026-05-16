@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Calendar, MapPin, Phone, AlertTriangle, Droplet, Heart, UserPlus, CheckCircle2, Clock, FileText, Stethoscope, MapPinOff, Navigation } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { fetchHospitalsList } from "@/lib/api";
+import { fetchHospitalsList, fetchHospitalInfo, HospitalInfo } from "@/lib/api";
 
 const CASE_TYPES = [
   { value: "General OPD", label: "General OPD" },
@@ -114,6 +114,8 @@ export default function AppointmentTab() {
   const [selectedHospital, setSelectedHospital] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [doctorInfo, setDoctorInfo] = useState<HospitalInfo | null>(null);
+  const [loadingDoctorInfo, setLoadingDoctorInfo] = useState(false);
   const [success, setSuccess] = useState("");
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -200,6 +202,38 @@ export default function AppointmentTab() {
     fetchNearbyHospitals();
     fetchAppointments();
   }, [fetchNearbyHospitals]);
+
+  // Fetch doctor info when hospital and case type are selected
+  useEffect(() => {
+    const fetchDoctorInfo = async () => {
+      if (!selectedHospital || !caseType) {
+        setDoctorInfo(null);
+        return;
+      }
+
+      setLoadingDoctorInfo(true);
+      try {
+        const hospitalName = hospitals.find(h => h.id.toString() === selectedHospital)?.name;
+        if (!hospitalName) return;
+
+        const data = await fetchHospitalInfo(hospitalName, caseType);
+        if (data.length > 0) {
+          // Pick a random one from available options
+          const randomIndex = Math.floor(Math.random() * data.length);
+          setDoctorInfo(data[randomIndex]);
+        } else {
+          setDoctorInfo(null);
+        }
+      } catch (err) {
+        console.error("Error fetching doctor info:", err);
+        setDoctorInfo(null);
+      } finally {
+        setLoadingDoctorInfo(false);
+      }
+    };
+
+    fetchDoctorInfo();
+  }, [selectedHospital, caseType, hospitals]);
 
   const fetchAppointments = async () => {
     try {
@@ -457,6 +491,44 @@ export default function AppointmentTab() {
               </select>
             </div>
           </div>
+
+          {/* Doctor Info Display */}
+          {selectedHospital && caseType && (
+            <div className="p-4 bg-gradient-to-r from-emerald-50 to-cyan-50 rounded-xl border border-emerald-200">
+              {loadingDoctorInfo ? (
+                <div className="flex items-center gap-2 text-emerald-600">
+                  <div className="w-4 h-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                  Finding available doctor...
+                </div>
+              ) : doctorInfo ? (
+                <div>
+                  <p className="text-xs font-medium text-emerald-700 mb-2 flex items-center gap-1">
+                    <Stethoscope className="w-3.5 h-3.5" /> Assigned Doctor & Ward Details
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-white/80 rounded-lg p-2">
+                      <p className="text-xs text-gray-500">Doctor</p>
+                      <p className="text-sm font-medium text-gray-800">Dr. {doctorInfo.doctor_name}</p>
+                    </div>
+                    <div className="bg-white/80 rounded-lg p-2">
+                      <p className="text-xs text-gray-500">Ward No</p>
+                      <p className="text-sm font-medium text-gray-800">{doctorInfo.ward_no}</p>
+                    </div>
+                    <div className="bg-white/80 rounded-lg p-2">
+                      <p className="text-xs text-gray-500">Floor</p>
+                      <p className="text-sm font-medium text-gray-800">{doctorInfo.floor_no}</p>
+                    </div>
+                    <div className="bg-white/80 rounded-lg p-2">
+                      <p className="text-xs text-gray-500">Bed No</p>
+                      <p className="text-sm font-medium text-gray-800">{doctorInfo.bed_no || "TBD"}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-amber-600">No doctor info available for this hospital & case type. Please contact hospital.</p>
+              )}
+            </div>
+          )}
 
           <motion.button type="submit" disabled={loading || !selectedHospital} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-6 py-3 font-semibold text-white shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center gap-2 disabled:opacity-50">
             {loading ? <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />Booking...</> : <><Calendar className="w-5 h-5" />Book Appointment</>}

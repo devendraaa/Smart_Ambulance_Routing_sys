@@ -7,6 +7,7 @@ from app.routers import blood_banks
 from app.routers import installed_sensors
 from app.routers import geocode
 from app.routers import healthcare
+from app.routers import hospital_info
 from app.tasks.worker import background_worker_thread
 
 @asynccontextmanager
@@ -33,6 +34,7 @@ app.include_router(blood_banks.router, prefix="/api/blood-banks", tags=["blood-b
 app.include_router(installed_sensors.router, prefix="/api/installed-sensors", tags=["installed-sensors"])
 app.include_router(geocode.router, prefix="/api/geocode", tags=["geocode"])
 app.include_router(healthcare.router, prefix="/api/healthcare", tags=["healthcare"])
+app.include_router(hospital_info.router, prefix="/api/hospital-info", tags=["hospital-info"])
 
 @app.get("/api/health")
 async def health():

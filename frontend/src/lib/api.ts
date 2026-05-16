@@ -414,3 +414,44 @@ export async function fetchEmergencyCases(hospitalName?: string, startDate?: str
 export async function fetchEmergencyHospitals() {
   return fetchAPI<{ hospitals: string[] }>("/api/route/emergency/hospitals");
 }
+
+export async function fetchHospitalInfo(hospitalName?: string, caseType?: string) {
+  let url = "/api/hospital-info/";
+  const params = new URLSearchParams();
+  if (hospitalName) params.append("hospital_name", hospitalName);
+  if (caseType) params.append("case_type", caseType);
+  if (params.toString()) url += "?" + params.toString();
+  return fetchAPI<HospitalInfo[]>(url);
+}
+
+export async function createHospitalInfo(data: Omit<HospitalInfo, "id" | "created_at" | "updated_at">) {
+  return fetchAPI<HospitalInfo>("/api/hospital-info/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateHospitalInfo(id: string, data: Partial<HospitalInfo>) {
+  return fetchAPI<HospitalInfo>(`/api/hospital-info/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteHospitalInfo(id: string) {
+  return fetchAPI<{ message: string }>(`/api/hospital-info/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export type HospitalInfo = {
+  id: string;
+  hospital_name: string;
+  case_type: string;
+  doctor_name: string;
+  ward_no: string;
+  floor_no: string;
+  bed_no: string | null;
+  created_at: string;
+  updated_at: string;
+};

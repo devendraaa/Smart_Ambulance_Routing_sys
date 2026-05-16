@@ -14,6 +14,7 @@ const DOCTOR_TABS = [
   { id: "medicines", label: "Medicines", href: "/doctor?tab=medicines", icon: "💊" },
   { id: "reports", label: "Reports", href: "/doctor?tab=reports", icon: "📋" },
   { id: "diet", label: "Diet Plans", href: "/doctor?tab=diet", icon: "🥗" },
+  { id: "hospital-info", label: "Hospital Info", href: "/doctor?tab=hospital-info", icon: "🏥" },
 ];
 
 export default function DoctorNavbar() {
