@@ -725,6 +725,47 @@ function RoutePageContent() {
               </div>
             )}
           </div>
+
+          {/* Physiological Vitals Display */}
+          {(status.patient_bp_systolic || status.patient_bp_diastolic ||
+            status.patient_temperature || status.patient_pulse || status.patient_spo2) && (
+            <div className="mt-4 pt-4 border-t border-orange-200/50">
+              <div className="flex items-center gap-2 mb-3">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-cyan-600">
+                  <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                </svg>
+                <span className="text-xs font-bold text-cyan-700">Physiological Vitals</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                {(status.patient_bp_systolic || status.patient_bp_diastolic) && (
+                  <div className="bg-cyan-50 rounded-xl p-3 border border-cyan-200">
+                    <p className="text-xs text-cyan-600 font-medium">Blood Pressure</p>
+                    <p className="text-sm font-bold text-cyan-800">
+                      {status.patient_bp_systolic}/{status.patient_bp_diastolic} mmHg
+                    </p>
+                  </div>
+                )}
+                {status.patient_temperature && (
+                  <div className="bg-orange-50 rounded-xl p-3 border border-orange-200">
+                    <p className="text-xs text-orange-600 font-medium">Temperature</p>
+                    <p className="text-sm font-bold text-orange-800">{status.patient_temperature}°C</p>
+                  </div>
+                )}
+                {status.patient_pulse && (
+                  <div className="bg-rose-50 rounded-xl p-3 border border-rose-200">
+                    <p className="text-xs text-rose-600 font-medium">Pulse Rate</p>
+                    <p className="text-sm font-bold text-rose-800">{status.patient_pulse} bpm</p>
+                  </div>
+                )}
+                {status.patient_spo2 && (
+                  <div className="bg-purple-50 rounded-xl p-3 border border-purple-200">
+                    <p className="text-xs text-purple-600 font-medium">SpO2</p>
+                    <p className="text-sm font-bold text-purple-800">{status.patient_spo2}%</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </motion.div>
       )}
 

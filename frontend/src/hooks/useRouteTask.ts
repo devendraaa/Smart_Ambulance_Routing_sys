@@ -22,6 +22,12 @@ export function useRouteTask(taskId: string | null) {
     patient_case?: string;
     patient_blood_group?: string;
     patient_date?: string;
+    // Physiological vitals
+    patient_bp_systolic?: number;
+    patient_bp_diastolic?: number;
+    patient_temperature?: number;
+    patient_pulse?: number;
+    patient_spo2?: number;
   } | null>(null);
 
   const fetchStatus = useCallback(async () => {

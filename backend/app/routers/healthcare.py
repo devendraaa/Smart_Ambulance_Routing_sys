@@ -414,6 +414,336 @@ async def add_diet(data: DietCreate):
         raise HTTPException(500, f"Failed to add diet: {str(e)}")
 
 
+# ============== Doctor Prescriptions & Tests ==============
+
+class DoctorPrescriptionCreate(BaseModel):
+    patient_email: str
+    patient_name: Optional[str] = None
+    patient_phone: Optional[str] = None
+    doctor_name: str
+    hospital_id: Optional[str] = None
+    hospital_name: Optional[str] = None
+    symptoms: Optional[str] = None
+    diagnosis: Optional[str] = None
+    prescription_notes: Optional[str] = None
+    medicines: Optional[str] = None  # JSON string
+    follow_up_date: Optional[str] = None
+
+
+class DoctorTestCreate(BaseModel):
+    patient_email: str
+    patient_name: Optional[str] = None
+    patient_phone: Optional[str] = None
+    doctor_name: str
+    hospital_id: Optional[str] = None
+    hospital_name: Optional[str] = None
+    test_type: str
+    test_reason: Optional[str] = None
+    urgency: Optional[str] = "normal"
+    notes: Optional[str] = None
+
+
+class TestAppointmentCreate(BaseModel):
+    test_id: str
+    appointment_date: str  # YYYY-MM-DD
+    appointment_time: str
+    technician_name: Optional[str] = None
+    room_number: Optional[str] = None
+    preparation_notes: Optional[str] = None
+
+
+# --- Doctor Prescription Endpoints ---
+@router.post("/doctor/prescriptions")
+async def create_doctor_prescription(data: DoctorPrescriptionCreate):
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database not configured")
+
+    try:
+        result = sb.table("doctor_prescriptions").insert({
+            "patient_email": data.patient_email,
+            "patient_name": data.patient_name,
+            "patient_phone": data.patient_phone,
+            "doctor_name": data.doctor_name,
+            "hospital_id": data.hospital_id,
+            "hospital_name": data.hospital_name,
+            "symptoms": data.symptoms,
+            "diagnosis": data.diagnosis,
+            "prescription_notes": data.prescription_notes,
+            "medicines": data.medicines,
+            "follow_up_date": data.follow_up_date,
+        }).execute()
+        return {"id": result.data[0]["id"], "message": "Prescription created successfully"}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to create prescription: {str(e)}")
+
+
+@router.get("/doctor/prescriptions")
+async def get_doctor_prescriptions(
+    hospital_id: Optional[str] = None,
+    doctor_name: Optional[str] = None,
+    patient_email: Optional[str] = None
+):
+    sb = get_supabase()
+    if not sb:
+        return {"prescriptions": []}
+
+    try:
+        query = sb.table("doctor_prescriptions").select("*").order("created_at", desc=True)
+        if hospital_id:
+            query = query.eq("hospital_id", hospital_id)
+        if doctor_name:
+            query = query.eq("doctor_name", doctor_name)
+        if patient_email:
+            query = query.eq("patient_email", patient_email)
+
+        result = query.execute()
+        return {"prescriptions": result.data}
+    except Exception as e:
+        return {"prescriptions": [], "error": str(e)}
+
+
+@router.get("/doctor/prescriptions/stats")
+async def get_prescription_stats(hospital_id: Optional[str] = None):
+    sb = get_supabase()
+    if not sb:
+        return {"total": 0, "today": 0, "by_hospital": []}
+
+    try:
+        query = sb.table("doctor_prescriptions").select("*")
+        if hospital_id:
+            query = query.eq("hospital_id", hospital_id)
+        result = query.execute()
+
+        today = datetime.utcnow().date()
+        prescriptions = result.data
+
+        total = len(prescriptions)
+        today_count = sum(1 for p in prescriptions if p.get("created_at") and
+                         datetime.fromisoformat(p["created_at"].replace("Z", "+00:00")).date() == today)
+
+        # Hospital-wise count
+        hospital_stats = {}
+        for p in prescriptions:
+            h_name = p.get("hospital_name", "Unknown")
+            hospital_stats[h_name] = hospital_stats.get(h_name, 0) + 1
+
+        by_hospital = [{"hospital": k, "count": v} for k, v in hospital_stats.items()]
+
+        return {"total": total, "today": today_count, "by_hospital": by_hospital}
+    except Exception as e:
+        return {"total": 0, "today": 0, "by_hospital": [], "error": str(e)}
+
+
+# --- Doctor Test Assignment Endpoints ---
+@router.post("/doctor/tests")
+async def create_doctor_test(data: DoctorTestCreate):
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database not configured")
+
+    try:
+        result = sb.table("doctor_tests").insert({
+            "patient_email": data.patient_email,
+            "patient_name": data.patient_name,
+            "patient_phone": data.patient_phone,
+            "doctor_name": data.doctor_name,
+            "hospital_id": data.hospital_id,
+            "hospital_name": data.hospital_name,
+            "test_type": data.test_type,
+            "test_reason": data.test_reason,
+            "urgency": data.urgency,
+            "notes": data.notes,
+            "status": "assigned",
+        }).execute()
+        return {"id": result.data[0]["id"], "message": "Test assigned successfully"}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to assign test: {str(e)}")
+
+
+@router.get("/doctor/tests")
+async def get_doctor_tests(
+    hospital_id: Optional[str] = None,
+    status: Optional[str] = None,
+    patient_email: Optional[str] = None
+):
+    sb = get_supabase()
+    if not sb:
+        return {"tests": []}
+
+    try:
+        query = sb.table("doctor_tests").select("*").order("created_at", desc=True)
+        if hospital_id:
+            query = query.eq("hospital_id", hospital_id)
+        if status:
+            query = query.eq("status", status)
+        if patient_email:
+            query = query.eq("patient_email", patient_email)
+
+        result = query.execute()
+        return {"tests": result.data}
+    except Exception as e:
+        return {"tests": [], "error": str(e)}
+
+
+@router.get("/doctor/tests/stats")
+async def get_test_stats(hospital_id: Optional[str] = None):
+    sb = get_supabase()
+    if not sb:
+        return {"total": 0, "pending": 0, "completed": 0, "by_type": [], "by_hospital": []}
+
+    try:
+        query = sb.table("doctor_tests").select("*")
+        if hospital_id:
+            query = query.eq("hospital_id", hospital_id)
+        result = query.execute()
+
+        tests = result.data
+        total = len(tests)
+        pending = sum(1 for t in tests if t.get("status") in ["assigned", "scheduled"])
+        completed = sum(1 for t in tests if t.get("status") == "completed")
+
+        # By test type
+        type_stats = {}
+        for t in tests:
+            t_type = t.get("test_type", "Unknown")
+            type_stats[t_type] = type_stats.get(t_type, 0) + 1
+
+        by_type = [{"test_type": k, "count": v} for k, v in type_stats.items()]
+
+        # Hospital-wise
+        hospital_stats = {}
+        for t in tests:
+            h_name = t.get("hospital_name", "Unknown")
+            hospital_stats[h_name] = hospital_stats.get(h_name, 0) + 1
+
+        by_hospital = [{"hospital": k, "count": v} for k, v in hospital_stats.items()]
+
+        return {"total": total, "pending": pending, "completed": completed, "by_type": by_type, "by_hospital": by_hospital}
+    except Exception as e:
+        return {"total": 0, "pending": 0, "completed": 0, "by_type": [], "by_hospital": [], "error": str(e)}
+
+
+@router.put("/doctor/tests/{test_id}/status")
+async def update_test_status(test_id: str, status: str):
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database not configured")
+
+    try:
+        result = sb.table("doctor_tests").update({
+            "status": status,
+            "updated_at": datetime.utcnow().isoformat()
+        }).eq("id", test_id).execute()
+        return {"message": "Test status updated", "id": test_id}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to update test status: {str(e)}")
+
+
+# --- Test Appointments (Test Operator) ---
+@router.post("/tests/appointments")
+async def create_test_appointment(data: TestAppointmentCreate):
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database not configured")
+
+    try:
+        # First get test details
+        test_result = sb.table("doctor_tests").select("*").eq("id", data.test_id).execute()
+        if not test_result.data:
+            raise HTTPException(404, "Test not found")
+
+        test = test_result.data[0]
+
+        # Create appointment
+        result = sb.table("test_appointments").insert({
+            "test_id": data.test_id,
+            "patient_email": test.get("patient_email"),
+            "patient_name": test.get("patient_name"),
+            "test_type": test.get("test_type"),
+            "hospital_id": test.get("hospital_id"),
+            "hospital_name": test.get("hospital_name"),
+            "appointment_date": data.appointment_date,
+            "appointment_time": data.appointment_time,
+            "technician_name": data.technician_name,
+            "room_number": data.room_number,
+            "preparation_notes": data.preparation_notes,
+            "status": "scheduled",
+        }).execute()
+
+        # Update test status to scheduled
+        sb.table("doctor_tests").update({
+            "status": "scheduled",
+            "updated_at": datetime.utcnow().isoformat()
+        }).eq("id", data.test_id).execute()
+
+        return {"id": result.data[0]["id"], "message": "Appointment scheduled successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Failed to create appointment: {str(e)}")
+
+
+@router.get("/tests/appointments")
+async def get_test_appointments(
+    hospital_id: Optional[str] = None,
+    patient_email: Optional[str] = None,
+    date: Optional[str] = None
+):
+    sb = get_supabase()
+    if not sb:
+        return {"appointments": []}
+
+    try:
+        query = sb.table("test_appointments").select("*").order("appointment_date", desc=True).order("appointment_time", desc=True)
+        if hospital_id:
+            query = query.eq("hospital_id", hospital_id)
+        if patient_email:
+            query = query.eq("patient_email", patient_email)
+        if date:
+            query = query.eq("appointment_date", date)
+
+        result = query.execute()
+        return {"appointments": result.data}
+    except Exception as e:
+        return {"appointments": [], "error": str(e)}
+
+
+@router.put("/tests/appointments/{appointment_id}")
+async def update_test_appointment(appointment_id: str, status: Optional[str] = None, appointment_date: Optional[str] = None, appointment_time: Optional[str] = None):
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database not configured")
+
+    try:
+        update_data = {"updated_at": datetime.utcnow().isoformat()}
+        if status:
+            update_data["status"] = status
+        if appointment_date:
+            update_data["appointment_date"] = appointment_date
+        if appointment_time:
+            update_data["appointment_time"] = appointment_time
+
+        result = sb.table("test_appointments").update(update_data).eq("id", appointment_id).execute()
+        return {"message": "Appointment updated", "id": appointment_id}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to update appointment: {str(e)}")
+
+
+# --- Hospitals List ---
+@router.get("/hospitals")
+async def get_hospitals_list():
+    sb = get_supabase()
+    if not sb:
+        return {"hospitals": []}
+
+    try:
+        result = sb.table("hospitals").select("id, name, address, city, state, contact_phone, hospital_type, bed_capacity").execute()
+        return {"hospitals": result.data}
+    except Exception as e:
+        return {"hospitals": [], "error": str(e)}
+
+
 @router.get("/diets/{patient_email}")
 async def get_patient_diets(patient_email: str, active_only: bool = True):
     sb = get_supabase()

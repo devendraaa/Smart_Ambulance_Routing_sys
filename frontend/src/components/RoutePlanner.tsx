@@ -6,7 +6,8 @@ import { startRouteCompute, searchHospitals, fetchHospitalsList } from "@/lib/ap
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin, Hospital, Navigation, Loader2, CheckCircle2, AlertCircle,
-  Crosshair, Clock, Bed, Stethoscope, ChevronDown, Zap, User, Phone, Calendar, AlertTriangle, Droplet
+  Crosshair, Clock, Bed, Stethoscope, ChevronDown, Zap, User, Phone, Calendar, AlertTriangle, Droplet,
+  Activity, Thermometer, Heart, Wind
 } from "lucide-react";
 
 type NearbyHospital = {
@@ -51,6 +52,12 @@ export default function RoutePlanner() {
   const [patientCase, setPatientCase] = useState("");
   const [patientBloodGroup, setPatientBloodGroup] = useState("");
   const [patientDate, setPatientDate] = useState("");
+  // Physiological conditions
+  const [patientBpSystolic, setPatientBpSystolic] = useState("");
+  const [patientBpDiastolic, setPatientBpDiastolic] = useState("");
+  const [patientTemperature, setPatientTemperature] = useState("");
+  const [patientPulse, setPatientPulse] = useState("");
+  const [patientSpo2, setPatientSpo2] = useState("");
   // Ambulance details
   const [ambulanceNumber, setAmbulanceNumber] = useState("");
   const [driverName, setDriverName] = useState("");
@@ -189,6 +196,11 @@ export default function RoutePlanner() {
       ambulance_number?: string;
       driver_name?: string;
       driver_mobile?: string;
+      patient_bp_systolic?: number;
+      patient_bp_diastolic?: number;
+      patient_temperature?: number;
+      patient_pulse?: number;
+      patient_spo2?: number;
     } = {
       origin_lat: originLat!,
       origin_lon: originLon!,
@@ -208,6 +220,12 @@ export default function RoutePlanner() {
     if (ambulanceNumber) payload.ambulance_number = ambulanceNumber;
     if (driverName) payload.driver_name = driverName;
     if (driverMobile) payload.driver_mobile = driverMobile;
+    // Physiological conditions
+    if (patientBpSystolic) payload.patient_bp_systolic = parseInt(patientBpSystolic);
+    if (patientBpDiastolic) payload.patient_bp_diastolic = parseInt(patientBpDiastolic);
+    if (patientTemperature) payload.patient_temperature = parseFloat(patientTemperature);
+    if (patientPulse) payload.patient_pulse = parseInt(patientPulse);
+    if (patientSpo2) payload.patient_spo2 = parseInt(patientSpo2);
 
     // Save patient details to localStorage
     if (patientName) localStorage.setItem("patientName", patientName);
@@ -220,6 +238,11 @@ export default function RoutePlanner() {
     if (patientCase) localStorage.setItem("patientCase", patientCase);
     if (patientBloodGroup) localStorage.setItem("patientBloodGroup", patientBloodGroup);
     if (patientDate) localStorage.setItem("patientDate", patientDate);
+    if (patientBpSystolic) localStorage.setItem("patientBpSystolic", patientBpSystolic);
+    if (patientBpDiastolic) localStorage.setItem("patientBpDiastolic", patientBpDiastolic);
+    if (patientTemperature) localStorage.setItem("patientTemperature", patientTemperature);
+    if (patientPulse) localStorage.setItem("patientPulse", patientPulse);
+    if (patientSpo2) localStorage.setItem("patientSpo2", patientSpo2);
 
     try {
       const data = await startRouteCompute(payload);
@@ -290,7 +313,7 @@ export default function RoutePlanner() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Date */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">
@@ -306,7 +329,7 @@ export default function RoutePlanner() {
           </div>
 
           {/* Patient Name */}
-          <div className="col-span-2">
+          <div className="col-span-1 sm:col-span-2 lg:col-span-2">
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">
               <User className="w-3.5 h-3.5 inline mr-1" />
               Patient Name
@@ -394,7 +417,7 @@ export default function RoutePlanner() {
           </div>
 
           {/* Case Type - spans full width */}
-          <div className="col-span-2 sm:col-span-3 lg:col-span-6">
+          <div className="col-span-1 sm:col-span-2 lg:col-span-4">
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">
               <AlertTriangle className="w-3.5 h-3.5 inline mr-1" />
               Emergency Case Type
@@ -410,6 +433,127 @@ export default function RoutePlanner() {
               <option value="Burn">Burn</option>
               <option value="Other">Other</option>
             </select>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* ─── Physiological Vitals Section ─── */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+        className="bg-gradient-to-br from-cyan-50 to-blue-50 rounded-2xl p-5 border border-cyan-100"
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-lg flex items-center justify-center">
+            <Activity className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-gray-800">Physiological Vitals</h3>
+            <p className="text-xs text-gray-500">Patient's current vital signs (optional)</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-4">
+          {/* Blood Pressure - Systolic */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+              <Activity className="w-3.5 h-3.5 inline mr-1" />
+              BP Systolic
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                min="60"
+                max="250"
+                value={patientBpSystolic}
+                onChange={(e) => setPatientBpSystolic(e.target.value)}
+                placeholder="120"
+                className="w-full rounded-xl border-2 border-cyan-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 transition pr-10"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">mmHg</span>
+            </div>
+          </div>
+
+          {/* Blood Pressure - Diastolic */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+              <Activity className="w-3.5 h-3.5 inline mr-1" />
+              BP Diastolic
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                min="40"
+                max="150"
+                value={patientBpDiastolic}
+                onChange={(e) => setPatientBpDiastolic(e.target.value)}
+                placeholder="80"
+                className="w-full rounded-xl border-2 border-cyan-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 transition pr-10"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">mmHg</span>
+            </div>
+          </div>
+
+          {/* Temperature */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+              <Thermometer className="w-3.5 h-3.5 inline mr-1" />
+              Temperature
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                step="0.1"
+                min="30"
+                max="45"
+                value={patientTemperature}
+                onChange={(e) => setPatientTemperature(e.target.value)}
+                placeholder="37.0"
+                className="w-full rounded-xl border-2 border-cyan-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 transition pr-12"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">°C</span>
+            </div>
+          </div>
+
+          {/* Pulse Rate */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+              <Heart className="w-3.5 h-3.5 inline mr-1" />
+              Pulse Rate
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                min="30"
+                max="220"
+                value={patientPulse}
+                onChange={(e) => setPatientPulse(e.target.value)}
+                placeholder="72"
+                className="w-full rounded-xl border-2 border-cyan-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 transition pr-12"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">bpm</span>
+            </div>
+          </div>
+
+          {/* SpO2 */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+              <Wind className="w-3.5 h-3.5 inline mr-1" />
+              SpO2
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                min="50"
+                max="100"
+                value={patientSpo2}
+                onChange={(e) => setPatientSpo2(e.target.value)}
+                placeholder="98"
+                className="w-full rounded-xl border-2 border-cyan-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 transition pr-10"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
+            </div>
           </div>
         </div>
       </motion.div>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { fetchHospitalsList, getTaskStatus, reverseGeocode, fetchBloodBanks } from "@/lib/api";
-import { Hospital, MapPin, Calendar, User, Phone, AlertTriangle, Droplet, Loader2, Clock, Navigation, CheckCircle, Truck, Activity } from "lucide-react";
+import { Hospital, MapPin, Calendar, User, Phone, AlertTriangle, Droplet, Loader2, Clock, Navigation, CheckCircle, Truck, Activity, Thermometer, Heart, Wind, AlertCircle, Stethoscope, Pill, TestTube, Bed, ChevronDown, ChevronUp, Save, Edit3 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -39,6 +39,19 @@ type EmergencyCase = {
   driver_name?: string;
   driver_mobile?: string;
   blood_availability?: { blood_type: string; available_liters: number }[];
+  // Physiological vitals
+  patient_bp_systolic?: number;
+  patient_bp_diastolic?: number;
+  patient_temperature?: number;
+  patient_pulse?: number;
+  patient_spo2?: number;
+  // Doctor treatment fields
+  treatment_problem?: string;
+  treatment_details?: string;
+  treatment_medicine?: string;
+  treatment_tests?: string;
+  consultant_name?: string;
+  bed_number?: string;
 };
 
 export default function DoctorEmergencyTab() {
@@ -47,6 +60,16 @@ export default function DoctorEmergencyTab() {
   const [cases, setCases] = useState<EmergencyCase[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingHospitals, setLoadingHospitals] = useState(true);
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [treatmentForm, setTreatmentForm] = useState({
+    treatment_problem: "",
+    treatment_details: "",
+    treatment_medicine: "",
+    treatment_tests: "",
+    consultant_name: "",
+    bed_number: "",
+  });
 
   // Fetch hospitals on mount
   useEffect(() => {
@@ -173,6 +196,55 @@ export default function DoctorEmergencyTab() {
     return date.toLocaleTimeString("en-IN", {
       hour: "2-digit",
       minute: "2-digit",
+    });
+  };
+
+  const toggleExpand = (taskId: string) => {
+    setExpandedCards((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(taskId)) {
+        newSet.delete(taskId);
+      } else {
+        newSet.add(taskId);
+      }
+      return newSet;
+    });
+  };
+
+  const startEditing = (emergencyCase: EmergencyCase) => {
+    setEditingId(emergencyCase.task_id);
+    setTreatmentForm({
+      treatment_problem: emergencyCase.treatment_problem || "",
+      treatment_details: emergencyCase.treatment_details || "",
+      treatment_medicine: emergencyCase.treatment_medicine || "",
+      treatment_tests: emergencyCase.treatment_tests || "",
+      consultant_name: emergencyCase.consultant_name || "",
+      bed_number: emergencyCase.bed_number || "",
+    });
+  };
+
+  const saveTreatment = async (taskId: string) => {
+    // Update local state with the new treatment data
+    setCases((prev) =>
+      prev.map((c) =>
+        c.task_id === taskId
+          ? { ...c, ...treatmentForm }
+          : c
+      )
+    );
+    setEditingId(null);
+    // Here you could also call an API to save to backend
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setTreatmentForm({
+      treatment_problem: "",
+      treatment_details: "",
+      treatment_medicine: "",
+      treatment_tests: "",
+      consultant_name: "",
+      bed_number: "",
     });
   };
 
@@ -364,8 +436,86 @@ export default function DoctorEmergencyTab() {
                 </div>
               </div>
 
+              {/* Physiological Vitals Display */}
+              {(emergencyCase.patient_bp_systolic || emergencyCase.patient_bp_diastolic ||
+                emergencyCase.patient_temperature || emergencyCase.patient_pulse || emergencyCase.patient_spo2) && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Activity className="w-4 h-4 text-cyan-600" />
+                    <span className="text-xs font-bold text-cyan-700 uppercase tracking-wide">Physiological Vitals</span>
+                    {isAnyVitalAbnormal(emergencyCase) && (
+                      <motion.span
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-500 text-white rounded-full text-xs font-bold animate-pulse"
+                      >
+                        <AlertCircle className="w-3 h-3" />
+                        ABNORMAL
+                      </motion.span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    {/* Blood Pressure */}
+                    {(emergencyCase.patient_bp_systolic || emergencyCase.patient_bp_diastolic) && (
+                      <div className={`rounded-xl p-3 border-2 ${isBpHigh(emergencyCase.patient_bp_systolic, emergencyCase.patient_bp_diastolic) ? "bg-red-50 border-red-300 shadow-lg shadow-red-100" : "bg-cyan-50 border-cyan-200"}`}>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Activity className={`w-3.5 h-3.5 ${isBpHigh(emergencyCase.patient_bp_systolic, emergencyCase.patient_bp_diastolic) ? "text-red-600" : "text-cyan-600"}`} />
+                          <span className={`text-xs font-semibold ${isBpHigh(emergencyCase.patient_bp_systolic, emergencyCase.patient_bp_diastolic) ? "text-red-700" : "text-cyan-700"}`}>Blood Pressure</span>
+                        </div>
+                        <p className={`text-lg font-bold ${isBpHigh(emergencyCase.patient_bp_systolic, emergencyCase.patient_bp_diastolic) ? "text-red-800" : "text-cyan-800"}`}>
+                          {emergencyCase.patient_bp_systolic}/{emergencyCase.patient_bp_diastolic}
+                        </p>
+                        <span className={`text-xs ${isBpHigh(emergencyCase.patient_bp_systolic, emergencyCase.patient_bp_diastolic) ? "text-red-500" : "text-cyan-500"}`}>mmHg</span>
+                      </div>
+                    )}
+
+                    {/* Temperature */}
+                    {emergencyCase.patient_temperature && (
+                      <div className={`rounded-xl p-3 border-2 ${isTemperatureHigh(emergencyCase.patient_temperature) ? "bg-red-50 border-red-300 shadow-lg shadow-red-100" : "bg-orange-50 border-orange-200"}`}>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Thermometer className={`w-3.5 h-3.5 ${isTemperatureHigh(emergencyCase.patient_temperature) ? "text-red-600" : "text-orange-600"}`} />
+                          <span className={`text-xs font-semibold ${isTemperatureHigh(emergencyCase.patient_temperature) ? "text-red-700" : "text-orange-700"}`}>Temperature</span>
+                        </div>
+                        <p className={`text-lg font-bold ${isTemperatureHigh(emergencyCase.patient_temperature) ? "text-red-800" : "text-orange-800"}`}>
+                          {emergencyCase.patient_temperature}
+                        </p>
+                        <span className={`text-xs ${isTemperatureHigh(emergencyCase.patient_temperature) ? "text-red-500" : "text-orange-500"}`}>°C</span>
+                      </div>
+                    )}
+
+                    {/* Pulse Rate */}
+                    {emergencyCase.patient_pulse && (
+                      <div className={`rounded-xl p-3 border-2 ${isPulseHigh(emergencyCase.patient_pulse) || isPulseLow(emergencyCase.patient_pulse) ? "bg-red-50 border-red-300 shadow-lg shadow-red-100" : "bg-rose-50 border-rose-200"}`}>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Heart className={`w-3.5 h-3.5 ${isPulseHigh(emergencyCase.patient_pulse) || isPulseLow(emergencyCase.patient_pulse) ? "text-red-600" : "text-rose-600"}`} />
+                          <span className={`text-xs font-semibold ${isPulseHigh(emergencyCase.patient_pulse) || isPulseLow(emergencyCase.patient_pulse) ? "text-red-700" : "text-rose-700"}`}>Pulse Rate</span>
+                        </div>
+                        <p className={`text-lg font-bold ${isPulseHigh(emergencyCase.patient_pulse) || isPulseLow(emergencyCase.patient_pulse) ? "text-red-800" : "text-rose-800"}`}>
+                          {emergencyCase.patient_pulse}
+                        </p>
+                        <span className={`text-xs ${isPulseHigh(emergencyCase.patient_pulse) || isPulseLow(emergencyCase.patient_pulse) ? "text-red-500" : "text-rose-500"}`}>bpm</span>
+                      </div>
+                    )}
+
+                    {/* SpO2 */}
+                    {emergencyCase.patient_spo2 && (
+                      <div className={`rounded-xl p-3 border-2 ${isSpo2Low(emergencyCase.patient_spo2) ? "bg-red-50 border-red-300 shadow-lg shadow-red-100" : "bg-purple-50 border-purple-200"}`}>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Wind className={`w-3.5 h-3.5 ${isSpo2Low(emergencyCase.patient_spo2) ? "text-red-600" : "text-purple-600"}`} />
+                          <span className={`text-xs font-semibold ${isSpo2Low(emergencyCase.patient_spo2) ? "text-red-700" : "text-purple-700"}`}>SpO2</span>
+                        </div>
+                        <p className={`text-lg font-bold ${isSpo2Low(emergencyCase.patient_spo2) ? "text-red-800" : "text-purple-800"}`}>
+                          {emergencyCase.patient_spo2}
+                        </p>
+                        <span className={`text-xs ${isSpo2Low(emergencyCase.patient_spo2) ? "text-red-500" : "text-purple-500"}`}>%</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Location & Arrival Details */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
+              <div className="mt-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Origin Address */}
                   <div>
@@ -462,6 +612,245 @@ export default function DoctorEmergencyTab() {
                   </div>
                 )}
               </div>
+
+              {/* Doctor Treatment Section */}
+              <div className="mt-4">
+                <button
+                  onClick={() => toggleExpand(emergencyCase.task_id)}
+                  className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl border border-violet-200 hover:from-violet-100 hover:to-purple-100 transition-all"
+                >
+                  <div className="flex items-center gap-2">
+                    <Stethoscope className="w-4 h-4 text-violet-600" />
+                    <span className="text-xs font-bold text-violet-700 uppercase tracking-wide">Doctor Treatment</span>
+                    {(emergencyCase.treatment_problem || emergencyCase.consultant_name || emergencyCase.bed_number) && (
+                      <span className="px-2 py-0.5 bg-violet-500 text-white rounded-full text-xs">Saved</span>
+                    )}
+                  </div>
+                  {expandedCards.has(emergencyCase.task_id) ? (
+                    <ChevronUp className="w-4 h-4 text-violet-500" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-violet-500" />
+                  )}
+                </button>
+
+                {expandedCards.has(emergencyCase.task_id) && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mt-3 bg-white rounded-xl border border-violet-200 p-4"
+                  >
+                    {editingId === emergencyCase.task_id ? (
+                      /* Edit Mode */
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {/* Problem */}
+                          <div>
+                            <label className="block text-xs font-semibold text-violet-600 mb-1.5">
+                              <AlertCircle className="w-3.5 h-3.5 inline mr-1" />
+                              Patient Problem
+                            </label>
+                            <textarea
+                              value={treatmentForm.treatment_problem}
+                              onChange={(e) => setTreatmentForm({ ...treatmentForm, treatment_problem: e.target.value })}
+                              placeholder="Describe patient's problem..."
+                              rows={2}
+                              className="w-full rounded-lg border-2 border-violet-200 bg-violet-50 px-3 py-2 text-sm focus:outline-none focus:border-violet-400 focus:bg-white transition"
+                            />
+                          </div>
+
+                          {/* Treatment */}
+                          <div>
+                            <label className="block text-xs font-semibold text-violet-600 mb-1.5">
+                              <Stethoscope className="w-3.5 h-3.5 inline mr-1" />
+                              Treatment
+                            </label>
+                            <textarea
+                              value={treatmentForm.treatment_details}
+                              onChange={(e) => setTreatmentForm({ ...treatmentForm, treatment_details: e.target.value })}
+                              placeholder="Treatment given..."
+                              rows={2}
+                              className="w-full rounded-lg border-2 border-violet-200 bg-violet-50 px-3 py-2 text-sm focus:outline-none focus:border-violet-400 focus:bg-white transition"
+                            />
+                          </div>
+
+                          {/* Medicine */}
+                          <div>
+                            <label className="block text-xs font-semibold text-violet-600 mb-1.5">
+                              <Pill className="w-3.5 h-3.5 inline mr-1" />
+                              Medicines
+                            </label>
+                            <textarea
+                              value={treatmentForm.treatment_medicine}
+                              onChange={(e) => setTreatmentForm({ ...treatmentForm, treatment_medicine: e.target.value })}
+                              placeholder="Medicines prescribed..."
+                              rows={2}
+                              className="w-full rounded-lg border-2 border-violet-200 bg-violet-50 px-3 py-2 text-sm focus:outline-none focus:border-violet-400 focus:bg-white transition"
+                            />
+                          </div>
+
+                          {/* Tests */}
+                          <div>
+                            <label className="block text-xs font-semibold text-violet-600 mb-1.5">
+                              <TestTube className="w-3.5 h-3.5 inline mr-1" />
+                              New Tests
+                            </label>
+                            <textarea
+                              value={treatmentForm.treatment_tests}
+                              onChange={(e) => setTreatmentForm({ ...treatmentForm, treatment_tests: e.target.value })}
+                              placeholder="Tests to be conducted..."
+                              rows={2}
+                              className="w-full rounded-lg border-2 border-violet-200 bg-violet-50 px-3 py-2 text-sm focus:outline-none focus:border-violet-400 focus:bg-white transition"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Consultant & Bed in one row */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-violet-100">
+                          <div>
+                            <label className="block text-xs font-semibold text-violet-600 mb-1.5">
+                              <User className="w-3.5 h-3.5 inline mr-1" />
+                              Consultant Doctor
+                            </label>
+                            <input
+                              type="text"
+                              value={treatmentForm.consultant_name}
+                              onChange={(e) => setTreatmentForm({ ...treatmentForm, consultant_name: e.target.value })}
+                              placeholder="Dr. Name"
+                              className="w-full rounded-lg border-2 border-violet-200 bg-violet-50 px-3 py-2 text-sm focus:outline-none focus:border-violet-400 focus:bg-white transition"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-violet-600 mb-1.5">
+                              <Bed className="w-3.5 h-3.5 inline mr-1" />
+                              Bed Number
+                            </label>
+                            <input
+                              type="text"
+                              value={treatmentForm.bed_number}
+                              onChange={(e) => setTreatmentForm({ ...treatmentForm, bed_number: e.target.value })}
+                              placeholder="e.g., ICU-101, Ward-A5"
+                              className="w-full rounded-lg border-2 border-violet-200 bg-violet-50 px-3 py-2 text-sm focus:outline-none focus:border-violet-400 focus:bg-white transition"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex justify-end gap-2 pt-3">
+                          <button
+                            onClick={cancelEditing}
+                            className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => saveTreatment(emergencyCase.task_id)}
+                            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition"
+                          >
+                            <Save className="w-4 h-4" />
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* View Mode */
+                      <div className="space-y-4">
+                        {(emergencyCase.treatment_problem || emergencyCase.treatment_details ||
+                          emergencyCase.treatment_medicine || emergencyCase.treatment_tests ||
+                          emergencyCase.consultant_name || emergencyCase.bed_number) ? (
+                          <div className="space-y-3">
+                            {/* Problem & Treatment */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {emergencyCase.treatment_problem && (
+                                <div className="bg-rose-50 rounded-lg p-3 border border-rose-100">
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                                    <span className="text-xs font-semibold text-rose-700">Patient Problem</span>
+                                  </div>
+                                  <p className="text-sm text-rose-800">{emergencyCase.treatment_problem}</p>
+                                </div>
+                              )}
+                              {emergencyCase.treatment_details && (
+                                <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <Stethoscope className="w-3.5 h-3.5 text-blue-600" />
+                                    <span className="text-xs font-semibold text-blue-700">Treatment</span>
+                                  </div>
+                                  <p className="text-sm text-blue-800">{emergencyCase.treatment_details}</p>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Medicine & Tests */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {emergencyCase.treatment_medicine && (
+                                <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-100">
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <Pill className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span className="text-xs font-semibold text-emerald-700">Medicines</span>
+                                  </div>
+                                  <p className="text-sm text-emerald-800">{emergencyCase.treatment_medicine}</p>
+                                </div>
+                              )}
+                              {emergencyCase.treatment_tests && (
+                                <div className="bg-amber-50 rounded-lg p-3 border border-amber-100">
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <TestTube className="w-3.5 h-3.5 text-amber-600" />
+                                    <span className="text-xs font-semibold text-amber-700">New Tests</span>
+                                  </div>
+                                  <p className="text-sm text-amber-800">{emergencyCase.treatment_tests}</p>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Consultant & Bed */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-violet-100">
+                              {emergencyCase.consultant_name && (
+                                <div className="bg-violet-50 rounded-lg p-3 border border-violet-100">
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <User className="w-3.5 h-3.5 text-violet-600" />
+                                    <span className="text-xs font-semibold text-violet-700">Consultant</span>
+                                  </div>
+                                  <p className="text-sm font-bold text-violet-800">{emergencyCase.consultant_name}</p>
+                                </div>
+                              )}
+                              {emergencyCase.bed_number && (
+                                <div className="bg-indigo-50 rounded-lg p-3 border border-indigo-100">
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <Bed className="w-3.5 h-3.5 text-indigo-600" />
+                                    <span className="text-xs font-semibold text-indigo-700">Bed Number</span>
+                                  </div>
+                                  <p className="text-sm font-bold text-indigo-800">{emergencyCase.bed_number}</p>
+                                </div>
+                              )}
+                            </div>
+
+                            <button
+                              onClick={() => startEditing(emergencyCase)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-violet-600 bg-violet-50 rounded-lg hover:bg-violet-100 transition"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              Edit Treatment
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="text-center py-4">
+                            <p className="text-sm text-gray-500 mb-3">No treatment details added yet</p>
+                            <button
+                              onClick={() => startEditing(emergencyCase)}
+                              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition mx-auto"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                              Add Treatment Details
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </div>
             </motion.div>
           ))}
         </div>
@@ -484,4 +873,40 @@ function hasPatientArrived(createdAt: string, durationMin: number): boolean {
   const pickupTime = new Date(createdAt);
   const arrivalTime = new Date(pickupTime.getTime() + durationMin * 60000);
   return new Date() > arrivalTime;
+}
+
+// Helper functions for vital sign analysis
+function isBpHigh(systolic?: number, diastolic?: number): boolean {
+  if (!systolic && !diastolic) return false;
+  return Boolean((systolic && systolic > 140) || (diastolic && diastolic > 90));
+}
+
+function isTemperatureHigh(temp?: number): boolean {
+  if (!temp) return false;
+  return temp > 38;
+}
+
+function isPulseHigh(pulse?: number): boolean {
+  if (!pulse) return false;
+  return pulse > 100;
+}
+
+function isPulseLow(pulse?: number): boolean {
+  if (!pulse) return false;
+  return pulse < 60;
+}
+
+function isSpo2Low(spo2?: number): boolean {
+  if (!spo2) return false;
+  return spo2 < 95;
+}
+
+function isAnyVitalAbnormal(c: EmergencyCase): boolean {
+  return Boolean(
+    isBpHigh(c.patient_bp_systolic, c.patient_bp_diastolic) ||
+    isTemperatureHigh(c.patient_temperature) ||
+    isPulseHigh(c.patient_pulse) ||
+    isPulseLow(c.patient_pulse) ||
+    isSpo2Low(c.patient_spo2)
+  );
 }

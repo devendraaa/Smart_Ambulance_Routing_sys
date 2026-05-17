@@ -18,6 +18,12 @@ class RouteComputeRequest(BaseModel):
     ambulance_number: Optional[str] = None
     driver_name: Optional[str] = None
     driver_mobile: Optional[str] = None
+    # Physiological conditions
+    patient_bp_systolic: Optional[int] = None
+    patient_bp_diastolic: Optional[int] = None
+    patient_temperature: Optional[float] = None
+    patient_pulse: Optional[int] = None
+    patient_spo2: Optional[int] = None
 
 
 class RouteTaskStartResponse(BaseModel):
@@ -46,6 +52,12 @@ class RouteTaskStatusResponse(BaseModel):
     ambulance_number: Optional[str] = None
     driver_name: Optional[str] = None
     driver_mobile: Optional[str] = None
+    # Physiological conditions
+    patient_bp_systolic: Optional[int] = None
+    patient_bp_diastolic: Optional[int] = None
+    patient_temperature: Optional[float] = None
+    patient_pulse: Optional[int] = None
+    patient_spo2: Optional[int] = None
 
 
 class CoordinateEntry(BaseModel):
@@ -77,3 +89,9 @@ class EmergencyCaseResponse(BaseModel):
     ambulance_number: Optional[str] = None
     driver_name: Optional[str] = None
     driver_mobile: Optional[str] = None
+    # Physiological conditions
+    patient_bp_systolic: Optional[int] = None
+    patient_bp_diastolic: Optional[int] = None
+    patient_temperature: Optional[float] = None
+    patient_pulse: Optional[int] = None
+    patient_spo2: Optional[int] = None

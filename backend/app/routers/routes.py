@@ -49,6 +49,17 @@ async def start_route_computation(data: RouteComputeRequest):
         insert_data["driver_name"] = data.driver_name
     if data.driver_mobile:
         insert_data["driver_mobile"] = data.driver_mobile
+    # Physiological conditions
+    if data.patient_bp_systolic:
+        insert_data["patient_bp_systolic"] = data.patient_bp_systolic
+    if data.patient_bp_diastolic:
+        insert_data["patient_bp_diastolic"] = data.patient_bp_diastolic
+    if data.patient_temperature:
+        insert_data["patient_temperature"] = data.patient_temperature
+    if data.patient_pulse:
+        insert_data["patient_pulse"] = data.patient_pulse
+    if data.patient_spo2:
+        insert_data["patient_spo2"] = data.patient_spo2
 
     supabase.table("route_tasks").insert(insert_data).execute()
 
@@ -119,6 +130,11 @@ async def get_emergency_cases(
                 ambulance_number=task.get("ambulance_number"),
                 driver_name=task.get("driver_name"),
                 driver_mobile=task.get("driver_mobile"),
+                patient_bp_systolic=task.get("patient_bp_systolic"),
+                patient_bp_diastolic=task.get("patient_bp_diastolic"),
+                patient_temperature=task.get("patient_temperature"),
+                patient_pulse=task.get("patient_pulse"),
+                patient_spo2=task.get("patient_spo2"),
             ))
 
     return cases
@@ -184,6 +200,17 @@ async def get_task_status(task_id: str):
         response_data["driver_name"] = task["driver_name"]
     if task.get("driver_mobile"):
         response_data["driver_mobile"] = task["driver_mobile"]
+    # Physiological conditions
+    if task.get("patient_bp_systolic"):
+        response_data["patient_bp_systolic"] = task["patient_bp_systolic"]
+    if task.get("patient_bp_diastolic"):
+        response_data["patient_bp_diastolic"] = task["patient_bp_diastolic"]
+    if task.get("patient_temperature"):
+        response_data["patient_temperature"] = task["patient_temperature"]
+    if task.get("patient_pulse"):
+        response_data["patient_pulse"] = task["patient_pulse"]
+    if task.get("patient_spo2"):
+        response_data["patient_spo2"] = task["patient_spo2"]
 
     return RouteTaskStatusResponse(**response_data)
 

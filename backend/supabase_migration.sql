@@ -51,6 +51,12 @@ ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS patient_date DATE;
 ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS ambulance_number VARCHAR(50);
 ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS driver_name VARCHAR(100);
 ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS driver_mobile VARCHAR(20);
+-- Physiological vitals columns
+ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS patient_bp_systolic INTEGER;
+ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS patient_bp_diastolic INTEGER;
+ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS patient_temperature DOUBLE PRECISION;
+ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS patient_pulse INTEGER;
+ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS patient_spo2 INTEGER;
 
 -- Route task coordinates
 CREATE TABLE IF NOT EXISTS route_task_coordinates (
