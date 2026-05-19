@@ -5,6 +5,20 @@ import { Calendar, Search, Filter, Pill, FileText, Utensils, X, Plus, Trash2, Ch
 import { supabase } from "@/lib/supabase";
 import { fetchHospitalsList } from "@/lib/api";
 
+const CASE_TYPES = [
+  { value: "General OPD", label: "General OPD" },
+  { value: "Child OPD", label: "Child OPD" },
+  { value: "Heart & Emergency", label: "Heart & Emergency" },
+  { value: "Accident & Trauma", label: "Accident & Trauma" },
+  { value: "Neurology", label: "Neurology" },
+  { value: "Diabetes & Kidney", label: "Diabetes & Kidney" },
+  { value: "Women & Pregnancy", label: "Women & Pregnancy" },
+  { value: "Orthopedic", label: "Orthopedic" },
+  { value: "ENT / Eye", label: "ENT / Eye" },
+  { value: "Mental Health", label: "Mental Health" },
+  { value: "Senior Citizen", label: "Senior Citizen" },
+];
+
 interface Appointment {
   id: string;
   patient_name: string;
@@ -22,6 +36,7 @@ interface Appointment {
 interface PatientMedicine {
   id: string;
   patient_email: string;
+  patient_name?: string;
   medicine_name: string;
   dosage: string;
   frequency: string;
@@ -30,16 +45,20 @@ interface PatientMedicine {
   instructions: string;
   is_active: boolean;
   created_at: string;
+  hospital_name?: string;
 }
 
 interface PatientTest {
   id: string;
   patient_email: string;
+  patient_name?: string;
   test_type: string;
   status: string;
   report_url?: string;
   notes?: string;
   created_at: string;
+  hospital_name?: string;
+  appointment_id?: string;
 }
 
 interface PatientDiet {
@@ -86,17 +105,17 @@ function PatientDetailPanel({
 
   useEffect(() => {
     loadPatientData();
-  }, [appointment.patient_email]);
+  }, [appointment.id]);
 
   const loadPatientData = async () => {
     setLoading(true);
-    const patientEmail = appointment.patient_email;
-    console.log("Loading data for patient:", patientEmail);
+    const appointmentId = appointment.id;
+    console.log("Loading data for appointment:", appointmentId);
     try {
       const [medsData, testsData, dietsData] = await Promise.all([
-        supabase.from("patient_medicines").select("*").eq("patient_email", patientEmail).order("created_at", { ascending: false }),
-        supabase.from("patient_tests").select("*").eq("patient_email", patientEmail).order("created_at", { ascending: false }),
-        supabase.from("patient_diets").select("*").eq("patient_email", patientEmail).order("created_at", { ascending: false })
+        supabase.from("patient_medicines").select("*").eq("appointment_id", appointmentId).order("created_at", { ascending: false }),
+        supabase.from("patient_tests").select("*").eq("appointment_id", appointmentId).order("created_at", { ascending: false }),
+        supabase.from("patient_diets").select("*").eq("appointment_id", appointmentId).order("created_at", { ascending: false })
       ]);
       console.log("Medicines:", medsData.data?.length, "Tests:", testsData.data?.length, "Diets:", dietsData.data?.length);
       setMedicines(medsData.data || []);
@@ -180,13 +199,13 @@ function PatientDetailPanel({
             ) : (
               <>
                 {activeTab === "medicines" && (
-                  <MedicinesSection patientEmail={appointment.patient_email} medicines={medicines} isEditable={isCurrentAppointment} onRefresh={loadPatientData} />
+                  <MedicinesSection patientEmail={appointment.patient_email} patientName={appointment.patient_name} appointmentId={appointment.id} hospitalName={appointment.hospital_name} medicines={medicines} isEditable={isCurrentAppointment} onRefresh={loadPatientData} />
                 )}
                 {activeTab === "reports" && (
-                  <ReportsSection patientEmail={appointment.patient_email} tests={tests} isEditable={isCurrentAppointment} onRefresh={loadPatientData} />
+                  <ReportsSection patientEmail={appointment.patient_email} patientName={appointment.patient_name} appointmentId={appointment.id} hospitalName={appointment.hospital_name} tests={tests} isEditable={isCurrentAppointment} onRefresh={loadPatientData} />
                 )}
                 {activeTab === "diet" && (
-                  <DietSection patientEmail={appointment.patient_email} diets={diets} isEditable={isCurrentAppointment} onRefresh={loadPatientData} />
+                  <DietSection patientEmail={appointment.patient_email} appointmentId={appointment.id} diets={diets} isEditable={isCurrentAppointment} onRefresh={loadPatientData} />
                 )}
               </>
             )}
@@ -199,11 +218,17 @@ function PatientDetailPanel({
 
 function MedicinesSection({
   patientEmail,
+  patientName,
+  appointmentId,
+  hospitalName,
   medicines,
   isEditable,
   onRefresh
 }: {
   patientEmail: string;
+  patientName: string;
+  appointmentId?: string;
+  hospitalName?: string;
   medicines: PatientMedicine[];
   isEditable: boolean;
   onRefresh: () => void;
@@ -227,6 +252,9 @@ function MedicinesSection({
     try {
       const { data, error } = await supabase.from("patient_medicines").insert([{
         patient_email: patientEmail,
+        patient_name: patientName,
+        appointment_id: appointmentId || null,
+        hospital_name: hospitalName || null,
         medicine_name: newMedicine.medicine_name,
         dosage: newMedicine.dosage,
         frequency: newMedicine.frequency,
@@ -234,6 +262,7 @@ function MedicinesSection({
         duration: newMedicine.duration,
         instructions: newMedicine.instructions,
         is_active: true,
+        created_at: new Date().toISOString(),
       }]).select();
 
       if (error) {
@@ -367,11 +396,17 @@ function MedicinesSection({
 
 function ReportsSection({
   patientEmail,
+  patientName,
+  appointmentId,
+  hospitalName,
   tests,
   isEditable,
   onRefresh
 }: {
   patientEmail: string;
+  patientName: string;
+  appointmentId?: string;
+  hospitalName?: string;
   tests: PatientTest[];
   isEditable: boolean;
   onRefresh: () => void;
@@ -381,14 +416,26 @@ function ReportsSection({
 
   const handleAddTest = async () => {
     try {
-      const { error } = await supabase.from("patient_tests").insert([{
+      console.log("Adding test:", { patientEmail, patientName, hospitalName, test_type: newTest.test_type });
+      
+      const { data, error } = await supabase.from("patient_tests").insert([{
         patient_email: patientEmail,
+        patient_name: patientName,
+        appointment_id: appointmentId || null,
+        hospital_name: hospitalName || null,
         test_type: newTest.test_type,
         notes: newTest.notes,
         status: "ordered",
         payment_status: "pending",
-      }]);
-      if (error) throw error;
+        created_at: new Date().toISOString(),
+      }]).select();
+      
+      console.log("Test insert result:", { data, error });
+      
+      if (error) {
+        console.error("Supabase error:", JSON.stringify(error));
+        throw new Error(error.message || JSON.stringify(error));
+      }
       setShowAddModal(false);
       setNewTest({ test_type: "Blood Test", notes: "" });
       onRefresh();
@@ -475,11 +522,13 @@ function ReportsSection({
 
 function DietSection({
   patientEmail,
+  appointmentId,
   diets,
   isEditable,
   onRefresh
 }: {
   patientEmail: string;
+  appointmentId?: string;
   diets: PatientDiet[];
   isEditable: boolean;
   onRefresh: () => void;
@@ -503,6 +552,7 @@ function DietSection({
     try {
       const { error } = await supabase.from("patient_diets").insert([{
         patient_email: patientEmail,
+        appointment_id: appointmentId || null,
         diet_name: newDiet.diet_name,
         diet_type: newDiet.diet_type,
         calories: newDiet.calories,
@@ -648,6 +698,7 @@ export default function DoctorAppointmentsTab() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterHospital, setFilterHospital] = useState<string>("all");
+  const [filterCaseType, setFilterCaseType] = useState<string>("all");
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [hospitals, setHospitals] = useState<{ name: string; count: number }[]>([]);
 
@@ -680,7 +731,8 @@ export default function DoctorAppointmentsTab() {
     const matchesSearch = apt.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) || apt.patient_email.toLowerCase().includes(searchQuery.toLowerCase()) || apt.hospital_name?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = filterStatus === "all" || apt.status === filterStatus;
     const matchesHospital = filterHospital === "all" || apt.hospital_name === filterHospital;
-    return matchesSearch && matchesStatus && matchesHospital;
+    const matchesCaseType = filterCaseType === "all" || apt.case_type === filterCaseType;
+    return matchesSearch && matchesStatus && matchesHospital && matchesCaseType;
   });
 
   return (
@@ -713,6 +765,14 @@ export default function DoctorAppointmentsTab() {
         >
           <option value="all">All Hospitals</option>
           {hospitals.map((h) => (<option key={h.name} value={h.name}>{h.name.slice(0, 15)}...</option>))}
+        </select>
+        <select
+          value={filterCaseType}
+          onChange={(e) => setFilterCaseType(e.target.value)}
+          className="px-3 py-2.5 rounded-xl border-2 border-gray-200 text-sm focus:border-blue-500 focus:outline-none bg-white min-w-[140px]"
+        >
+          <option value="all">All Case Types</option>
+          {CASE_TYPES.map((ct) => (<option key={ct.value} value={ct.value}>{ct.label}</option>))}
         </select>
         <select
           value={filterStatus}

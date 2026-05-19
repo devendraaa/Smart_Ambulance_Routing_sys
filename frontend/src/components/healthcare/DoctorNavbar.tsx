@@ -11,6 +11,8 @@ const DOCTOR_TABS = [
   { id: "patient-info", label: "Patient Info", href: "/doctor?tab=patient-info", icon: "👤" },
   { id: "emergency", label: "Emergency", href: "/doctor?tab=emergency", icon: "🚨" },
   { id: "appointments", label: "Appointments", href: "/doctor?tab=appointments", icon: "📅" },
+  { id: "medical", label: "Medical", href: "/doctor?tab=medical", icon: "💊" },
+  { id: "test", label: "All Test", href: "/doctor?tab=test", icon: "🧪" },
   { id: "hospital-info", label: "Hospital Info", href: "/doctor?tab=hospital-info", icon: "🏥" },
 ];
 

@@ -11,6 +11,8 @@ import DoctorReportsTab from "./DoctorReportsTab";
 import DoctorDietTab from "./DoctorDietTab";
 import DoctorEmergencyTab from "./DoctorEmergencyTab";
 import HospitalInfoTab from "./HospitalInfoTab";
+import MedicalTab from "./MedicalTab";
+import TestTab from "./TestTab";
 
 function TabContent() {
   const searchParams = useSearchParams();
@@ -34,8 +36,10 @@ function TabContent() {
         return <DoctorEmergencyTab />;
       case "appointments":
         return <DoctorAppointmentsTab />;
-      case "medicines":
-        return <DoctorMedicinesTab />;
+      case "medical":
+        return <MedicalTab />;
+      case "test":
+        return <TestTab isDoctorView={true} />;
       case "reports":
         return <DoctorReportsTab />;
       case "diet":

@@ -2,210 +2,634 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { TestTube, Calendar, CreditCard, CheckCircle2, AlertTriangle, Download, Clock, FileText } from "lucide-react";
+import { TestTube, Building2, User, Calendar, RefreshCw, ChevronDown, ChevronUp, Search, FileText } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { bookTest, getPatientTests, confirmTestPayment, TEST_TYPES, TestBooking } from "@/lib/healthcare";
+import { fetchHospitalsList } from "@/lib/api";
 
-export default function TestTab() {
-  const [tests, setTests] = useState<TestBooking[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+interface PatientTest {
+  id: string;
+  patient_email: string;
+  patient_name?: string;
+  test_type: string;
+  status: string;
+  payment_status: string;
+  payment_amount?: number;
+  report_url?: string;
+  notes?: string;
+  created_at: string;
+  hospital_name?: string;
+  appointment_id?: string;
+  appointment_date?: string;
+  timing?: string;
+  price?: number;
+}
 
-  // Booking form
-  const [selectedTest, setSelectedTest] = useState("");
-  const [appointmentSlot, setAppointmentSlot] = useState("");
-  const [showPayment, setShowPayment] = useState(false);
-  const [pendingTestId, setPendingTestId] = useState<string | null>(null);
-  const [paymentRef, setPaymentRef] = useState("");
+interface PatientGroup {
+  patient_name: string;
+  patient_email: string;
+  tests: PatientTest[];
+}
+
+interface HospitalGroup {
+  hospital_name: string;
+  patients: PatientGroup[];
+}
+
+const statusConfig: Record<string, { color: string; bg: string; label: string }> = {
+  pending: { color: "text-gray-700", bg: "bg-gray-100", label: "Pending" },
+  payment_pending: { color: "text-yellow-700", bg: "bg-yellow-100", label: "Payment Pending" },
+  confirmed: { color: "text-blue-700", bg: "bg-blue-100", label: "Confirmed" },
+  completed: { color: "text-green-700", bg: "bg-green-100", label: "Completed" },
+  cancelled: { color: "text-red-700", bg: "bg-red-100", label: "Cancelled" },
+  ordered: { color: "text-purple-700", bg: "bg-purple-100", label: "Ordered" },
+};
+
+const testTypeIcons: Record<string, string> = {
+  "MRI": "🧠",
+  "CT Scan": "🔬",
+  "Sonography": "📻",
+  "Blood Test": "🩸",
+  "X-Ray": "☢️",
+  "ECG": "❤️",
+  "ECHO": "💓",
+  "TMT": "🏃",
+  "Urine Test": "🧪",
+  "Stool Test": "💩",
+  "Thyroid": "🦋",
+  "Sugar Test": "🍬",
+};
+
+const TIMING_OPTIONS = ["09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM", "12:00 PM", "12:30 PM", "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM"];
+
+export default function TestTab({ isDoctorView = false }: { isDoctorView?: boolean }) {
+  const [hospitalGroups, setHospitalGroups] = useState<HospitalGroup[]>([]);
+  const [filteredGroups, setFilteredGroups] = useState<HospitalGroup[]>([]);
+  const [hospitals, setHospitals] = useState<string[]>([]);
+  const [selectedHospital, setSelectedHospital] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [expandedHospitals, setExpandedHospitals] = useState<Set<string>>(new Set());
+  const [expandedPatients, setExpandedPatients] = useState<Set<string>>(new Set());
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [selectedTest, setSelectedTest] = useState<PatientTest | null>(null);
+  const [scheduleForm, setScheduleForm] = useState({
+    appointment_date: "",
+    timing: "09:00 AM",
+    price: ""
+  });
 
   useEffect(() => {
-    fetchTests();
+    loadData();
   }, []);
 
-  const fetchTests = async () => {
+  useEffect(() => {
+    filterData();
+  }, [hospitalGroups, selectedHospital, searchQuery]);
+
+  const loadHospitals = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const data = await getPatientTests(user.email!);
-      setTests(data.tests);
+      const data = await fetchHospitalsList();
+      const hospitalNames = data.hospitals.map(h => h.name).filter(Boolean) as string[];
+      setHospitals(hospitalNames);
     } catch (err) {
-      console.error('Error fetching tests:', err);
+      console.error("Error loading hospitals:", err);
     }
   };
 
-  const handleBookTest = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(""); setSuccess("");
-
-    if (!selectedTest) { setError("Please select a test"); return; }
-
+  const loadData = async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setError("Please login to continue"); return; }
+      const { data: testsData, error: testsError } = await supabase
+        .from("patient_tests")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-      const testInfo = TEST_TYPES.find(t => t.value === selectedTest);
-      const result = await bookTest({
-        patient_email: user.email!,
-        test_type: selectedTest,
-        appointment_slot: appointmentSlot || undefined,
-        payment_amount: testInfo?.fee,
+      if (testsError) throw testsError;
+
+      if (!testsData || testsData.length === 0) {
+        setHospitalGroups([]);
+        setLoading(false);
+        await loadHospitals();
+        return;
+      }
+
+      const { data: appointmentsData } = await supabase
+        .from("patient_appointments")
+        .select("patient_email, patient_name, hospital_name");
+
+      const appointmentMap = new Map<string, { patient_name: string; hospital_name: string }>();
+      appointmentsData?.forEach(apt => {
+        appointmentMap.set(apt.patient_email, {
+          patient_name: apt.patient_name,
+          hospital_name: apt.hospital_name
+        });
       });
 
-      setPendingTestId(result.id);
-      setShowPayment(true);
-      setSuccess("Test booked! Please complete the payment to confirm.");
-      fetchTests();
+      const enrichedTests = (testsData || []).map(test => {
+        const apt = appointmentMap.get(test.patient_email);
+        return {
+          ...test,
+          patient_name: test.patient_name || apt?.patient_name || test.patient_email.split('@')[0],
+          hospital_name: test.hospital_name || apt?.hospital_name || "Unknown Hospital"
+        };
+      });
+
+      const groups = groupByHospital(enrichedTests);
+      setHospitalGroups(groups);
+      await loadHospitals();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to book test");
+      console.error("Error loading data:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePayment = async () => {
-    if (!pendingTestId) return;
-    setLoading(true);
+  const groupByHospital = (tests: PatientTest[]): HospitalGroup[] => {
+    const hospitalMap = new Map<string, Map<string, PatientTest[]>>();
+
+    tests.forEach(test => {
+      const hospital = test.hospital_name || "Unknown Hospital";
+      const patientName = test.patient_name || test.patient_email.split('@')[0];
+      
+      if (!hospitalMap.has(hospital)) {
+        hospitalMap.set(hospital, new Map());
+      }
+      const patientMap = hospitalMap.get(hospital)!;
+      const patientKey = patientName.toLowerCase().trim();
+      if (!patientMap.has(patientKey)) {
+        patientMap.set(patientKey, []);
+      }
+      patientMap.get(patientKey)!.push(test);
+    });
+
+    return Array.from(hospitalMap.entries()).map(([hospital_name, patientMap]) => ({
+      hospital_name,
+      patients: Array.from(patientMap.entries()).map(([patientKey, tests]) => ({
+        patient_name: tests[0].patient_name || tests[0].patient_email.split('@')[0],
+        patient_email: tests[0].patient_email,
+        tests: tests
+      }))
+    }));
+  };
+
+  const filterData = () => {
+    let filtered = hospitalGroups;
+
+    if (selectedHospital !== "all") {
+      filtered = filtered.filter(g => 
+        g.hospital_name.toLowerCase().trim() === selectedHospital.toLowerCase().trim()
+      );
+    }
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.map(hospitalGroup => ({
+        ...hospitalGroup,
+        patients: hospitalGroup.patients.filter(p =>
+          p.patient_name?.toLowerCase().includes(query) ||
+          p.patient_email.toLowerCase().includes(query) ||
+          p.tests.some(t => t.test_type.toLowerCase().includes(query))
+        )
+      })).filter(g => g.patients.length > 0);
+    }
+
+    setFilteredGroups(filtered);
+  };
+
+  const toggleHospital = (hospital: string) => {
+    const newExpanded = new Set(expandedHospitals);
+    if (newExpanded.has(hospital)) {
+      newExpanded.delete(hospital);
+    } else {
+      newExpanded.add(hospital);
+    }
+    setExpandedHospitals(newExpanded);
+  };
+
+  const togglePatient = (key: string) => {
+    const newExpanded = new Set(expandedPatients);
+    if (newExpanded.has(key)) {
+      newExpanded.delete(key);
+    } else {
+      newExpanded.add(key);
+    }
+    setExpandedPatients(newExpanded);
+  };
+
+  useEffect(() => {
+    if (selectedHospital !== "all" && filteredGroups.length > 0) {
+      setExpandedHospitals(prev => {
+        const newSet = new Set(prev);
+        const hospitalGroup = filteredGroups.find(g => 
+          g.hospital_name.toLowerCase().trim() === selectedHospital.toLowerCase().trim()
+        );
+        if (hospitalGroup) {
+          newSet.add(hospitalGroup.hospital_name);
+          hospitalGroup.patients.forEach(p => {
+            newSet.add(`${hospitalGroup.hospital_name}-${p.patient_name?.toLowerCase().trim()}`);
+          });
+        }
+        return newSet;
+      });
+    }
+  }, [selectedHospital, filteredGroups]);
+
+  const getTotalStats = () => {
+    let totalPatients = 0;
+    let totalTests = 0;
+    filteredGroups.forEach(g => {
+      totalPatients += g.patients.length;
+      g.patients.forEach(p => totalTests += p.tests.length);
+    });
+    return { totalPatients, totalTests };
+  };
+
+  const getStatusBadge = (status: string) => {
+    const config = statusConfig[status] || statusConfig.pending;
+    return (
+      <span className={`px-2 py-0.5 rounded-full text-xs ${config.bg} ${config.color}`}>
+        {config.label}
+      </span>
+    );
+  };
+
+  const openScheduleModal = (test: PatientTest) => {
+    setSelectedTest(test);
+    setScheduleForm({
+      appointment_date: test.appointment_date ? test.appointment_date.split('T')[0] : "",
+      timing: test.timing || "09:00 AM",
+      price: test.price ? test.price.toString() : ""
+    });
+    setShowScheduleModal(true);
+  };
+
+  const saveSchedule = async () => {
+    if (!selectedTest) return;
+    if (!scheduleForm.appointment_date) {
+      alert("Please select a date");
+      return;
+    }
+
     try {
-      await confirmTestPayment(pendingTestId, paymentRef || `PAY-${Date.now()}`);
-      setSuccess("Payment successful! Your test is confirmed.");
-      setShowPayment(false);
-      setPendingTestId(null);
-      setSelectedTest("");
-      setAppointmentSlot("");
-      setPaymentRef("");
-      fetchTests();
+      const { error } = await supabase
+        .from("patient_tests")
+        .update({
+          appointment_date: scheduleForm.appointment_date,
+          timing: scheduleForm.timing,
+          price: scheduleForm.price ? parseFloat(scheduleForm.price) : null,
+          status: scheduleForm.appointment_date ? "confirmed" : "ordered"
+        })
+        .eq("id", selectedTest.id);
+
+      if (error) throw error;
+
+      setShowScheduleModal(false);
+      loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Payment failed");
-    } finally {
-      setLoading(false);
+      console.error("Error saving schedule:", err);
+      alert("Failed to save schedule");
     }
   };
 
-  const getStatusBadge = (status: string, paymentStatus: string) => {
-    if (status === 'confirmed' || paymentStatus === 'paid') {
-      return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Confirmed</span>;
+  const handlePayment = async (test: PatientTest) => {
+    if (!test.price) return;
+    
+    const confirmed = confirm(`Pay ₹${test.price} for ${test.test_type}?`);
+    if (!confirmed) return;
+    
+    try {
+      const { error } = await supabase
+        .from("patient_tests")
+        .update({ payment_status: "paid" })
+        .eq("id", test.id);
+      
+      if (error) throw error;
+      
+      alert("Payment successful!");
+      loadData();
+    } catch (err) {
+      console.error("Payment error:", err);
+      alert("Payment failed");
     }
-    if (status === 'payment_pending') {
-      return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">Payment Pending</span>;
-    }
-    if (status === 'completed') {
-      return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">Completed</span>;
-    }
-    if (status === 'cancelled') {
-      return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">Cancelled</span>;
-    }
-    return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">Pending</span>;
   };
+
+  const stats = getTotalStats();
 
   return (
-    <div className="space-y-6">
-      {/* Book Test */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-xl bg-cyan-100 flex items-center justify-center">
-            <TestTube className="w-5 h-5 text-cyan-600" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Book Medical Test</h2>
-            <p className="text-sm text-gray-500">Schedule a diagnostic test</p>
-          </div>
-        </div>
-
-        {error && <div className="flex items-center gap-2 text-red-500 text-sm bg-red-50 p-3 rounded-xl mb-4"><AlertTriangle className="w-4 h-4" />{error}</div>}
-        {success && <div className="flex items-center gap-2 text-emerald-700 text-sm bg-emerald-50 p-3 rounded-xl mb-4"><CheckCircle2 className="w-4 h-4" />{success}</div>}
-
-        {!showPayment ? (
-          <form onSubmit={handleBookTest} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Select Test *</label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {TEST_TYPES.map((test) => (
-                  <motion.button key={test.value} type="button" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                    onClick={() => setSelectedTest(test.value)}
-                    className={`p-4 rounded-xl border-2 text-left transition ${selectedTest === test.value ? "border-cyan-500 bg-cyan-50" : "border-gray-200 hover:border-gray-300"}`}>
-                    <p className="font-medium text-gray-900">{test.label}</p>
-                    <p className="text-sm text-gray-500">₹{test.fee.toLocaleString()}</p>
-                  </motion.button>
-                ))}
+    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 p-4 sm:p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6"
+        >
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                <TestTube className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Test Records</h2>
+                <p className="text-gray-500 text-sm">Patient tests by hospital</p>
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5"><Calendar className="w-4 h-4 inline mr-1" />Appointment Slot (Optional)</label>
-              <input type="datetime-local" value={appointmentSlot} onChange={(e) => setAppointmentSlot(e.target.value)} className="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 focus:border-cyan-500 focus:outline-none transition" />
+            <div className="flex gap-4">
+              <div className="px-4 py-2 bg-purple-100 rounded-xl">
+                <span className="text-purple-700 font-semibold">{stats.totalPatients}</span>
+                <span className="text-purple-500 text-sm ml-1">Patients</span>
+              </div>
+              <div className="px-4 py-2 bg-pink-100 rounded-xl">
+                <span className="text-pink-700 font-semibold">{stats.totalTests}</span>
+                <span className="text-pink-500 text-sm ml-1">Tests</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Filters */}
+          <div className="mt-6 flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <select
+                value={selectedHospital}
+                onChange={(e) => setSelectedHospital(e.target.value)}
+                className="w-full pl-10 pr-8 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none"
+              >
+                <option value="all">All Hospitals ({hospitalGroups.length})</option>
+                {hospitalGroups.map((g) => (
+                  <option key={g.hospital_name} value={g.hospital_name}>
+                    {g.hospital_name} ({g.patients.length} patients)
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <motion.button type="submit" disabled={loading || !selectedTest} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
-              className="w-full rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-500 px-6 py-3 font-semibold text-white shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center gap-2 disabled:opacity-50">
-              {loading ? <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />Processing...</> : <><TestTube className="w-5 h-5" />Book Test</>}
-            </motion.button>
-          </form>
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search patient or test..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none"
+              />
+            </div>
+
+            <button
+              onClick={loadData}
+              className="px-4 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition flex items-center gap-2"
+            >
+              <RefreshCw className="w-5 h-5" />
+              Refresh
+            </button>
+          </div>
+        </motion.div>
+
+        {/* Content */}
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-10 h-10 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
+              <p className="text-gray-500">Loading...</p>
+            </div>
+          </div>
+        ) : filteredGroups.length === 0 ? (
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-12 text-center">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <TestTube className="w-8 h-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-700 mb-2">No Test Records Found</h3>
+            <p className="text-gray-500">
+              {selectedHospital === "all" 
+                ? "No tests have been ordered yet" 
+                : `No tests for ${selectedHospital}`}
+            </p>
+          </div>
         ) : (
           <div className="space-y-4">
-            <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-200">
-              <div className="flex items-center gap-2 text-yellow-800 mb-2"><AlertTriangle className="w-5 h-5" /><span className="font-medium">Payment Required</span></div>
-              <p className="text-sm text-yellow-700">Test: {selectedTest} - ₹{TEST_TYPES.find(t => t.value === selectedTest)?.fee.toLocaleString()}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5"><CreditCard className="w-4 h-4 inline mr-1" />Payment Reference</label>
-              <input type="text" value={paymentRef} onChange={(e) => setPaymentRef(e.target.value)} placeholder="Enter payment reference or UTR number" className="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 focus:border-cyan-500 focus:outline-none transition" />
-            </div>
-            <div className="flex gap-3">
-              <motion.button type="button" onClick={handlePayment} disabled={loading} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
-                className="flex-1 rounded-xl bg-gradient-to-r from-green-600 to-green-500 px-6 py-3 font-semibold text-white shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center gap-2 disabled:opacity-50">
-                {loading ? <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />Processing...</> : <><CreditCard className="w-5 h-5" />Confirm Payment</>}
-              </motion.button>
-              <button onClick={() => { setShowPayment(false); setPendingTestId(null); }} className="px-6 py-3 rounded-xl border-2 border-gray-200 font-medium text-gray-600 hover:bg-gray-50 transition">Cancel</button>
-            </div>
-          </div>
-        )}
-      </motion.div>
-
-      {/* Test History */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-            <FileText className="w-5 h-5 text-blue-600" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Test Reports</h2>
-            <p className="text-sm text-gray-500">{tests.length} booking{tests.length !== 1 ? 's' : ''}</p>
-          </div>
-        </div>
-
-        {tests.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            <TestTube className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p>No tests booked yet. Book your first test above!</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {tests.map((test) => (
-              <motion.div key={test.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 border border-gray-200 rounded-xl hover:border-cyan-300 transition-colors">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900">{test.test_type}</h3>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-gray-600">
-                      <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />{test.appointment_slot ? new Date(test.appointment_slot).toLocaleString() : "Not scheduled"}</span>
-                      {test.payment_amount && <span className="flex items-center gap-1"><CreditCard className="w-3.5 h-3.5" />₹{test.payment_amount.toLocaleString()}</span>}
-                    </div>
-                  </div>
+            {filteredGroups.map((hospitalGroup) => (
+              <motion.div
+                key={hospitalGroup.hospital_name}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden"
+              >
+                {/* Hospital Header */}
+                <button
+                  onClick={() => toggleHospital(hospitalGroup.hospital_name)}
+                  className="w-full p-4 flex items-center justify-between bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 transition"
+                >
                   <div className="flex items-center gap-3">
-                    {getStatusBadge(test.status, test.payment_status)}
-                    {test.report_url && (
-                      <a href={test.report_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 text-sm font-medium hover:bg-emerald-200 transition">
-                        <Download className="w-4 h-4" />Report
-                      </a>
-                    )}
+                    <Building2 className="w-5 h-5 text-purple-600" />
+                    <span className="font-semibold text-gray-900">{hospitalGroup.hospital_name}</span>
+                    <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-sm">
+                      {hospitalGroup.patients.length} patients
+                    </span>
                   </div>
-                </div>
+                  {expandedHospitals.has(hospitalGroup.hospital_name) ? (
+                    <ChevronUp className="w-5 h-5 text-gray-500" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-gray-500" />
+                  )}
+                </button>
+
+                {/* Patients */}
+                {expandedHospitals.has(hospitalGroup.hospital_name) && (
+                  <div className="divide-y divide-gray-100">
+                    {hospitalGroup.patients.map((patient) => {
+                      const patientKey = `${hospitalGroup.hospital_name}-${patient.patient_name?.toLowerCase().trim()}`;
+                      
+                      return (
+                        <div key={patientKey} className="p-4">
+                          <button
+                            onClick={() => togglePatient(patientKey)}
+                            className="w-full flex items-center justify-between hover:bg-gray-50 rounded-lg p-2 -m-2 transition"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                                <User className="w-5 h-5 text-purple-600" />
+                              </div>
+                              <div className="text-left">
+                                <div className="font-medium text-gray-900">{patient.patient_name}</div>
+                                <div className="text-sm text-gray-500">{patient.patient_email}</div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm">
+                                {patient.tests.length} tests
+                              </span>
+                              {expandedPatients.has(patientKey) ? (
+                                <ChevronUp className="w-5 h-5 text-gray-400" />
+                              ) : (
+                                <ChevronDown className="w-5 h-5 text-gray-400" />
+                              )}
+                            </div>
+                          </button>
+
+                          {/* Tests */}
+                          {expandedPatients.has(patientKey) && (
+                            <div className="mt-4 space-y-3 pl-13">
+                              {patient.tests.map((test, idx) => (
+                                <div
+                                  key={test.id}
+                                  className="p-3 bg-gray-50 rounded-lg border border-gray-200"
+                                >
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-2xl">{testTypeIcons[test.test_type] || "🧪"}</span>
+                                      <span className="font-medium text-gray-900">{test.test_type}</span>
+                                      {getStatusBadge(test.status)}
+                                    </div>
+                                    <div className="text-xs text-gray-500 flex items-center gap-1">
+                                      <Calendar className="w-3 h-3" />
+                                      {test.created_at ? new Date(test.created_at).toLocaleDateString('en-IN') : 'N/A'}
+                                    </div>
+                                  </div>
+                                  {test.notes && (
+                                    <div className="mt-2 text-xs text-gray-600 bg-yellow-50 p-2 rounded">
+                                      Note: {test.notes}
+                                    </div>
+                                  )}
+                                  {test.report_url && (
+                                    <div className="mt-2">
+                                      <a 
+                                        href={test.report_url} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                                      >
+                                        <FileText className="w-3 h-3" /> View Report
+                                      </a>
+                                    </div>
+                                  )}
+                                  {/* Schedule & Payment */}
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    {/* Doctor: Schedule Button */}
+                                    {isDoctorView && (
+                                      <button
+                                        onClick={() => openScheduleModal(test)}
+                                        className="px-3 py-1.5 bg-purple-600 text-white text-xs rounded-lg hover:bg-purple-700 transition flex items-center gap-1"
+                                      >
+                                        <Calendar className="w-3 h-3" />
+                                        {test.appointment_date ? "Edit Schedule" : "Schedule Test"}
+                                      </button>
+                                    )}
+                                    
+                                    {/* Show Schedule Info */}
+                                    {test.appointment_date && (
+                                      <div className="flex items-center gap-2 text-xs bg-green-50 px-2 py-1 rounded">
+                                        <Calendar className="w-3 h-3 text-green-600" />
+                                        <span className="text-green-700 font-medium">
+                                          {new Date(test.appointment_date).toLocaleDateString('en-IN')}
+                                          {test.timing && ` at ${test.timing}`}
+                                        </span>
+                                        {test.price && (
+                                          <span className="text-green-600">₹{test.price}</span>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* Patient: Payment Button */}
+                                    {!isDoctorView && test.price && test.payment_status !== 'paid' && test.appointment_date && (
+                                      <button
+                                        onClick={() => handlePayment(test)}
+                                        className="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition flex items-center gap-1"
+                                      >
+                                        💳 Pay ₹{test.price}
+                                      </button>
+                                    )}
+
+                                    {/* Payment Status */}
+                                    {!isDoctorView && test.payment_status === 'paid' && (
+                                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+                                        ✓ Paid
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </motion.div>
             ))}
           </div>
         )}
-      </motion.div>
+      </div>
+
+      {/* Schedule Modal */}
+      {showScheduleModal && selectedTest && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Schedule Test</h3>
+              <button onClick={() => setShowScheduleModal(false)} className="text-gray-500 hover:text-gray-700">
+                ✕
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Patient</label>
+                <p className="text-gray-900">{selectedTest.patient_name}</p>
+                <p className="text-sm text-gray-500">{selectedTest.patient_email}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Test Type</label>
+                <p className="text-gray-900">{selectedTest.test_type}</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Appointment Date *</label>
+                <input
+                  type="date"
+                  value={scheduleForm.appointment_date}
+                  onChange={(e) => setScheduleForm({ ...scheduleForm, appointment_date: e.target.value })}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Timing</label>
+                <select
+                  value={scheduleForm.timing}
+                  onChange={(e) => setScheduleForm({ ...scheduleForm, timing: e.target.value })}
+                  className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none"
+                >
+                  {TIMING_OPTIONS.map(time => (
+                    <option key={time} value={time}>{time}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹)</label>
+                <input
+                  type="number"
+                  value={scheduleForm.price}
+                  onChange={(e) => setScheduleForm({ ...scheduleForm, price: e.target.value })}
+                  placeholder="Enter price"
+                  className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none"
+                />
+              </div>
+
+              <button
+                onClick={saveSchedule}
+                className="w-full py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition"
+              >
+                Save Schedule
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

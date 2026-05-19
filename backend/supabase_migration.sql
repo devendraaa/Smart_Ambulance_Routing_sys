@@ -153,3 +153,18 @@ CREATE INDEX IF NOT EXISTS idx_patient_appointments_email ON patient_appointment
 
 -- Add patient_phone column for appointment booking
 ALTER TABLE patient_appointments ADD COLUMN IF NOT EXISTS patient_phone VARCHAR(20);
+
+-- Patient Medicines (add patient_name column)
+ALTER TABLE patient_medicines ADD COLUMN IF NOT EXISTS patient_name VARCHAR(255);
+
+-- Patient Tests (add patient_name column)
+ALTER TABLE patient_tests ADD COLUMN IF NOT EXISTS patient_name VARCHAR(255);
+
+-- Test appointment scheduling
+ALTER TABLE patient_tests ADD COLUMN IF NOT EXISTS appointment_date TIMESTAMPTZ;
+ALTER TABLE patient_tests ADD COLUMN IF NOT EXISTS timing VARCHAR(50);
+ALTER TABLE patient_tests ADD COLUMN IF NOT EXISTS price DECIMAL(10,2);
+ALTER TABLE patient_tests ADD COLUMN IF NOT EXISTS payment_status VARCHAR(50) DEFAULT 'pending';
+
+-- Patient Diets (add patient_name column)
+ALTER TABLE patient_diets ADD COLUMN IF NOT EXISTS patient_name VARCHAR(255);
