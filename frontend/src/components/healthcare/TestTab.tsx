@@ -61,11 +61,16 @@ const testTypeIcons: Record<string, string> = {
 
 const TIMING_OPTIONS = ["09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM", "12:00 PM", "12:30 PM", "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM"];
 
+const TEST_TYPES = [
+  "MRI", "CT Scan", "Sonography", "Blood Test", "X-Ray", "ECG", "ECHO", "TMT", "Urine Test", "Stool Test", "Thyroid", "Sugar Test"
+];
+
 export default function TestTab({ isDoctorView = false }: { isDoctorView?: boolean }) {
   const [hospitalGroups, setHospitalGroups] = useState<HospitalGroup[]>([]);
   const [filteredGroups, setFilteredGroups] = useState<HospitalGroup[]>([]);
   const [hospitals, setHospitals] = useState<string[]>([]);
   const [selectedHospital, setSelectedHospital] = useState<string>("all");
+  const [selectedTestType, setSelectedTestType] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [expandedHospitals, setExpandedHospitals] = useState<Set<string>>(new Set());
@@ -84,7 +89,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
 
   useEffect(() => {
     filterData();
-  }, [hospitalGroups, selectedHospital, searchQuery]);
+  }, [hospitalGroups, selectedHospital, selectedTestType, searchQuery]);
 
   const loadHospitals = async () => {
     try {
@@ -179,6 +184,16 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
       filtered = filtered.filter(g => 
         g.hospital_name.toLowerCase().trim() === selectedHospital.toLowerCase().trim()
       );
+    }
+
+    if (selectedTestType !== "all") {
+      filtered = filtered.map(hospitalGroup => ({
+        ...hospitalGroup,
+        patients: hospitalGroup.patients.map(patient => ({
+          ...patient,
+          tests: patient.tests.filter(t => t.test_type === selectedTestType)
+        })).filter(p => p.tests.length > 0)
+      })).filter(g => g.patients.length > 0);
     }
 
     if (searchQuery) {
@@ -361,6 +376,20 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                   <option key={g.hospital_name} value={g.hospital_name}>
                     {g.hospital_name} ({g.patients.length} patients)
                   </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="relative flex-1">
+              <TestTube className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <select
+                value={selectedTestType}
+                onChange={(e) => setSelectedTestType(e.target.value)}
+                className="w-full pl-10 pr-8 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none"
+              >
+                <option value="all">All Test Types</option>
+                {TEST_TYPES.map((type) => (
+                  <option key={type} value={type}>{type}</option>
                 ))}
               </select>
             </div>

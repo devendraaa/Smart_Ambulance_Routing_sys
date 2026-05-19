@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Calendar, Search, Filter, Pill, FileText, Utensils, X, Plus, Trash2, ChevronRight, User, Stethoscope, Clock } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { fetchHospitalsList } from "@/lib/api";
@@ -81,6 +82,73 @@ const TIMING_OPTIONS = ["Before meal", "After meal", "With food", "Empty stomach
 const DURATION_OPTIONS = ["3 days", "5 days", "7 days", "10 days", "14 days", "1 month", "2 months", "3 months"];
 const TEST_TYPES = ["MRI", "CT Scan", "Sonography", "Blood Test", "X-Ray", "ECG", "ECHO", "TMT", "Urine Test", "Stool Test", "Thyroid", "Sugar Test"];
 const DIET_TYPES = ["Weight Loss", "Weight Gain", "Diabetic", "Heart", "Low Salt", "High Protein", "Vegetarian", "Liquid Diet", "Soft Diet", "General"];
+
+const COMMON_MEDICINES = [
+  // Fever & Pain
+  { name: "Paracetamol 500mg", category: "Fever & Pain" },
+  { name: "Paracetamol 650mg", category: "Fever & Pain" },
+  { name: "Ibuprofen 400mg", category: "Fever & Pain" },
+  { name: "Ibuprofen 600mg", category: "Fever & Pain" },
+  { name: "Aspirin 325mg", category: "Fever & Pain" },
+  { name: "Naproxen 250mg", category: "Fever & Pain" },
+  // Headache
+  { name: "Caffeine + Paracetamol", category: "Headache" },
+  { name: "Sumatriptan 50mg", category: "Headache" },
+  { name: "Betahistine 16mg", category: "Headache" },
+  // Body Pain & Muscle
+  { name: "Metaxalone 400mg", category: "Body Pain" },
+  { name: "Chlorzoxazone 250mg", category: "Body Pain" },
+  { name: "Diclofenac Gel", category: "Body Pain" },
+  { name: "Volini Gel", category: "Body Pain" },
+  // Viral Fever
+  { name: "L-Cetizine 5mg", category: "Viral Fever" },
+  { name: "Cetirizine 10mg", category: "Viral Fever" },
+  { name: "Montelukast 10mg", category: "Viral Fever" },
+  { name: "Ambroxol 30mg", category: "Viral Fever" },
+  { name: "Levocetirizine 5mg", category: "Viral Fever" },
+  // Cold & Cough
+  { name: "Cetirizine + Phenylephrine", category: "Cold & Cough" },
+  { name: "Phenylephrine 10mg", category: "Cold & Cough" },
+  { name: "Phenyramidol 50mg", category: "Cold & Cough" },
+  { name: "Chlorpheniramine 4mg", category: "Cold & Cough" },
+  { name: "Diphenhydramine 25mg", category: "Cold & Cough" },
+  // Antibiotics
+  { name: "Azithromycin 500mg", category: "Antibiotics" },
+  { name: "Amoxicillin 500mg", category: "Antibiotics" },
+  { name: "Ciprofloxacin 500mg", category: "Antibiotics" },
+  { name: "Ofloxacin 200mg", category: "Antibiotics" },
+  { name: "Metronidazole 400mg", category: "Antibiotics" },
+  { name: "Doxycycline 100mg", category: "Antibiotics" },
+  // Stomach
+  { name: "Pantoprazole 40mg", category: "Stomach" },
+  { name: "Omeprazole 20mg", category: "Stomach" },
+  { name: "Domperidone 10mg", category: "Stomach" },
+  { name: "Ondansetron 4mg", category: "Stomach" },
+  { name: "Ranitidine 150mg", category: "Stomach" },
+  { name: "Polycrol Suspension", category: "Stomach" },
+  // BP & Heart
+  { name: "Amlodipine 5mg", category: "BP & Heart" },
+  { name: "Amlodipine 10mg", category: "BP & Heart" },
+  { name: "Metoprolol 25mg", category: "BP & Heart" },
+  { name: "Atenolol 50mg", category: "BP & Heart" },
+  { name: "Losartan 50mg", category: "BP & Heart" },
+  // Diabetes
+  { name: "Metformin 500mg", category: "Diabetes" },
+  { name: "Metformin 1000mg", category: "Diabetes" },
+  { name: "Glimepride 2mg", category: "Diabetes" },
+  { name: "Glimepride 4mg", category: "Diabetes" },
+  // Vitamins
+  { name: "Vitamin B-Complex", category: "Vitamins" },
+  { name: "Vitamin C 500mg", category: "Vitamins" },
+  { name: "Vitamin D3 1000IU", category: "Vitamins" },
+  { name: "Calcium + Vitamin D", category: "Vitamins" },
+  { name: "Iron + Folic Acid", category: "Vitamins" },
+  // Skin
+  { name: "Miconazole Cream", category: "Skin" },
+  { name: "Clindamycin Gel", category: "Skin" },
+  { name: "Fusidic Acid Cream", category: "Skin" },
+  { name: "Hydrocortisone Cream", category: "Skin" },
+];
 
 function isToday(dateString: string): boolean {
   const appointmentDate = new Date(dateString);
@@ -234,6 +302,8 @@ function MedicinesSection({
   onRefresh: () => void;
 }) {
   const [showAddModal, setShowAddModal] = useState(false);
+  const [medicineSearch, setMedicineSearch] = useState("");
+  const [showMedicineDropdown, setShowMedicineDropdown] = useState(false);
   const [newMedicine, setNewMedicine] = useState({
     medicine_name: "",
     dosage: "",
@@ -350,7 +420,62 @@ function MedicinesSection({
             <div className="space-y-3">
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Medicine Name *</label>
-                <input type="text" value={newMedicine.medicine_name} onChange={(e) => setNewMedicine({ ...newMedicine, medicine_name: e.target.value })} placeholder="e.g., Paracetamol" className="w-full rounded-lg border-2 border-gray-200 px-3 sm:px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none" />
+                <div className="relative space-y-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input 
+                      type="text" 
+                      value={medicineSearch} 
+                      onChange={(e) => { setMedicineSearch(e.target.value); setShowMedicineDropdown(true); }}
+                      onFocus={() => setShowMedicineDropdown(true)}
+                      placeholder="Search medicine (e.g., fever, pain, bp)..." 
+                      className="w-full pl-9 rounded-lg border-2 border-gray-200 px-3 sm:px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none" 
+                    />
+                  </div>
+                  
+                  {/* Search Results Dropdown */}
+                  {showMedicineDropdown && medicineSearch && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border-2 border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {(() => {
+                        const filtered = COMMON_MEDICINES.filter(med => 
+                          med.name.toLowerCase().includes(medicineSearch.toLowerCase()) ||
+                          med.category.toLowerCase().includes(medicineSearch.toLowerCase())
+                        );
+                        if (filtered.length === 0) {
+                          return (
+                            <div className="p-3 text-sm text-gray-500 text-center">
+                              No medicines found
+                            </div>
+                          );
+                        }
+                        return filtered.slice(0, 10).map(med => (
+                          <button
+                            key={med.name}
+                            type="button"
+                            onClick={() => {
+                              setNewMedicine({ ...newMedicine, medicine_name: med.name });
+                              setMedicineSearch("");
+                              setShowMedicineDropdown(false);
+                            }}
+                            className="w-full px-4 py-2 text-left hover:bg-blue-50 flex items-center justify-between"
+                          >
+                            <span className="text-sm text-gray-900">{med.name}</span>
+                            <span className="text-xs text-gray-500">{med.category}</span>
+                          </button>
+                        ));
+                      })()}
+                    </div>
+                  )}
+                  
+                  {/* Custom Medicine Input */}
+                  <input 
+                    type="text" 
+                    value={newMedicine.medicine_name} 
+                    onChange={(e) => setNewMedicine({ ...newMedicine, medicine_name: e.target.value })} 
+                    placeholder="Or enter custom medicine name" 
+                    className="w-full rounded-lg border-2 border-gray-200 px-3 sm:px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none" 
+                  />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <div>
@@ -693,13 +818,13 @@ function DietSection({
 }
 
 export default function DoctorAppointmentsTab() {
+  const router = useRouter();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterHospital, setFilterHospital] = useState<string>("all");
   const [filterCaseType, setFilterCaseType] = useState<string>("all");
-  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [hospitals, setHospitals] = useState<{ name: string; count: number }[]>([]);
 
   useEffect(() => {
@@ -796,7 +921,7 @@ export default function DoctorAppointmentsTab() {
           {filteredAppointments.map((apt) => (
             <div
               key={apt.id}
-              onClick={() => setSelectedAppointment(apt)}
+              onClick={() => router.push(`/doctor/patient?id=${apt.id}`)}
               className="bg-white rounded-xl border border-gray-200 p-4 hover:border-blue-300 transition cursor-pointer"
             >
               <div className="flex items-start justify-between gap-3">
@@ -839,10 +964,6 @@ export default function DoctorAppointmentsTab() {
             </div>
           ))}
         </div>
-      )}
-
-      {selectedAppointment && (
-        <PatientDetailPanel appointment={selectedAppointment} onClose={() => setSelectedAppointment(null)} />
       )}
     </div>
   );
