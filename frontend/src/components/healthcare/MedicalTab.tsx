@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
-import { Pill, Building2, User, Calendar, RefreshCw, ChevronDown, ChevronUp, X, Search, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Pill, Building2, User, Calendar, RefreshCw, ChevronDown, ChevronUp, X, Search, Loader2, CheckCircle2, PackageCheck, AlertCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { fetchHospitalsList } from "@/lib/api";
 
@@ -20,6 +20,8 @@ interface PatientMedicine {
   created_at: string;
   hospital_name?: string;
   appointment_id?: string;
+  medicine_collected?: boolean;
+  collected_at?: string;
 }
 
 interface PatientGroup {
@@ -43,6 +45,8 @@ export default function MedicalTab() {
   const [refreshing, setRefreshing] = useState(false);
   const [expandedHospitals, setExpandedHospitals] = useState<Set<string>>(new Set());
   const [expandedPatients, setExpandedPatients] = useState<Set<string>>(new Set());
+  const [collectingPatient, setCollectingPatient] = useState<string | null>(null);
+  const [confirmPatient, setConfirmPatient] = useState<{ key: string; name: string; email: string } | null>(null);
 
   useEffect(() => {
     loadData();
@@ -235,6 +239,47 @@ export default function MedicalTab() {
     setExpandedPatients(newExpanded);
   };
 
+  const handleCollectClick = (patientKey: string, patientName: string, patientEmail: string) => {
+    setConfirmPatient({ key: patientKey, name: patientName, email: patientEmail });
+  };
+
+  const confirmCollectPatient = async () => {
+    if (!confirmPatient) return;
+    setCollectingPatient(confirmPatient.key);
+    setConfirmPatient(null);
+    try {
+      const medicineIds: string[] = [];
+      for (const group of hospitalGroups) {
+        for (const patient of group.patients) {
+          const pk = `${group.hospital_name}-${patient.patient_name?.toLowerCase().trim()}`;
+          if (pk === confirmPatient.key) {
+            medicineIds.push(...patient.medicines.map(m => m.id));
+            break;
+          }
+        }
+        if (medicineIds.length > 0) break;
+      }
+
+      if (medicineIds.length === 0) return;
+
+      const { error } = await supabase
+        .from("patient_medicines")
+        .update({ medicine_collected: true, collected_at: new Date().toISOString() })
+        .in("id", medicineIds);
+
+      if (error) throw error;
+      await loadData(true);
+    } catch (err) {
+      console.error("Error marking medicines as collected:", err);
+    } finally {
+      setCollectingPatient(null);
+    }
+  };
+
+  const allCollected = (medicines: PatientMedicine[]) => {
+    return medicines.length > 0 && medicines.every(m => m.medicine_collected);
+  };
+
   const getTotalStats = () => {
     let totalPatients = 0;
     let totalMeds = 0;
@@ -359,6 +404,9 @@ export default function MedicalTab() {
                     <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-sm">
                       {hospitalGroup.patients.length} patients
                     </span>
+                    <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-sm">
+                      {hospitalGroup.patients.filter(p => allCollected(p.medicines)).length} collected
+                    </span>
                   </div>
                   {expandedHospitals.has(hospitalGroup.hospital_name) ? (
                     <ChevronUp className="w-5 h-5 text-gray-500" />
@@ -376,9 +424,9 @@ export default function MedicalTab() {
                       
                       return (
                         <div key={patientKey} className="p-4">
-                          <button
+                          <div
                             onClick={() => togglePatient(patientKey)}
-                            className="w-full flex items-center justify-between hover:bg-gray-50 rounded-lg p-2 -m-2 transition"
+                            className="w-full flex items-center justify-between hover:bg-gray-50 rounded-lg p-2 -m-2 transition cursor-pointer"
                           >
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
@@ -390,6 +438,20 @@ export default function MedicalTab() {
                               </div>
                             </div>
                             <div className="flex items-center gap-3">
+                              {allCollected(patient.medicines) ? (
+                                <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-sm flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Collected
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleCollectClick(patientKey, patient.patient_name || "", patient.patient_email); }}
+                                  disabled={collectingPatient === patientKey}
+                                  className="px-2 py-1 bg-emerald-600 text-white rounded text-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1"
+                                >
+                                  <PackageCheck className="w-3.5 h-3.5" />
+                                  {collectingPatient === patientKey ? "Collecting..." : "Mark Collected"}
+                                </button>
+                              )}
                               <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm">
                                 {patient.medicines.length} meds ({activeMeds} active)
                               </span>
@@ -399,7 +461,7 @@ export default function MedicalTab() {
                                 <ChevronDown className="w-5 h-5 text-gray-400" />
                               )}
                             </div>
-                          </button>
+                          </div>
 
                           {/* Medicines */}
                           {expandedPatients.has(patientKey) && (
@@ -422,6 +484,11 @@ export default function MedicalTab() {
                                       }`}>
                                         {med.is_active ? 'Active' : 'Inactive'}
                                       </span>
+                                      {med.medicine_collected && (
+                                        <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-100 text-emerald-700 flex items-center gap-0.5">
+                                          <CheckCircle2 className="w-3 h-3" /> Collected
+                                        </span>
+                                      )}
                                     </div>
                                     <div className="text-xs text-gray-500 flex items-center gap-1">
                                       <Calendar className="w-3 h-3" />
@@ -452,6 +519,64 @@ export default function MedicalTab() {
             ))}
           </div>
         )}
+
+        {/* Confirmation Modal */}
+        <AnimatePresence>
+          {confirmPatient && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4"
+              onClick={() => setConfirmPatient(null)}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl"
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                    <PackageCheck className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Confirm Collection</h3>
+                    <p className="text-sm text-gray-500">Mark all medicines as collected</p>
+                  </div>
+                </div>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-sm text-amber-800">
+                        This will mark all medications for <strong>{confirmPatient.name}</strong> as collected.
+                      </p>
+                      <p className="text-xs text-amber-600 mt-1">This action cannot be undone.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setConfirmPatient(null)}
+                    className="flex-1 px-4 py-2.5 border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmCollectPatient}
+                    className="flex-1 px-4 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition font-medium"
+                  >
+                    Confirm Collection
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

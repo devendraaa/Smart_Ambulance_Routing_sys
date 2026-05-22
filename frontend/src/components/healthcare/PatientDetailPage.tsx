@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Calendar, User, Mail, Phone, MapPin, Building2, Pill, FileText, Utensils, ArrowLeft, X, Plus, Trash2, Search } from "lucide-react";
+import { Calendar, User, Mail, Phone, MapPin, Building2, Pill, FileText, Utensils, ArrowLeft, X, Plus, Trash2, Search, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 interface Appointment {
@@ -30,6 +30,8 @@ interface PatientMedicine {
   instructions: string;
   is_active: boolean;
   created_at: string;
+  medicine_collected?: boolean;
+  collected_at?: string;
 }
 
 interface PatientTest {
@@ -391,6 +393,11 @@ function PatientDetailPage() {
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-gray-900">{med.medicine_name}</span>
                           <span className={`px-2 py-0.5 rounded text-xs ${med.is_active ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-600"}`}>{med.is_active ? "Active" : "Inactive"}</span>
+                          {med.medicine_collected && (
+                            <span className="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-700 flex items-center gap-0.5">
+                              <CheckCircle2 className="w-3 h-3" /> Collected
+                            </span>
+                          )}
                         </div>
                         <div className="text-sm text-gray-600 mt-1">
                           {med.dosage && <span>💊 {med.dosage}</span>}

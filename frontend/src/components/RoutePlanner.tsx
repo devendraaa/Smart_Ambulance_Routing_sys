@@ -63,7 +63,7 @@ export default function RoutePlanner() {
   const [driverName, setDriverName] = useState("");
   const [driverMobile, setDriverMobile] = useState("");
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const errorsRef = useRef<HTMLDivElement>(null);
+  const [showValidationModal, setShowValidationModal] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Set current date on mount
@@ -183,14 +183,12 @@ export default function RoutePlanner() {
     if (!patientBloodGroup) errors.patientBloodGroup = "Blood group is required";
     if (!patientMobile.trim()) errors.patientMobile = "Mobile number is required";
     if (!patientCase) errors.patientCase = "Emergency case type is required";
-    if (!driverName.trim()) errors.driverName = "Driver name is required";
-    if (!driverMobile.trim()) errors.driverMobile = "Driver mobile is required";
-    if (!ambulanceNumber.trim()) errors.ambulanceNumber = "Ambulance number is required";
+    // Driver & ambulance details are optional (can be added later)
 
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
+      setShowValidationModal(true);
       setIsSubmitting(false);
-      setTimeout(() => errorsRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
       return;
     }
     setValidationErrors({});
@@ -606,7 +604,7 @@ export default function RoutePlanner() {
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">
               <User className="w-3.5 h-3.5 inline mr-1" />
-              Driver Name <span className="text-red-500">*</span>
+              Driver Name
             </label>
             <input
               type="text"
@@ -620,7 +618,7 @@ export default function RoutePlanner() {
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">
               <Phone className="w-3.5 h-3.5 inline mr-1" />
-              Mobile Number <span className="text-red-500">*</span>
+              Mobile Number
             </label>
             <input
               type="tel"
@@ -634,7 +632,7 @@ export default function RoutePlanner() {
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">
               <Truck className="w-3.5 h-3.5 inline mr-1" />
-              Vehicle Number <span className="text-red-500">*</span>
+              Vehicle Number
             </label>
             <input
               type="text"
@@ -648,26 +646,7 @@ export default function RoutePlanner() {
         </div>
       </motion.div>
 
-      {/* Validation Errors Summary */}
-      <AnimatePresence>
-        {Object.keys(validationErrors).length > 0 && (
-          <motion.div
-            ref={errorsRef}
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="bg-red-50 border-2 border-red-200 rounded-xl p-4 flex items-start gap-3"
-          >
-            <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-bold text-red-700">Please fix the following errors:</p>
-              <ul className="text-xs text-red-600 mt-1 list-disc list-inside">
-                {Object.values(validationErrors).map((msg, i) => <li key={i}>{msg}</li>)}
-              </ul>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
 
       {/* Geolocation Button */}
       <motion.div
@@ -989,6 +968,56 @@ export default function RoutePlanner() {
           )}
         </motion.button>
       </motion.div>
+
+      {/* Validation Modal */}
+      <AnimatePresence>
+        {showValidationModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4"
+            onClick={() => setShowValidationModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Missing Required Fields</h3>
+                  <p className="text-sm text-gray-500">Please complete all mandatory fields</p>
+                </div>
+              </div>
+
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+                <ul className="space-y-1.5">
+                  {Object.values(validationErrors).map((msg, i) => (
+                    <li key={i} className="text-sm text-red-700 flex items-start gap-2">
+                      <span className="mt-0.5">•</span>
+                      {msg}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowValidationModal(false)}
+                className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition font-medium"
+              >
+                Got It
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.form>
   );
 }

@@ -168,3 +168,7 @@ ALTER TABLE patient_tests ADD COLUMN IF NOT EXISTS payment_status VARCHAR(50) DE
 
 -- Patient Diets (add patient_name column)
 ALTER TABLE patient_diets ADD COLUMN IF NOT EXISTS patient_name VARCHAR(255);
+
+-- Medicine collection tracking
+ALTER TABLE patient_medicines ADD COLUMN IF NOT EXISTS medicine_collected BOOLEAN DEFAULT FALSE;
+ALTER TABLE patient_medicines ADD COLUMN IF NOT EXISTS collected_at TIMESTAMPTZ;

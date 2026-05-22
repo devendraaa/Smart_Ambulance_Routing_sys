@@ -18,7 +18,7 @@ export default function RootLayout({
   if (pathname === "/login" || pathname === "/signup") {
     return (
       <html lang="en">
-        <body className="min-h-full flex flex-col bg-gradient-to-br from-slate-50 to-blue-50">
+        <body suppressHydrationWarning className="min-h-full flex flex-col bg-gradient-to-br from-slate-50 to-blue-50">
           <main className="flex-1">{children}</main>
         </body>
       </html>
@@ -27,7 +27,7 @@ export default function RootLayout({
 
   return (
     <html lang="en">
-      <body className="min-h-full flex flex-col bg-gradient-to-br from-slate-50 to-blue-50">
+      <body suppressHydrationWarning className="min-h-full flex flex-col bg-gradient-to-br from-slate-50 to-blue-50">
         <ClientAuthWrapper>
           {/* Patient pages use PatientNavbar */}
           {pathname === "/patient" || pathname?.startsWith("/patient") ? (

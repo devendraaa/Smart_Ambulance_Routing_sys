@@ -210,6 +210,8 @@ export async function getVideoConsultations(patientEmail: string) {
 export interface Medicine {
   id: string;
   patient_email: string;
+  patient_name?: string;
+  hospital_name?: string;
   prescription_id?: string;
   medicine_name: string;
   dosage?: string;
@@ -221,6 +223,8 @@ export interface Medicine {
   start_date?: string;
   end_date?: string;
   created_at: string;
+  medicine_collected?: boolean;
+  collected_at?: string;
 }
 
 export async function addMedicine(data: {

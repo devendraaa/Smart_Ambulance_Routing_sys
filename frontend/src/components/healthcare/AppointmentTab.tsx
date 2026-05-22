@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Calendar, MapPin, Phone, AlertTriangle, Droplet, Heart, UserPlus, CheckCircle2, Clock, FileText, Stethoscope, MapPinOff, Navigation, X, PartyPopper } from "lucide-react";
+import { Calendar, MapPin, Phone, AlertTriangle, Droplet, Heart, UserPlus, CheckCircle2, Clock, FileText, Stethoscope, MapPinOff, Navigation, X, PartyPopper, ExternalLink } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { fetchHospitalsList, fetchHospitalInfo, HospitalInfo } from "@/lib/api";
 
@@ -105,6 +106,7 @@ function generateHospitalSlots(): HospitalSlot[] {
 }
 
 export default function AppointmentTab() {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [patientPhone, setPatientPhone] = useState("");
@@ -560,48 +562,24 @@ export default function AppointmentTab() {
         </form>
       </motion.div>
 
-      {/* Appointments List */}
+      {/* Appointments Button */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
             <Clock className="w-5 h-5 text-blue-600" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Your Appointments</h2>
-            <p className="text-sm text-gray-500">{appointments.length} appointment{appointments.length !== 1 ? 's' : ''} found</p>
+            <p className="text-sm text-gray-500">{appointments.length} appointment{appointments.length !== 1 ? 's' : ''} booked</p>
           </div>
         </div>
-
-        {appointments.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            <Calendar className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p>No appointments yet. Book your first appointment above!</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {appointments.map((apt) => (
-              <motion.div key={apt.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 border border-gray-200 rounded-xl hover:border-emerald-300 transition-colors">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900">{apt.patient_name}</h3>
-                    {apt.hospital_name && (
-                      <p className="text-sm text-emerald-600 font-medium"><Stethoscope className="w-3.5 h-3.5 inline mr-1" />{apt.hospital_name}</p>
-                    )}
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-gray-600">
-                      <span className="flex items-center gap-1"><Heart className="w-3.5 h-3.5" />Age: {apt.age}</span>
-                      <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />{new Date(apt.appointment_date).toLocaleDateString()}</span>
-                      <span className="flex items-center gap-1"><Stethoscope className="w-3.5 h-3.5" />{apt.case_type}</span>
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1 line-clamp-1"><MapPin className="w-3.5 h-3.5 inline mr-1" />{apt.address}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {getStatusBadge(apt.status)}
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        )}
+        <button
+          onClick={() => router.push("/patient/appointments")}
+          className="w-full py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center gap-2 shadow-md"
+        >
+          <Calendar className="w-5 h-5" />
+          View All Appointments
+        </button>
       </motion.div>
 
       {/* Appointment Confirmation Popup */}
