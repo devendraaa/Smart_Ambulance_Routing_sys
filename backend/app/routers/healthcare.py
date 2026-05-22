@@ -1,10 +1,12 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import date, datetime
 from supabase import create_client, AsyncClient
 import os
 import sys
+import uuid
 
 # Add parent directory to path for config
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -176,12 +178,16 @@ async def book_test(data: TestBookingCreate):
 
 
 @router.get("/tests/{patient_email}")
-async def get_patient_tests(patient_email: str):
+async def get_patient_tests(patient_email: str, patient_name: Optional[str] = None):
     sb = get_supabase()
     if not sb:
         return {"tests": []}
 
     try:
+        if patient_name:
+            result = sb.table("patient_tests").select("*").eq("patient_name", patient_name).eq("patient_email", patient_email).order("created_at", desc=True).execute()
+            if result.data:
+                return {"tests": result.data}
         result = sb.table("patient_tests").select("*").eq("patient_email", patient_email).order("created_at", desc=True).execute()
         return {"tests": result.data}
     except Exception as e:
@@ -219,6 +225,47 @@ async def upload_test_report(test_id: str, report_url: str):
         return {"message": "Report uploaded", "id": test_id}
     except Exception as e:
         raise HTTPException(500, f"Failed to upload report: {str(e)}")
+
+
+@router.post("/tests/{test_id}/upload-file")
+async def upload_test_report_file(test_id: str, file: UploadFile = File(...)):
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database not configured")
+
+    ALLOWED_TYPES = {
+        "application/pdf": ".pdf",
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+    }
+
+    if file.content_type not in ALLOWED_TYPES:
+        raise HTTPException(400, f"Invalid file type. Allowed: {', '.join(ALLOWED_TYPES.keys())}")
+
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(400, "File too large. Maximum size is 10MB")
+
+    ext = ALLOWED_TYPES[file.content_type]
+    filename = f"{uuid.uuid4()}{ext}"
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads", "reports")
+    os.makedirs(upload_dir, exist_ok=True)
+    filepath = os.path.join(upload_dir, filename)
+
+    with open(filepath, "wb") as f:
+        f.write(content)
+
+    report_url = f"/uploads/reports/{filename}"
+
+    try:
+        sb.table("patient_tests").update({
+            "report_url": report_url,
+            "status": "completed",
+        }).eq("id", test_id).execute()
+        return {"message": "Report uploaded successfully", "report_url": report_url, "id": test_id}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to update test record: {str(e)}")
 
 
 # --- AI Symptom Checker Endpoints ---
@@ -360,12 +407,19 @@ async def add_medicine(data: MedicineCreate):
 
 
 @router.get("/medicines/{patient_email}")
-async def get_patient_medicines(patient_email: str, active_only: bool = True):
+async def get_patient_medicines(patient_email: str, active_only: bool = True, patient_name: Optional[str] = None):
     sb = get_supabase()
     if not sb:
         return {"medicines": []}
 
     try:
+        if patient_name:
+            query = sb.table("patient_medicines").select("*").eq("patient_name", patient_name).eq("patient_email", patient_email)
+            if active_only:
+                query = query.eq("is_active", True)
+            result = query.order("created_at", desc=True).execute()
+            if result.data:
+                return {"medicines": result.data}
         query = sb.table("patient_medicines").select("*").eq("patient_email", patient_email)
         if active_only:
             query = query.eq("is_active", True)

@@ -97,8 +97,12 @@ export async function bookTest(data: {
   });
 }
 
-export async function getPatientTests(patientEmail: string) {
-  return fetchAPI<{ tests: TestBooking[] }>(`/api/healthcare/tests/${encodeURIComponent(patientEmail)}`);
+export async function getPatientTests(patientEmail: string, patientName?: string) {
+  let url = `/api/healthcare/tests/${encodeURIComponent(patientEmail)}`;
+  if (patientName) {
+    url += `?patient_name=${encodeURIComponent(patientName)}`;
+  }
+  return fetchAPI<{ tests: TestBooking[] }>(url);
 }
 
 export async function confirmTestPayment(testId: string, paymentReference: string = "") {
@@ -113,6 +117,18 @@ export async function uploadTestReport(testId: string, reportUrl: string) {
     method: "PUT",
     body: JSON.stringify({ report_url: reportUrl }),
   });
+}
+
+export async function uploadTestReportFile(testId: string, file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const url = `${API_URL}/api/healthcare/tests/${testId}/upload-file`;
+  const res = await fetch(url, { method: "POST", body: formData });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Upload failed: ${res.status} - ${body}`);
+  }
+  return res.json() as Promise<{ message: string; report_url: string; id: string }>;
 }
 
 // --- AI Symptom Checker ---
@@ -225,8 +241,11 @@ export async function addMedicine(data: {
   });
 }
 
-export async function getPatientMedicines(patientEmail: string, activeOnly = true) {
-  const url = `/api/healthcare/medicines/${encodeURIComponent(patientEmail)}${activeOnly ? "?active_only=true" : "?active_only=false"}`;
+export async function getPatientMedicines(patientEmail: string, activeOnly = true, patientName?: string) {
+  let url = `/api/healthcare/medicines/${encodeURIComponent(patientEmail)}${activeOnly ? "?active_only=true" : "?active_only=false"}`;
+  if (patientName) {
+    url += `&patient_name=${encodeURIComponent(patientName)}`;
+  }
   return fetchAPI<{ medicines: Medicine[] }>(url);
 }
 

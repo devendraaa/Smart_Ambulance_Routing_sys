@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Search, Filter, Pill, FileText, Utensils, X, Plus, Trash2, ChevronRight, User, Stethoscope, Clock } from "lucide-react";
+import { Calendar, Search, Filter, Pill, FileText, Utensils, X, Plus, Trash2, ChevronRight, User, Stethoscope, Clock, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { fetchHospitalsList } from "@/lib/api";
 
@@ -821,6 +821,7 @@ export default function DoctorAppointmentsTab() {
   const router = useRouter();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterHospital, setFilterHospital] = useState<string>("all");
@@ -836,21 +837,51 @@ export default function DoctorAppointmentsTab() {
     try {
       const data = await fetchHospitalsList();
       const uniqueNames = [...new Set(data.hospitals.map(h => h.name).filter(Boolean))];
-      const { data: appointmentsData } = await supabase.from("patient_appointments").select("hospital_name");
+      const today = new Date().toISOString().split("T")[0];
+      const { data: appointmentsData } = await supabase
+        .from("patient_appointments")
+        .select("hospital_name")
+        .gte("appointment_date", `${today}T00:00:00`)
+        .lte("appointment_date", `${today}T23:59:59`);
       const countMap: Record<string, number> = {};
       appointmentsData?.forEach(apt => { if (apt.hospital_name) countMap[apt.hospital_name] = (countMap[apt.hospital_name] || 0) + 1; });
       setHospitals(uniqueNames.map(name => ({ name, count: countMap[name] || 0 })));
     } catch (err) { console.error("Error loading hospitals:", err); }
   };
 
-  const loadAppointments = async () => {
+  const loadAppointments = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
-      const { data, error } = await supabase.from("patient_appointments").select("*").order("created_at", { ascending: false });
+      const today = new Date().toISOString().split("T")[0];
+      const { data, error } = await supabase
+        .from("patient_appointments")
+        .select("*")
+        .gte("appointment_date", `${today}T00:00:00`)
+        .lte("appointment_date", `${today}T23:59:59`)
+        .order("created_at", { ascending: false });
       if (error) throw error;
       setAppointments(data || []);
     } catch (err) { console.error("Error loading appointments:", err); }
-    finally { setLoading(false); }
+    finally { if (!silent) setLoading(false); }
   };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([loadAppointments(true), loadHospitals()]);
+    setRefreshing(false);
+  };
+
+  const handleRefreshRef = useRef(handleRefresh);
+  useEffect(() => {
+    handleRefreshRef.current = handleRefresh;
+  });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      handleRefreshRef.current();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const filteredAppointments = appointments.filter((apt) => {
     const matchesSearch = apt.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) || apt.patient_email.toLowerCase().includes(searchQuery.toLowerCase()) || apt.hospital_name?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -866,9 +897,17 @@ export default function DoctorAppointmentsTab() {
       <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center justify-between">
         <h2 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center gap-2">
           <Calendar className="w-5 h-5 text-blue-600" />
-          <span className="hidden xs:inline">All Patient Appointments</span>
+          <span className="hidden xs:inline">Today's Appointments</span>
           <span className="xs:hidden">Appointments</span>
         </h2>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition border border-blue-200"
+        >
+          <Loader2 className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
+          {refreshing ? "Refreshing..." : "Refresh"}
+        </button>
       </div>
 
       {/* Filters - Stack on mobile */}

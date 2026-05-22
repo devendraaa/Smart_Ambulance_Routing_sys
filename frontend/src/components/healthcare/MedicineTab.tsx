@@ -30,7 +30,14 @@ export default function MedicineTab() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const data = await getPatientMedicines(user.email!, false);
+      const { data: medList } = await supabase
+        .from("patient_medicines")
+        .select("patient_name")
+        .eq("patient_email", user.email)
+        .not("patient_name", "is", null)
+        .limit(1);
+      const patientName = medList?.[0]?.patient_name || "";
+      const data = await getPatientMedicines(user.email!, false, patientName);
       setMedicines(data.medicines);
     } catch (err) {
       console.error('Error fetching medicines:', err);

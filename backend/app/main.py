@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import os
 from app.routers import routes, hospitals, sensors, mqtt
 from app.routers import hospitals_new
 from app.routers import blood_banks
@@ -16,6 +18,10 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="Smart Ambulance API", lifespan=lifespan)
+
+uploads_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "uploads")
+os.makedirs(os.path.join(uploads_dir, "reports"), exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,

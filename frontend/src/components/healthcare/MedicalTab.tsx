@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Pill, Building2, User, Calendar, RefreshCw, ChevronDown, ChevronUp, X, Search } from "lucide-react";
+import { Pill, Building2, User, Calendar, RefreshCw, ChevronDown, ChevronUp, X, Search, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { fetchHospitalsList } from "@/lib/api";
 
@@ -40,6 +40,7 @@ export default function MedicalTab() {
   const [selectedHospital, setSelectedHospital] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [expandedHospitals, setExpandedHospitals] = useState<Set<string>>(new Set());
   const [expandedPatients, setExpandedPatients] = useState<Set<string>>(new Set());
 
@@ -81,20 +82,23 @@ export default function MedicalTab() {
     }
   };
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
+      const today = new Date().toISOString().split("T")[0];
       const { data: medsData, error: medsError } = await supabase
         .from("patient_medicines")
         .select("*")
+        .gte("created_at", `${today}T00:00:00`)
+        .lte("created_at", `${today}T23:59:59`)
         .order("created_at", { ascending: false });
 
       if (medsError) throw medsError;
 
       if (!medsData || medsData.length === 0) {
         setHospitalGroups([]);
-        setLoading(false);
         await loadHospitals();
+        if (!silent) setLoading(false);
         return;
       }
 
@@ -125,9 +129,27 @@ export default function MedicalTab() {
     } catch (err) {
       console.error("Error loading data:", err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadData(true);
+    setRefreshing(false);
+  };
+
+  const handleRefreshRef = useRef(handleRefresh);
+  useEffect(() => {
+    handleRefreshRef.current = handleRefresh;
+  });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      handleRefreshRef.current();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const groupByHospital = (medicines: PatientMedicine[]): HospitalGroup[] => {
     console.log("=== GROUP DEBUG ===", medicines.length);
@@ -266,10 +288,10 @@ export default function MedicalTab() {
                 onChange={(e) => setSelectedHospital(e.target.value)}
                 className="w-full pl-10 pr-8 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
               >
-                <option value="all">All Hospitals ({hospitalGroups.length})</option>
-                {hospitalGroups.map((g) => (
-                  <option key={g.hospital_name} value={g.hospital_name}>
-                    {g.hospital_name} ({g.patients.length} patients)
+                <option value="all">All Hospitals ({hospitals.length})</option>
+                {hospitals.map((h) => (
+                  <option key={h} value={h}>
+                    {h}
                   </option>
                 ))}
               </select>
@@ -287,11 +309,12 @@ export default function MedicalTab() {
             </div>
 
             <button
-              onClick={loadData}
-              className="px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition flex items-center gap-2"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2"
             >
-              <RefreshCw className="w-5 h-5" />
-              Refresh
+              <Loader2 className={`w-5 h-5 ${refreshing ? "animate-spin" : ""}`} />
+              {refreshing ? "Refreshing..." : "Refresh"}
             </button>
           </div>
         </motion.div>

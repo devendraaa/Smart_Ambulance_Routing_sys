@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { TestTube, Building2, User, Calendar, RefreshCw, ChevronDown, ChevronUp, Search, FileText } from "lucide-react";
+import { TestTube, Building2, User, Calendar, RefreshCw, ChevronDown, ChevronUp, Search, FileText, Loader2, Upload, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { fetchHospitalsList } from "@/lib/api";
+import { uploadTestReportFile } from "@/lib/healthcare";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 interface PatientTest {
   id: string;
@@ -73,6 +76,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
   const [selectedTestType, setSelectedTestType] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [expandedHospitals, setExpandedHospitals] = useState<Set<string>>(new Set());
   const [expandedPatients, setExpandedPatients] = useState<Set<string>>(new Set());
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -82,6 +86,11 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
     timing: "09:00 AM",
     price: ""
   });
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadTest, setUploadTest] = useState<PatientTest | null>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
 
   useEffect(() => {
     loadData();
@@ -101,20 +110,47 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
     }
   };
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
-      const { data: testsData, error: testsError } = await supabase
-        .from("patient_tests")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const today = new Date().toISOString().split("T")[0];
 
-      if (testsError) throw testsError;
+      let testsData: any[] | null = null;
+
+      if (isDoctorView) {
+        const { data, error } = await supabase
+          .from("patient_tests")
+          .select("*")
+          .gte("created_at", `${today}T00:00:00`)
+          .lte("created_at", `${today}T23:59:59`)
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        testsData = data;
+      } else {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data: testList } = await supabase
+          .from("patient_tests")
+          .select("patient_name")
+          .eq("patient_email", user.email)
+          .not("patient_name", "is", null)
+          .limit(1);
+        const patientName = testList?.[0]?.patient_name || "";
+        const { data, error } = await supabase
+          .from("patient_tests")
+          .select("*")
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        testsData = (data || []).filter(t => {
+          if (patientName && t.patient_name === patientName && t.patient_email === user.email) return true;
+          return t.patient_email === user.email;
+        });
+      }
 
       if (!testsData || testsData.length === 0) {
         setHospitalGroups([]);
-        setLoading(false);
         await loadHospitals();
+        if (!silent) setLoading(false);
         return;
       }
 
@@ -145,9 +181,27 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
     } catch (err) {
       console.error("Error loading data:", err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadData(true);
+    setRefreshing(false);
+  };
+
+  const handleRefreshRef = useRef(handleRefresh);
+  useEffect(() => {
+    handleRefreshRef.current = handleRefresh;
+  });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      handleRefreshRef.current();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const groupByHospital = (tests: PatientTest[]): HospitalGroup[] => {
     const hospitalMap = new Map<string, Map<string, PatientTest[]>>();
@@ -306,6 +360,29 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
     }
   };
 
+  const openUploadModal = (test: PatientTest) => {
+    setUploadTest(test);
+    setUploadFile(null);
+    setUploadError("");
+    setShowUploadModal(true);
+  };
+
+  const handleFileUpload = async () => {
+    if (!uploadTest || !uploadFile) return;
+    setUploading(true);
+    setUploadError("");
+    try {
+      await uploadTestReportFile(uploadTest.id, uploadFile);
+      setShowUploadModal(false);
+      setUploadFile(null);
+      loadData(true);
+    } catch (err: any) {
+      setUploadError(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handlePayment = async (test: PatientTest) => {
     if (!test.price) return;
     
@@ -371,10 +448,10 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                 onChange={(e) => setSelectedHospital(e.target.value)}
                 className="w-full pl-10 pr-8 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none"
               >
-                <option value="all">All Hospitals ({hospitalGroups.length})</option>
-                {hospitalGroups.map((g) => (
-                  <option key={g.hospital_name} value={g.hospital_name}>
-                    {g.hospital_name} ({g.patients.length} patients)
+                <option value="all">All Hospitals ({hospitals.length})</option>
+                {hospitals.map((h) => (
+                  <option key={h} value={h}>
+                    {h}
                   </option>
                 ))}
               </select>
@@ -406,11 +483,12 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
             </div>
 
             <button
-              onClick={loadData}
-              className="px-4 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition flex items-center gap-2"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="px-4 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2"
             >
-              <RefreshCw className="w-5 h-5" />
-              Refresh
+              <Loader2 className={`w-5 h-5 ${refreshing ? "animate-spin" : ""}`} />
+              {refreshing ? "Refreshing..." : "Refresh"}
             </button>
           </div>
         </motion.div>
@@ -523,7 +601,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                                   {test.report_url && (
                                     <div className="mt-2">
                                       <a 
-                                        href={test.report_url} 
+                                        href={test.report_url.startsWith("http") ? test.report_url : `${API_URL}${test.report_url}`}
                                         target="_blank" 
                                         rel="noopener noreferrer"
                                         className="text-xs text-blue-600 hover:underline flex items-center gap-1"
@@ -534,6 +612,16 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                                   )}
                                   {/* Schedule & Payment */}
                                   <div className="mt-3 flex flex-wrap gap-2">
+                                    {/* Doctor: Upload Report Button */}
+                                    {isDoctorView && (
+                                      <button
+                                        onClick={() => openUploadModal(test)}
+                                        className="px-3 py-1.5 bg-emerald-600 text-white text-xs rounded-lg hover:bg-emerald-700 transition flex items-center gap-1"
+                                      >
+                                        <FileText className="w-3 h-3" />
+                                        {test.report_url ? "Update Report" : "Upload Report"}
+                                      </button>
+                                    )}
                                     {/* Doctor: Schedule Button */}
                                     {isDoctorView && (
                                       <button
@@ -655,6 +743,106 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
               >
                 Save Schedule
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Report Modal */}
+      {showUploadModal && uploadTest && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Upload Test Report</h3>
+              <button onClick={() => setShowUploadModal(false)} className="p-1 hover:bg-gray-100 rounded-lg transition">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-gray-50 rounded-lg p-3">
+                <p className="text-sm text-gray-500">Patient</p>
+                <p className="font-medium text-gray-900">{uploadTest.patient_name || uploadTest.patient_email}</p>
+                <p className="text-xs text-gray-400 mt-1">Test: {uploadTest.test_type}</p>
+                {uploadTest.status === "completed" && uploadTest.report_url && (
+                  <div className="mt-2 flex items-center gap-1 text-xs text-emerald-600">
+                    <FileText className="w-3 h-3" />
+                    Report already uploaded
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Upload className="w-4 h-4 inline mr-1" />
+                  Select Report File
+                </label>
+                <div
+                  onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("border-emerald-500", "bg-emerald-50"); }}
+                  onDragLeave={(e) => { e.currentTarget.classList.remove("border-emerald-500", "bg-emerald-50"); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.remove("border-emerald-500", "bg-emerald-50");
+                    const f = e.dataTransfer.files[0];
+                    if (f) setUploadFile(f);
+                  }}
+                  className={`border-2 border-dashed rounded-xl p-6 text-center transition cursor-pointer hover:border-emerald-400 ${uploadFile ? "border-emerald-500 bg-emerald-50" : "border-gray-300 bg-gray-50"}`}
+                  onClick={() => document.getElementById("report-file-input")?.click()}
+                >
+                  {uploadFile ? (
+                    <div>
+                      <FileText className="w-8 h-8 text-emerald-600 mx-auto mb-2" />
+                      <p className="text-sm font-medium text-emerald-700">{uploadFile.name}</p>
+                      <p className="text-xs text-gray-500 mt-1">{(uploadFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-600">Drop file here or click to browse</p>
+                      <p className="text-xs text-gray-400 mt-1">PDF, PNG, JPG up to 10MB</p>
+                    </div>
+                  )}
+                  <input
+                    id="report-file-input"
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg,.webp"
+                    className="hidden"
+                    onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                  />
+                </div>
+              </div>
+
+              {uploadError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                  {uploadError}
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowUploadModal(false)}
+                  className="flex-1 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleFileUpload}
+                  disabled={!uploadFile || uploading}
+                  className="flex-1 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4" />
+                      Upload Report
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
