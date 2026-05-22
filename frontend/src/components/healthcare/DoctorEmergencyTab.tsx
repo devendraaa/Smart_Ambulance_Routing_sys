@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { fetchHospitalsList, getTaskStatus, reverseGeocode, fetchBloodBanks } from "@/lib/api";
 import { Hospital, MapPin, Calendar, User, Phone, AlertTriangle, Droplet, Loader2, Clock, Navigation, CheckCircle, Truck, Activity, Thermometer, Heart, Wind, AlertCircle, Stethoscope, Pill, TestTube, Bed, ChevronDown, ChevronUp, Save, Edit3 } from "lucide-react";
@@ -62,6 +62,7 @@ export default function DoctorEmergencyTab() {
   const [loadingHospitals, setLoadingHospitals] = useState(true);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [treatmentForm, setTreatmentForm] = useState({
     treatment_problem: "",
     treatment_details: "",
@@ -118,8 +119,8 @@ export default function DoctorEmergencyTab() {
     }
   }, [selectedHospital]);
 
-  const loadTodayCases = async () => {
-    setLoading(true);
+  const loadTodayCases = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const today = new Date().toISOString().split("T")[0];
       const response = await fetch(
@@ -186,9 +187,57 @@ export default function DoctorEmergencyTab() {
       console.error("Failed to load emergency cases:", err);
       setCases([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const today = new Date().toISOString().split("T")[0];
+
+      const data = await fetchHospitalsList();
+      const hospitalsData = data.hospitals || [];
+
+      const hospitalsWithCounts = await Promise.all(
+        hospitalsData.map(async (h: HospitalInfo) => {
+          try {
+            const response = await fetch(
+              `${API_URL}/api/route/emergency/cases?hospital_name=${encodeURIComponent(h.name)}&start_date=${today}&end_date=${today}`
+            );
+            const cases = await response.json();
+            return { ...h, today_cases: cases.length || 0 };
+          } catch {
+            return { ...h, today_cases: 0 };
+          }
+        })
+      );
+
+      hospitalsWithCounts.sort((a, b) => (b.today_cases || 0) - (a.today_cases || 0));
+      setHospitals(hospitalsWithCounts);
+
+      if (selectedHospital) {
+        await loadTodayCases(true);
+      }
+    } catch (err) {
+      console.error("Failed to refresh:", err);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleRefreshRef = useRef(handleRefresh);
+  useEffect(() => {
+    handleRefreshRef.current = handleRefresh;
+  });
+
+  useEffect(() => {
+    if (!selectedHospital) return;
+    const interval = setInterval(() => {
+      handleRefreshRef.current();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [selectedHospital]);
 
   const formatTime = (dateStr: string) => {
     if (!dateStr) return "-";
@@ -286,9 +335,19 @@ export default function DoctorEmergencyTab() {
               </select>
             )}
           </div>
-          <div className="text-right">
-            <p className="text-xs text-gray-500">Date</p>
-            <p className="text-sm font-semibold text-gray-800">{new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</p>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-xs text-gray-500">Date</p>
+              <p className="text-sm font-semibold text-gray-800">{new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</p>
+            </div>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition border border-blue-200"
+            >
+              <Loader2 className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
+              {refreshing ? "Refreshing..." : "Refresh"}
+            </button>
           </div>
         </div>
       </div>

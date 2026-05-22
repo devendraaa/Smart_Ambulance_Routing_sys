@@ -50,7 +50,7 @@ async def fetch_route_coordinates_via_ors(
         dist = data["features"][0]["properties"]["segments"][0]["distance"]
         dur = data["features"][0]["properties"]["segments"][0]["duration"]
         return coords, dist, dur
-    except (ValueError, httpx.HTTPStatusError):
+    except (ValueError, httpx.HTTPStatusError, httpx.RequestError):
         pass
 
     return await _fetch_route_coordinates_osrm(origin_lat, origin_lon, dest_lat, dest_lon)
