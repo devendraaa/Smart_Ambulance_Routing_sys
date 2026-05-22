@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import { fetchHospitalsList, getTaskStatus, reverseGeocode, fetchBloodBanks } from "@/lib/api";
 import { Hospital, MapPin, Calendar, User, Phone, AlertTriangle, Droplet, Loader2, Clock, Navigation, CheckCircle, Truck, Activity, Thermometer, Heart, Wind, AlertCircle, Stethoscope, Pill, TestTube, Bed, ChevronDown, ChevronUp, Save, Edit3 } from "lucide-react";
@@ -64,6 +64,7 @@ export default function DoctorEmergencyTab() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [statusFilter, setStatusFilter] = useState<"new" | "pending" | "solved">("new");
   const [treatmentForm, setTreatmentForm] = useState({
     treatment_problem: "",
     treatment_details: "",
@@ -72,6 +73,22 @@ export default function DoctorEmergencyTab() {
     consultant_name: "",
     bed_number: "",
   });
+
+  const getCaseStatus = useCallback((c: EmergencyCase): "new" | "pending" | "solved" => {
+    const arrived = c.duration_min ? hasPatientArrived(c.created_at, c.duration_min, now) : false;
+    if (arrived) return "solved";
+    if (c.duration_min) return "new";
+    return "pending";
+  }, [now]);
+
+  const newCaseCount = useMemo(() => cases.filter(c => getCaseStatus(c) === "new").length, [cases, getCaseStatus]);
+  const pendingCaseCount = useMemo(() => cases.filter(c => getCaseStatus(c) === "pending").length, [cases, getCaseStatus]);
+  const solvedCaseCount = useMemo(() => cases.filter(c => getCaseStatus(c) === "solved").length, [cases, getCaseStatus]);
+
+  const filteredCases = useMemo(
+    () => cases.filter(c => getCaseStatus(c) === statusFilter),
+    [cases, statusFilter, getCaseStatus]
+  );
 
   // Fetch hospitals on mount
   useEffect(() => {
@@ -361,6 +378,62 @@ export default function DoctorEmergencyTab() {
         </div>
       </div>
 
+      {/* Status Tabs */}
+      {selectedHospital && !loading && cases.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-1.5 flex shadow-sm">
+          <button
+            onClick={() => setStatusFilter("new")}
+            className={`flex-1 relative px-3 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-semibold transition-all duration-200 overflow-hidden ${
+              statusFilter === "new"
+                ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-200"
+                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            {statusFilter === "new" && newCaseCount > 0 && (
+              <span className="absolute inset-0 animate-siren pointer-events-none" />
+            )}
+            <span className="hidden sm:inline">New Case</span>
+            <span className="sm:hidden">New</span>
+            <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 ${
+              statusFilter === "new" ? "bg-white/25 text-white" : "bg-gray-200 text-gray-600"
+            }`}>
+              {statusFilter !== "new" && newCaseCount > 0 && (
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-live-dot" />
+              )}
+              {newCaseCount}
+            </span>
+          </button>
+          <button
+            onClick={() => setStatusFilter("pending")}
+            className={`flex-1 px-3 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
+              statusFilter === "pending"
+                ? "bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-200"
+                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            <span className="hidden sm:inline">Pending Case</span>
+            <span className="sm:hidden">Pending</span>
+            <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+              statusFilter === "pending" ? "bg-white/25 text-white" : "bg-gray-200 text-gray-600"
+            }`}>{pendingCaseCount}</span>
+          </button>
+          <button
+            onClick={() => setStatusFilter("solved")}
+            className={`flex-1 px-3 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
+              statusFilter === "solved"
+                ? "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-200"
+                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            <span className="hidden sm:inline">Solved</span>
+            <span className="sm:hidden">Solved</span>
+            <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+              statusFilter === "solved" ? "bg-white/25 text-white" : "bg-gray-200 text-gray-600"
+            }`}>{solvedCaseCount}</span>
+          </button>
+        </div>
+      )}
+
       {/* Results */}
       {!selectedHospital ? (
         <div className="text-center py-12 bg-gray-50 rounded-2xl border border-gray-100">
@@ -378,23 +451,87 @@ export default function DoctorEmergencyTab() {
           <p className="text-gray-500">No emergency cases found today</p>
           <p className="text-sm text-gray-400 mt-1">For {selectedHospital}</p>
         </div>
+      ) : filteredCases.length === 0 ? (
+        <div className="text-center py-12 bg-gray-50 rounded-2xl border border-gray-100">
+          <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <AlertTriangle className="w-7 h-7 text-gray-400" />
+          </div>
+          <p className="text-gray-500 font-medium">No {statusFilter === "new" ? "new" : statusFilter === "pending" ? "pending" : "solved"} cases</p>
+          <p className="text-sm text-gray-400 mt-1">For {selectedHospital}</p>
+        </div>
       ) : (
         <div className="space-y-4">
-          <p className="text-sm text-gray-500">
-            Showing <span className="font-semibold text-gray-700">{cases.length}</span> case(s) today
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500">
+              Showing <span className="font-semibold text-gray-700">{filteredCases.length}</span> {statusFilter === "new" ? "new" : statusFilter === "pending" ? "pending" : "solved"} case(s)
+            </p>
+          </div>
 
-          {cases.map((emergencyCase, index) => (
+          {filteredCases.map((emergencyCase, index) => {
+            const isNewCase = statusFilter === "new";
+            return (
             <motion.div
               key={emergencyCase.task_id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow"
+              layout
+              initial={isNewCase ? { opacity: 0, x: 60, scale: 0.95 } : { opacity: 0, y: 20 }}
+              animate={{
+                opacity: 1,
+                x: 0,
+                y: 0,
+                scale: 1,
+                borderColor: isNewCase
+                  ? ["rgba(239,68,68,0.3)", "rgba(239,68,68,0.7)", "rgba(239,68,68,0.3)"]
+                  : ["rgba(229,231,235,1)", "rgba(229,231,235,1)", "rgba(229,231,235,1)"],
+              }}
+              transition={{
+                delay: index * 0.08,
+                duration: isNewCase ? 0.5 : 0.3,
+                ease: isNewCase ? [0.34, 1.56, 0.64, 1] : "easeOut",
+                borderColor: isNewCase ? { duration: 2, repeat: Infinity, ease: "easeInOut" } : { duration: 0.3 },
+              }}
+              className={`bg-white rounded-2xl border-2 p-5 shadow-sm transition-shadow relative overflow-hidden ${
+                isNewCase
+                  ? "hover:shadow-red-200/50 hover:shadow-md"
+                  : "border-gray-100 hover:shadow-md"
+              }`}
             >
-              {/* Case Header - Case type prominent with animation */}
+              {/* Siren sweep overlay */}
+              {isNewCase && (
+                <div className="absolute inset-0 pointer-events-none animate-siren" />
+              )}
+
+              {/* Live indicator bar */}
+              {isNewCase && (
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-500 via-rose-400 to-red-500 animate-pulse" />
+              )}
+
+              {/* Live badge */}
+              {isNewCase && (
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.08 + 0.4 }}
+                  className="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 bg-red-500 text-white rounded-full text-[10px] font-bold shadow-lg shadow-red-300/50 z-10"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-live-dot" />
+                  LIVE
+                </motion.div>
+              )}
+
+              {/* Case Header */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
+                  {isNewCase && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 10, delay: index * 0.08 + 0.2 }}
+                      className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shadow-lg shadow-red-300/50"
+                    >
+                      <AlertTriangle className="w-5 h-5 text-white" />
+                    </motion.div>
+                  )}
+                  {!isNewCase && (
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                     emergencyCase.status === "completed"
                       ? "bg-green-100"
@@ -402,23 +539,35 @@ export default function DoctorEmergencyTab() {
                       ? "bg-blue-100"
                       : "bg-gray-100"
                   }`}>
-                    <AlertTriangle className={`w-5 h-5 ${
-                      emergencyCase.status === "completed"
-                        ? "text-green-600"
-                        : emergencyCase.status === "running"
-                        ? "text-blue-600"
-                        : "text-gray-600"
-                    }`} />
-                  </div>
-                  <div className="flex items-center gap-2">
+                      <AlertTriangle className={`w-5 h-5 ${
+                        emergencyCase.status === "completed"
+                          ? "text-green-600"
+                          : emergencyCase.status === "running"
+                          ? "text-blue-600"
+                          : "text-gray-600"
+                      }`} />
+                    </div>
+                    )}
+                    <div className="flex items-center gap-2">
                     <h3 className="font-bold text-lg text-gray-900">
                       {emergencyCase.patient_name || "Unknown Patient"}
                     </h3>
                     {emergencyCase.patient_case && (
                       <motion.span
                         initial={{ scale: 0.8, opacity: 0.7 }}
-                        animate={{ scale: [1, 1.05, 1], opacity: 1 }}
-                        transition={{ duration: 1.5, repeat: Infinity, repeatType: "reverse" }}
+                        animate={isNewCase ? {
+                          scale: [1, 1.08, 1],
+                          opacity: 1,
+                          boxShadow: [
+                            "0 0 0 0 rgba(239,68,68,0.4)",
+                            "0 0 12px 4px rgba(239,68,68,0.3)",
+                            "0 0 0 0 rgba(239,68,68,0.4)",
+                          ],
+                        } : {
+                          scale: [1, 1.05, 1],
+                          opacity: 1,
+                        }}
+                        transition={{ duration: isNewCase ? 1.5 : 1.5, repeat: Infinity, repeatType: "reverse" }}
                         className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide ${
                           emergencyCase.patient_case === "Heart Attack" ? "bg-red-500 text-white shadow-lg shadow-red-300" :
                           emergencyCase.patient_case === "Accident" ? "bg-orange-500 text-white shadow-lg shadow-orange-300" :
@@ -959,7 +1108,8 @@ export default function DoctorEmergencyTab() {
                 )}
               </div>
             </motion.div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

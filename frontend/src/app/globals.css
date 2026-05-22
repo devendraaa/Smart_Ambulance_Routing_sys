@@ -233,6 +233,62 @@ body {
   animation: emergency-pulse 2s ease-in-out infinite;
 }
 
+/* New Case Alert Glow */
+@keyframes alert-glow {
+  0%, 100% {
+    border-color: rgba(239, 68, 68, 0.3);
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.15), inset 0 0 8px rgba(239, 68, 68, 0.05);
+  }
+  50% {
+    border-color: rgba(239, 68, 68, 0.8);
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.3), inset 0 0 12px rgba(239, 68, 68, 0.1);
+  }
+}
+
+.alert-glow {
+  animation: alert-glow 2s ease-in-out infinite;
+}
+
+/* Live Dot Pulse */
+@keyframes live-dot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.7);
+  }
+}
+
+.animate-live-dot {
+  animation: live-dot 1.2s ease-in-out infinite;
+}
+
+/* Siren Sweep */
+@keyframes siren-sweep {
+  0% {
+    background-position: -200% 0;
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    background-position: 200% 0;
+    opacity: 0;
+  }
+}
+
+.animate-siren {
+  background: linear-gradient(90deg, transparent 0%, rgba(239, 68, 68, 0.15) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: siren-sweep 2s ease-in-out infinite;
+}
+
 /* Mobile Responsive Utilities */
 @media (max-width: 640px) {
   html {
