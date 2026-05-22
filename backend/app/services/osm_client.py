@@ -10,7 +10,24 @@ OSM_NODE_API = "https://api.openstreetmap.org/api/0.6/node/"
 ORS_API = "https://api.openrouteservice.org/v2/directions/driving-car/geojson"
 
 
-# ---------- openrouteservice (ORS) — primary routing API ----------
+# ---------- OSRM routing engine — primary ----------
+
+
+async def fetch_route_coordinates_via_ors(
+    origin_lat: float, origin_lon: float, dest_lat: float, dest_lon: float
+) -> tuple[list[tuple[float, float]], float, float]:
+    """Fetch route coordinates trying OSRM first, falling back to ORS.
+    Returns (coordinates, distance_m, duration_s).
+    """
+    try:
+        return await _fetch_route_coordinates_osrm(origin_lat, origin_lon, dest_lat, dest_lon)
+    except Exception:
+        pass
+
+    return await _fetch_route_coordinates_ors(origin_lat, origin_lon, dest_lat, dest_lon)
+
+
+# ---------- ORS fallback ----------
 
 
 async def _get_ors_api_key() -> str:
@@ -18,45 +35,37 @@ async def _get_ors_api_key() -> str:
     if not settings.ORS_API_KEY:
         raise ValueError(
             "ORS_API_KEY not set. Get a free key at https://openrouteservice.org/sign-up "
-            "and add ORS_API_KEY to your .env file, or use OSRM fallback."
+            "and add ORS_API_KEY to your .env file."
         )
     return settings.ORS_API_KEY
 
 
-async def fetch_route_coordinates_via_ors(
+async def _fetch_route_coordinates_ors(
     origin_lat: float, origin_lon: float, dest_lat: float, dest_lon: float
 ) -> tuple[list[tuple[float, float]], float, float]:
-    """Fetch complete route geometry from openrouteservice.
-    Returns (coordinates, distance_m, duration_s).
-    Falls back to OSRM if ORS key is missing, invalid, or rate-limited.
-    """
-    try:
-        api_key = await _get_ors_api_key()
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(ORS_API, json={
-                "coordinates": [[origin_lon, origin_lat], [dest_lon, dest_lat]],
-            }, headers={
-                "Authorization": api_key,
-                "Content-Type": "application/json",
-            })
-            response.raise_for_status()
-            data = response.json()
+    """Fetch route geometry from openrouteservice (fallback)."""
+    api_key = await _get_ors_api_key()
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(ORS_API, json={
+            "coordinates": [[origin_lon, origin_lat], [dest_lon, dest_lat]],
+        }, headers={
+            "Authorization": api_key,
+            "Content-Type": "application/json",
+        })
+        response.raise_for_status()
+        data = response.json()
 
-        if not data.get("features"):
-            raise ValueError(f"ORS returned no route features: {data}")
+    if not data.get("features"):
+        raise ValueError(f"ORS returned no route features: {data}")
 
-        geometry = data["features"][0]["geometry"]
-        coords = [(coord[1], coord[0]) for coord in geometry["coordinates"]]
-        dist = data["features"][0]["properties"]["segments"][0]["distance"]
-        dur = data["features"][0]["properties"]["segments"][0]["duration"]
-        return coords, dist, dur
-    except (ValueError, httpx.HTTPStatusError, httpx.RequestError):
-        pass
-
-    return await _fetch_route_coordinates_osrm(origin_lat, origin_lon, dest_lat, dest_lon)
+    geometry = data["features"][0]["geometry"]
+    coords = [(coord[1], coord[0]) for coord in geometry["coordinates"]]
+    dist = data["features"][0]["properties"]["segments"][0]["distance"]
+    dur = data["features"][0]["properties"]["segments"][0]["duration"]
+    return coords, dist, dur
 
 
-# ---------- OSRM routing engine (fallback / default) ----------
+# ---------- OSRM routing engine ----------
 
 
 async def _fetch_route_coordinates_osrm(

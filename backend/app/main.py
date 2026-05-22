@@ -16,6 +16,8 @@ from app.tasks.worker import background_worker_thread
 async def lifespan(app: FastAPI):
     background_worker_thread.start()
     yield
+    from app.services.mqtt_client import mqtt_client
+    mqtt_client.disconnect()
 
 app = FastAPI(title="Smart Ambulance API", lifespan=lifespan)
 

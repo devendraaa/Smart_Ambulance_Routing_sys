@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin, Hospital, Navigation, Loader2, CheckCircle2, AlertCircle,
   Crosshair, Clock, Bed, Stethoscope, ChevronDown, Zap, User, Phone, Calendar, AlertTriangle, Droplet,
-  Activity, Thermometer, Heart, Wind
+  Activity, Thermometer, Heart, Wind, Truck
 } from "lucide-react";
 
 type NearbyHospital = {
@@ -62,6 +62,8 @@ export default function RoutePlanner() {
   const [ambulanceNumber, setAmbulanceNumber] = useState("");
   const [driverName, setDriverName] = useState("");
   const [driverMobile, setDriverMobile] = useState("");
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const errorsRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Set current date on mount
@@ -174,6 +176,25 @@ export default function RoutePlanner() {
   };
 
   const startRoute = async () => {
+    const errors: Record<string, string> = {};
+    if (!patientName.trim()) errors.patientName = "Patient name is required";
+    if (!patientAge.trim()) errors.patientAge = "Age is required";
+    if (!patientSex) errors.patientSex = "Sex is required";
+    if (!patientBloodGroup) errors.patientBloodGroup = "Blood group is required";
+    if (!patientMobile.trim()) errors.patientMobile = "Mobile number is required";
+    if (!patientCase) errors.patientCase = "Emergency case type is required";
+    if (!driverName.trim()) errors.driverName = "Driver name is required";
+    if (!driverMobile.trim()) errors.driverMobile = "Driver mobile is required";
+    if (!ambulanceNumber.trim()) errors.ambulanceNumber = "Ambulance number is required";
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      setIsSubmitting(false);
+      setTimeout(() => errorsRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
+      return;
+    }
+    setValidationErrors({});
+
     setIsSubmitting(true);
     if (!isLocationValid) {
       alert("Location not available. Please wait or detect location.");
@@ -332,62 +353,65 @@ export default function RoutePlanner() {
           <div className="col-span-1 sm:col-span-2 lg:col-span-2">
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">
               <User className="w-3.5 h-3.5 inline mr-1" />
-              Patient Name
+              Patient Name <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={patientName}
-              onChange={(e) => setPatientName(e.target.value)}
+              onChange={(e) => { setPatientName(e.target.value); setValidationErrors(prev => ({ ...prev, patientName: "" })); }}
               placeholder="Enter patient name"
-              className="w-full rounded-xl border-2 border-orange-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition"
+              className={`w-full rounded-xl border-2 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 transition ${validationErrors.patientName ? "border-red-400 focus:border-red-400 focus:ring-red-100" : "border-orange-200 focus:border-orange-400 focus:ring-orange-100"}`}
             />
+            {validationErrors.patientName && <p className="text-xs text-red-500 mt-1">{validationErrors.patientName}</p>}
           </div>
 
           {/* Age */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">
               <Calendar className="w-3.5 h-3.5 inline mr-1" />
-              Age
+              Age <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
               min="1"
               max="150"
               value={patientAge}
-              onChange={(e) => setPatientAge(e.target.value)}
+              onChange={(e) => { setPatientAge(e.target.value); setValidationErrors(prev => ({ ...prev, patientAge: "" })); }}
               placeholder="e.g. 35"
-              className="w-full rounded-xl border-2 border-orange-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition"
+              className={`w-full rounded-xl border-2 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 transition ${validationErrors.patientAge ? "border-red-400 focus:border-red-400 focus:ring-red-100" : "border-orange-200 focus:border-orange-400 focus:ring-orange-100"}`}
             />
+            {validationErrors.patientAge && <p className="text-xs text-red-500 mt-1">{validationErrors.patientAge}</p>}
           </div>
 
           {/* Sex */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">
               <User className="w-3.5 h-3.5 inline mr-1" />
-              Sex
+              Sex <span className="text-red-500">*</span>
             </label>
             <select
               value={patientSex}
-              onChange={(e) => setPatientSex(e.target.value)}
-              className="w-full rounded-xl border-2 border-orange-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition"
+              onChange={(e) => { setPatientSex(e.target.value); setValidationErrors(prev => ({ ...prev, patientSex: "" })); }}
+              className={`w-full rounded-xl border-2 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 transition ${validationErrors.patientSex ? "border-red-400 focus:border-red-400 focus:ring-red-100" : "border-orange-200 focus:border-orange-400 focus:ring-orange-100"}`}
             >
               <option value="">Select sex</option>
               <option value="Male">Male</option>
               <option value="Female">Female</option>
               <option value="Other">Other</option>
             </select>
+            {validationErrors.patientSex && <p className="text-xs text-red-500 mt-1">{validationErrors.patientSex}</p>}
           </div>
 
           {/* Blood Group */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">
               <Droplet className="w-3.5 h-3.5 inline mr-1" />
-              Blood Group
+              Blood Group <span className="text-red-500">*</span>
             </label>
             <select
               value={patientBloodGroup}
-              onChange={(e) => setPatientBloodGroup(e.target.value)}
-              className="w-full rounded-xl border-2 border-orange-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition"
+              onChange={(e) => { setPatientBloodGroup(e.target.value); setValidationErrors(prev => ({ ...prev, patientBloodGroup: "" })); }}
+              className={`w-full rounded-xl border-2 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 transition ${validationErrors.patientBloodGroup ? "border-red-400 focus:border-red-400 focus:ring-red-100" : "border-orange-200 focus:border-orange-400 focus:ring-orange-100"}`}
             >
               <option value="">Select</option>
               <option value="A+">A+</option>
@@ -399,33 +423,35 @@ export default function RoutePlanner() {
               <option value="O+">O+</option>
               <option value="O-">O-</option>
             </select>
+            {validationErrors.patientBloodGroup && <p className="text-xs text-red-500 mt-1">{validationErrors.patientBloodGroup}</p>}
           </div>
 
           {/* Mobile Number */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">
               <Phone className="w-3.5 h-3.5 inline mr-1" />
-              Mobile Number
+              Mobile Number <span className="text-red-500">*</span>
             </label>
             <input
               type="tel"
               value={patientMobile}
-              onChange={(e) => setPatientMobile(e.target.value)}
+              onChange={(e) => { setPatientMobile(e.target.value); setValidationErrors(prev => ({ ...prev, patientMobile: "" })); }}
               placeholder="+91 98765 43210"
-              className="w-full rounded-xl border-2 border-orange-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition"
+              className={`w-full rounded-xl border-2 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 transition ${validationErrors.patientMobile ? "border-red-400 focus:border-red-400 focus:ring-red-100" : "border-orange-200 focus:border-orange-400 focus:ring-orange-100"}`}
             />
+            {validationErrors.patientMobile && <p className="text-xs text-red-500 mt-1">{validationErrors.patientMobile}</p>}
           </div>
 
           {/* Case Type - spans full width */}
           <div className="col-span-1 sm:col-span-2 lg:col-span-4">
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">
               <AlertTriangle className="w-3.5 h-3.5 inline mr-1" />
-              Emergency Case Type
+              Emergency Case Type <span className="text-red-500">*</span>
             </label>
             <select
               value={patientCase}
-              onChange={(e) => setPatientCase(e.target.value)}
-              className="w-full rounded-xl border-2 border-orange-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition"
+              onChange={(e) => { setPatientCase(e.target.value); setValidationErrors(prev => ({ ...prev, patientCase: "" })); }}
+              className={`w-full rounded-xl border-2 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 transition ${validationErrors.patientCase ? "border-red-400 focus:border-red-400 focus:ring-red-100" : "border-orange-200 focus:border-orange-400 focus:ring-orange-100"}`}
             >
               <option value="">Select emergency case type</option>
               <option value="Accident">Accident</option>
@@ -433,6 +459,7 @@ export default function RoutePlanner() {
               <option value="Burn">Burn</option>
               <option value="Other">Other</option>
             </select>
+            {validationErrors.patientCase && <p className="text-xs text-red-500 mt-1">{validationErrors.patientCase}</p>}
           </div>
         </div>
       </motion.div>
@@ -557,6 +584,90 @@ export default function RoutePlanner() {
           </div>
         </div>
       </motion.div>
+
+      {/* ─── Driver & Ambulance Details Section ─── */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.17 }}
+        className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-5 border border-blue-100"
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
+            <Truck className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-gray-800">Driver & Ambulance Details</h3>
+            <p className="text-xs text-gray-500">Required for emergency coordination</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+              <User className="w-3.5 h-3.5 inline mr-1" />
+              Driver Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={driverName}
+              onChange={(e) => { setDriverName(e.target.value); setValidationErrors(prev => ({ ...prev, driverName: "" })); }}
+              placeholder="Enter driver name"
+              className={`w-full rounded-xl border-2 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 transition ${validationErrors.driverName ? "border-red-400 focus:border-red-400 focus:ring-red-100" : "border-blue-200 focus:border-blue-400 focus:ring-blue-100"}`}
+            />
+            {validationErrors.driverName && <p className="text-xs text-red-500 mt-1">{validationErrors.driverName}</p>}
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+              <Phone className="w-3.5 h-3.5 inline mr-1" />
+              Mobile Number <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="tel"
+              value={driverMobile}
+              onChange={(e) => { setDriverMobile(e.target.value); setValidationErrors(prev => ({ ...prev, driverMobile: "" })); }}
+              placeholder="+91 98765 43210"
+              className={`w-full rounded-xl border-2 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 transition ${validationErrors.driverMobile ? "border-red-400 focus:border-red-400 focus:ring-red-100" : "border-blue-200 focus:border-blue-400 focus:ring-blue-100"}`}
+            />
+            {validationErrors.driverMobile && <p className="text-xs text-red-500 mt-1">{validationErrors.driverMobile}</p>}
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+              <Truck className="w-3.5 h-3.5 inline mr-1" />
+              Vehicle Number <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={ambulanceNumber}
+              onChange={(e) => { setAmbulanceNumber(e.target.value); setValidationErrors(prev => ({ ...prev, ambulanceNumber: "" })); }}
+              placeholder="MH-01-AB-1234"
+              className={`w-full rounded-xl border-2 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 transition ${validationErrors.ambulanceNumber ? "border-red-400 focus:border-red-400 focus:ring-red-100" : "border-blue-200 focus:border-blue-400 focus:ring-blue-100"}`}
+            />
+            {validationErrors.ambulanceNumber && <p className="text-xs text-red-500 mt-1">{validationErrors.ambulanceNumber}</p>}
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Validation Errors Summary */}
+      <AnimatePresence>
+        {Object.keys(validationErrors).length > 0 && (
+          <motion.div
+            ref={errorsRef}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="bg-red-50 border-2 border-red-200 rounded-xl p-4 flex items-start gap-3"
+          >
+            <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-red-700">Please fix the following errors:</p>
+              <ul className="text-xs text-red-600 mt-1 list-disc list-inside">
+                {Object.values(validationErrors).map((msg, i) => <li key={i}>{msg}</li>)}
+              </ul>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Geolocation Button */}
       <motion.div

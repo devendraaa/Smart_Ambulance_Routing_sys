@@ -34,6 +34,15 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      // Validate driver fields
+      if (userType === "driver") {
+        if (!driverName.trim() || !driverMobile.trim() || !ambulanceNumber.trim()) {
+          setError("Please fill in all driver details");
+          setLoading(false);
+          return;
+        }
+      }
+
       await signIn(identifier, password, userType);
 
       // Save driver details to localStorage
@@ -151,45 +160,49 @@ export default function LoginPage() {
                   <div className="flex items-center gap-2 mb-2">
                     <Truck className="w-4 h-4 text-blue-600" />
                     <span className="text-sm font-semibold text-blue-800">Driver Details</span>
+                    <span className="text-xs text-red-500 ml-auto">* Required</span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
-                        <User className="w-3 h-3 inline mr-1" />
-                        Driver Name
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="flex flex-col">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <User className="w-4 h-4 inline mr-1.5" />
+                        Driver Name <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
                         value={driverName}
                         onChange={(e) => setDriverName(e.target.value)}
                         placeholder="Your name"
-                        className="w-full rounded-lg border-2 border-blue-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                        required
+                        className="w-full rounded-xl border-2 border-blue-200 px-4 py-3 text-sm focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition"
                       />
                     </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
-                        <Phone className="w-3 h-3 inline mr-1" />
-                        Mobile Number
+                    <div className="flex flex-col">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <Phone className="w-4 h-4 inline mr-1.5" />
+                        Mobile Number <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="tel"
                         value={driverMobile}
                         onChange={(e) => setDriverMobile(e.target.value)}
                         placeholder="+91 98765 43210"
-                        className="w-full rounded-lg border-2 border-blue-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                        required
+                        className="w-full rounded-xl border-2 border-blue-200 px-4 py-3 text-sm focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition"
                       />
                     </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
-                        <Truck className="w-3 h-3 inline mr-1" />
-                        Vehicle Number
+                    <div className="flex flex-col">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <Truck className="w-4 h-4 inline mr-1.5" />
+                        Vehicle Number <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
                         value={ambulanceNumber}
                         onChange={(e) => setAmbulanceNumber(e.target.value)}
                         placeholder="MH-01-AB-1234"
-                        className="w-full rounded-lg border-2 border-blue-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                        required
+                        className="w-full rounded-xl border-2 border-blue-200 px-4 py-3 text-sm focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition"
                       />
                     </div>
                   </div>
