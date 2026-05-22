@@ -303,7 +303,7 @@ export default function MedicalTab() {
         >
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
                 <Pill className="w-6 h-6 text-white" />
               </div>
               <div>
@@ -312,14 +312,14 @@ export default function MedicalTab() {
               </div>
             </div>
 
-            <div className="flex gap-4">
-              <div className="px-4 py-2 bg-blue-100 rounded-xl">
+            <div className="flex gap-3 sm:gap-4">
+              <div className="px-3 sm:px-4 py-2 bg-blue-100 rounded-xl text-center">
                 <span className="text-blue-700 font-semibold">{stats.totalPatients}</span>
-                <span className="text-blue-500 text-sm ml-1">Patients</span>
+                <span className="text-blue-500 text-xs sm:text-sm ml-1">Patients</span>
               </div>
-              <div className="px-4 py-2 bg-green-100 rounded-xl">
+              <div className="px-3 sm:px-4 py-2 bg-green-100 rounded-xl text-center">
                 <span className="text-green-700 font-semibold">{stats.totalMeds}</span>
-                <span className="text-green-500 text-sm ml-1">Medicines</span>
+                <span className="text-green-500 text-xs sm:text-sm ml-1">Medicines</span>
               </div>
             </div>
           </div>
@@ -398,15 +398,17 @@ export default function MedicalTab() {
                   onClick={() => toggleHospital(hospitalGroup.hospital_name)}
                   className="w-full p-4 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition"
                 >
-                  <div className="flex items-center gap-3">
-                    <Building2 className="w-5 h-5 text-blue-600" />
-                    <span className="font-semibold text-gray-900">{hospitalGroup.hospital_name}</span>
-                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-sm">
-                      {hospitalGroup.patients.length} patients
-                    </span>
-                    <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-sm">
-                      {hospitalGroup.patients.filter(p => allCollected(p.medicines)).length} collected
-                    </span>
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <Building2 className="w-5 h-5 text-blue-600 shrink-0" />
+                    <span className="font-semibold text-gray-900 text-sm sm:text-base truncate">{hospitalGroup.hospital_name}</span>
+                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs whitespace-nowrap">
+                        {hospitalGroup.patients.length} pat
+                      </span>
+                      <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs whitespace-nowrap">
+                        {hospitalGroup.patients.filter(p => allCollected(p.medicines)).length} col
+                      </span>
+                    </div>
                   </div>
                   {expandedHospitals.has(hospitalGroup.hospital_name) ? (
                     <ChevronUp className="w-5 h-5 text-gray-500" />
@@ -423,61 +425,63 @@ export default function MedicalTab() {
                       const activeMeds = patient.medicines.filter(m => m.is_active).length;
                       
                       return (
-                        <div key={patientKey} className="p-4">
+                        <div key={patientKey} className="p-3 sm:p-4">
                           <div
                             onClick={() => togglePatient(patientKey)}
-                            className="w-full flex items-center justify-between hover:bg-gray-50 rounded-lg p-2 -m-2 transition cursor-pointer"
+                            className="w-full hover:bg-gray-50 rounded-lg p-2 -m-2 transition cursor-pointer"
                           >
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
                                 <User className="w-5 h-5 text-emerald-600" />
                               </div>
-                              <div className="text-left">
-                                <div className="font-medium text-gray-900">{patient.patient_name}</div>
-                                <div className="text-sm text-gray-500">{patient.patient_email}</div>
+                              <div className="text-left min-w-0 flex-1">
+                                <div className="font-medium text-gray-900 text-sm sm:text-base truncate">{patient.patient_name}</div>
+                                <div className="text-xs sm:text-sm text-gray-500 truncate">{patient.patient_email}</div>
+                              </div>
+                              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                                {allCollected(patient.medicines) ? (
+                                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs flex items-center gap-1 whitespace-nowrap">
+                                    <CheckCircle2 className="w-3 h-3" /> <span className="hidden sm:inline">Collected</span>
+                                  </span>
+                                ) : (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleCollectClick(patientKey, patient.patient_name || "", patient.patient_email); }}
+                                    disabled={collectingPatient === patientKey}
+                                    className="px-2 py-1 bg-emerald-600 text-white rounded text-xs hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1 whitespace-nowrap"
+                                  >
+                                    <PackageCheck className="w-3.5 h-3.5" />
+                                    {collectingPatient === patientKey ? "..." : <span className="hidden sm:inline">Mark Collected</span>}
+                                  </button>
+                                )}
                               </div>
                             </div>
-                            <div className="flex items-center gap-3">
-                              {allCollected(patient.medicines) ? (
-                                <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-sm flex items-center gap-1">
-                                  <CheckCircle2 className="w-3.5 h-3.5" /> Collected
-                                </span>
-                              ) : (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handleCollectClick(patientKey, patient.patient_name || "", patient.patient_email); }}
-                                  disabled={collectingPatient === patientKey}
-                                  className="px-2 py-1 bg-emerald-600 text-white rounded text-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1"
-                                >
-                                  <PackageCheck className="w-3.5 h-3.5" />
-                                  {collectingPatient === patientKey ? "Collecting..." : "Mark Collected"}
-                                </button>
-                              )}
-                              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm">
+                            <div className="flex items-center justify-between mt-2 sm:mt-1">
+                              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
                                 {patient.medicines.length} meds ({activeMeds} active)
                               </span>
                               {expandedPatients.has(patientKey) ? (
-                                <ChevronUp className="w-5 h-5 text-gray-400" />
+                                <ChevronUp className="w-4 h-4 text-gray-400" />
                               ) : (
-                                <ChevronDown className="w-5 h-5 text-gray-400" />
+                                <ChevronDown className="w-4 h-4 text-gray-400" />
                               )}
                             </div>
                           </div>
 
                           {/* Medicines */}
                           {expandedPatients.has(patientKey) && (
-                            <div className="mt-4 space-y-3 pl-13">
+                            <div className="mt-3 space-y-2">
                               {patient.medicines.map((med, idx) => (
                                 <div
                                   key={med.id}
                                   className="p-3 bg-gray-50 rounded-lg border border-gray-200"
                                 >
-                                  <div className="flex items-start justify-between">
-                                    <div className="flex items-center gap-2">
-                                      <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs flex items-center justify-center">
+                                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                                    <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                                      <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] flex items-center justify-center shrink-0">
                                         {idx + 1}
                                       </span>
-                                      <span className="font-medium text-gray-900">{med.medicine_name}</span>
-                                      <span className={`px-2 py-0.5 rounded-full text-xs ${
+                                      <span className="font-medium text-gray-900 text-sm truncate">{med.medicine_name}</span>
+                                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
                                         med.is_active 
                                           ? 'bg-green-100 text-green-700' 
                                           : 'bg-gray-200 text-gray-600'
@@ -485,24 +489,24 @@ export default function MedicalTab() {
                                         {med.is_active ? 'Active' : 'Inactive'}
                                       </span>
                                       {med.medicine_collected && (
-                                        <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-100 text-emerald-700 flex items-center gap-0.5">
-                                          <CheckCircle2 className="w-3 h-3" /> Collected
+                                        <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-700 flex items-center gap-0.5">
+                                          <CheckCircle2 className="w-2.5 h-2.5" /> Collected
                                         </span>
                                       )}
                                     </div>
-                                    <div className="text-xs text-gray-500 flex items-center gap-1">
+                                    <div className="text-[10px] sm:text-xs text-gray-500 flex items-center gap-1 shrink-0">
                                       <Calendar className="w-3 h-3" />
                                       {med.created_at ? new Date(med.created_at).toLocaleDateString('en-IN') : 'N/A'}
                                     </div>
                                   </div>
-                                  <div className="mt-2 text-sm text-gray-600 flex flex-wrap gap-2">
+                                  <div className="mt-1.5 text-xs sm:text-sm text-gray-600 flex flex-wrap gap-x-3 gap-y-1">
                                     {med.dosage && <span>💊 {med.dosage}</span>}
                                     {med.frequency && <span>📅 {med.frequency}</span>}
                                     {med.timing && <span>⏰ {med.timing}</span>}
                                     {med.duration && <span>📆 {med.duration}</span>}
                                   </div>
                                   {med.instructions && (
-                                    <div className="mt-2 text-xs text-gray-500 bg-yellow-50 p-2 rounded">
+                                    <div className="mt-1.5 text-[10px] sm:text-xs text-gray-500 bg-yellow-50 p-1.5 sm:p-2 rounded">
                                       Note: {med.instructions}
                                     </div>
                                   )}

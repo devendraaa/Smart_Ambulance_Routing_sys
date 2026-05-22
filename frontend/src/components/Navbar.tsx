@@ -227,19 +227,19 @@ function DriverNavbar() {
               exit={{ opacity: 0, height: 0 }}
               className="md:hidden overflow-hidden pb-4"
             >
-              <div className="grid grid-cols-3 gap-2 mt-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4">
                 {navLinks.map((link) => (
                   <Link key={link.href} href={link.href} onClick={() => setMobileMenuOpen(false)}
                     className="flex flex-col items-center gap-1 p-3 rounded-2xl hover:bg-blue-50 text-gray-600">
                     <span className="text-2xl">{link.icon}</span>
-                    <span className="text-xs font-medium">{link.label}</span>
+                    <span className="text-xs font-medium leading-tight text-center">{link.label}</span>
                   </Link>
                 ))}
                 {sensorLinks.map((link) => (
                   <Link key={link.href} href={link.href} onClick={() => setMobileMenuOpen(false)}
                     className="flex flex-col items-center gap-1 p-3 rounded-2xl hover:bg-blue-50 text-gray-600">
                     <span className="text-2xl">{link.icon}</span>
-                    <span className="text-xs font-medium">{link.label}</span>
+                    <span className="text-xs font-medium leading-tight text-center">{link.label}</span>
                   </Link>
                 ))}
               </div>

@@ -74,7 +74,7 @@ export default function LoginPage() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
       >
-        <div className="bg-white rounded-3xl shadow-xl p-8">
+        <div className="bg-white rounded-3xl shadow-xl p-6 sm:p-8">
           {/* Logo */}
           <div className="text-center mb-8">
             <motion.div
@@ -92,19 +92,19 @@ export default function LoginPage() {
           {/* Login Form */}
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
                 <Menu className="w-4 h-4 inline mr-2" />
                 Login As
-                <select
-                  value={userType}
-                  onChange={(e) => setUserType(e.target.value)}
-                  className="ml-3 rounded-xl border-2 border-gray-200 px-3 py-2 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                >
-                  <option value="driver">Driver</option>
-                  <option value="patient">Patient</option>
-                  <option value="doctor">Doctor</option>
-                </select>
               </label>
+              <select
+                value={userType}
+                onChange={(e) => setUserType(e.target.value)}
+                className="w-full rounded-xl border-2 border-gray-200 px-3 py-2 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+              >
+                <option value="driver">Driver</option>
+                <option value="patient">Patient</option>
+                <option value="doctor">Doctor</option>
+              </select>
             </div>
 
             <div>

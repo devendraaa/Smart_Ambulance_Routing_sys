@@ -571,19 +571,19 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                   {/* Hospital Header */}
                   <button
                     onClick={() => toggleHospital(hospitalGroup.hospital_name)}
-                    className="w-full p-4 flex items-center justify-between bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 transition"
+                    className="w-full p-3 sm:p-4 flex items-center justify-between gap-2 bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 transition"
                   >
-                    <div className="flex items-center gap-3">
-                      <Building2 className="w-5 h-5 text-purple-600" />
-                      <span className="font-semibold text-gray-900">{hospitalGroup.hospital_name}</span>
-                      <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-sm">
-                        {hospitalGroup.patients.length} patients
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                      <Building2 className="w-5 h-5 text-purple-600 shrink-0" />
+                      <span className="font-semibold text-gray-900 text-sm sm:text-base truncate">{hospitalGroup.hospital_name}</span>
+                      <span className="px-1.5 sm:px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-[10px] sm:text-xs whitespace-nowrap shrink-0">
+                        {hospitalGroup.patients.length} pat
                       </span>
                     </div>
                     {expandedHospitals.has(hospitalGroup.hospital_name) ? (
-                      <ChevronUp className="w-5 h-5 text-gray-500" />
+                      <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500 shrink-0" />
                     ) : (
-                      <ChevronDown className="w-5 h-5 text-gray-500" />
+                      <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500 shrink-0" />
                     )}
                   </button>
 
@@ -594,47 +594,47 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                         const patientKey = `${hospitalGroup.hospital_name}-${patient.patient_name?.toLowerCase().trim()}`;
                         
                         return (
-                          <div key={patientKey} className="p-4">
+                          <div key={patientKey} className="p-3 sm:p-4">
                             <button
                               onClick={() => togglePatient(patientKey)}
-                              className="w-full flex items-center justify-between hover:bg-gray-50 rounded-lg p-2 -m-2 transition"
+                              className="w-full hover:bg-gray-50 rounded-lg p-2 -m-2 transition"
                             >
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
                                   <User className="w-5 h-5 text-purple-600" />
                                 </div>
-                                <div className="text-left">
-                                  <div className="font-medium text-gray-900">{patient.patient_name}</div>
-                                  <div className="text-sm text-gray-500">{patient.patient_email}</div>
+                                <div className="text-left min-w-0 flex-1">
+                                  <div className="font-medium text-gray-900 text-sm sm:text-base truncate">{patient.patient_name}</div>
+                                  <div className="text-xs sm:text-sm text-gray-500 truncate">{patient.patient_email}</div>
                                 </div>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm">
-                                  {patient.tests.length} tests
-                                </span>
-                                {expandedPatients.has(patientKey) ? (
-                                  <ChevronUp className="w-5 h-5 text-gray-400" />
-                                ) : (
-                                  <ChevronDown className="w-5 h-5 text-gray-400" />
-                                )}
+                                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                                  <span className="px-1.5 sm:px-2 py-1 bg-purple-100 text-purple-700 rounded text-[10px] sm:text-xs whitespace-nowrap">
+                                    {patient.tests.length} tests
+                                  </span>
+                                  {expandedPatients.has(patientKey) ? (
+                                    <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 shrink-0" />
+                                  ) : (
+                                    <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 shrink-0" />
+                                  )}
+                                </div>
                               </div>
                             </button>
 
                             {/* Tests */}
                             {expandedPatients.has(patientKey) && (
-                              <div className="mt-4 space-y-3 pl-13">
+                              <div className="mt-3 space-y-2">
                                 {patient.tests.map((test, idx) => (
                                   <div
                                     key={test.id}
                                     className="p-3 bg-gray-50 rounded-lg border border-gray-200"
                                   >
-                                    <div className="flex items-start justify-between">
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-2xl">{testTypeIcons[test.test_type] || "🧪"}</span>
-                                        <span className="font-medium text-gray-900">{test.test_type}</span>
+                                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                                      <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                                        <span className="text-lg sm:text-2xl">{testTypeIcons[test.test_type] || "🧪"}</span>
+                                        <span className="font-medium text-gray-900 text-sm">{test.test_type}</span>
                                         {getStatusBadge(test.status)}
                                       </div>
-                                      <div className="text-xs text-gray-500 flex items-center gap-1">
+                                      <div className="text-[10px] sm:text-xs text-gray-500 flex items-center gap-1 shrink-0">
                                         <Calendar className="w-3 h-3" />
                                         {test.created_at ? new Date(test.created_at).toLocaleDateString('en-IN') : 'N/A'}
                                       </div>
@@ -657,25 +657,25 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                                       </div>
                                     )}
                                     {/* Schedule & Payment */}
-                                    <div className="mt-3 flex flex-wrap gap-2">
+                                    <div className="mt-2 sm:mt-3 flex flex-wrap gap-1.5 sm:gap-2">
                                       {/* Doctor: Upload Report Button */}
                                       {isDoctorView && (
                                         <button
                                           onClick={() => openUploadModal(test)}
-                                          className="px-3 py-1.5 bg-emerald-600 text-white text-xs rounded-lg hover:bg-emerald-700 transition flex items-center gap-1"
+                                          className="px-2 sm:px-3 py-1 sm:py-1.5 bg-emerald-600 text-white text-[10px] sm:text-xs rounded-lg hover:bg-emerald-700 transition flex items-center gap-1"
                                         >
                                           <FileText className="w-3 h-3" />
-                                          {test.report_url ? "Update Report" : "Upload Report"}
+                                          <span className="hidden sm:inline">{test.report_url ? "Update Report" : "Upload Report"}</span>
                                         </button>
                                       )}
                                       {/* Doctor: Schedule Button */}
                                       {isDoctorView && (
                                         <button
                                           onClick={() => openScheduleModal(test)}
-                                          className="px-3 py-1.5 bg-purple-600 text-white text-xs rounded-lg hover:bg-purple-700 transition flex items-center gap-1"
+                                          className="px-2 sm:px-3 py-1 sm:py-1.5 bg-purple-600 text-white text-[10px] sm:text-xs rounded-lg hover:bg-purple-700 transition flex items-center gap-1"
                                         >
                                           <Calendar className="w-3 h-3" />
-                                          {test.appointment_date ? "Edit Schedule" : "Schedule Test"}
+                                          <span className="hidden sm:inline">{test.appointment_date ? "Edit Schedule" : "Schedule Test"}</span>
                                         </button>
                                       )}
                                       
@@ -750,38 +750,38 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                     className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden"
                   >
                     {/* Patient header */}
-                    <div className="px-6 py-4 flex items-center justify-between border-b bg-gradient-to-r from-violet-50 to-pink-50 border-gray-100">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                    <div className="px-4 sm:px-6 py-3 sm:py-4 border-b bg-gradient-to-r from-violet-50 to-pink-50 border-gray-100">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
                           <User className="w-5 h-5 text-purple-600" />
                         </div>
-                        <div>
-                          <h3 className="font-semibold text-gray-900">{group.patient_name}</h3>
-                          <p className="text-xs text-gray-500">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{group.patient_name}</h3>
+                          <p className="text-[10px] sm:text-xs text-gray-500 truncate">
                             {group.tests.length} tests
                             {patientHospital && <span> · {patientHospital}</span>}
                           </p>
                         </div>
+                        <span className="px-2 sm:px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-[10px] sm:text-xs font-medium whitespace-nowrap shrink-0">
+                          {group.tests.length} tests
+                        </span>
                       </div>
-                      <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
-                        {group.tests.length} tests
-                      </span>
                     </div>
 
                     {/* Test cards */}
-                    <div className="p-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="p-4 sm:p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                         {group.tests.map((test) => (
                           <motion.div
                             key={test.id}
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="p-4 rounded-xl border-2 border-gray-200 bg-white hover:shadow-md transition"
+                            className="p-3 sm:p-4 rounded-xl border-2 border-gray-200 bg-white hover:shadow-md transition"
                           >
-                            <div className="flex items-start justify-between mb-3">
-                              <div className="flex items-center gap-2">
-                                <span className="text-2xl">{testTypeIcons[test.test_type] || "🧪"}</span>
-                                <span className="font-medium text-gray-900">{test.test_type}</span>
+                            <div className="flex items-start justify-between mb-3 gap-2">
+                              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                                <span className="text-lg sm:text-2xl">{testTypeIcons[test.test_type] || "🧪"}</span>
+                                <span className="font-medium text-gray-900 text-sm sm:text-base truncate">{test.test_type}</span>
                               </div>
                               {getStatusBadge(test.status)}
                             </div>
@@ -846,8 +846,8 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
 
       {/* Schedule Modal */}
       {showScheduleModal && selectedTest && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 pt-16 sm:pt-20 z-[9999] overflow-y-auto">
+          <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-md my-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Schedule Test</h3>
               <button onClick={() => setShowScheduleModal(false)} className="text-gray-500 hover:text-gray-700">
@@ -915,8 +915,8 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
 
       {/* Upload Report Modal */}
       {showUploadModal && uploadTest && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
+        <div className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 pt-16 sm:pt-20 z-[9999] overflow-y-auto">
+          <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-md shadow-2xl my-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Upload Test Report</h3>
               <button onClick={() => setShowUploadModal(false)} className="p-1 hover:bg-gray-100 rounded-lg transition">

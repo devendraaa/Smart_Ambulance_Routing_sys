@@ -102,7 +102,7 @@ export default function AppointmentDetailPage() {
             </div>
           </div>
 
-          <div className="p-6 space-y-6">
+          <div className="p-4 sm:p-6 space-y-6">
             {/* Status */}
             <div className="flex items-center justify-between">
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusStyle.bg} ${statusStyle.text}`}>

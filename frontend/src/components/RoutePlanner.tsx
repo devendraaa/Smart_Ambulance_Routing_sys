@@ -479,7 +479,7 @@ export default function RoutePlanner() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-2 gap-4">
           {/* Blood Pressure - Systolic */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">
@@ -841,7 +841,7 @@ export default function RoutePlanner() {
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.2 }}
-        className="grid grid-cols-2 gap-4"
+        className="grid grid-cols-1 sm:grid-cols-2 gap-4"
       >
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">Origin Latitude</label>
