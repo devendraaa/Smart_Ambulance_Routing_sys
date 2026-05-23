@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import { fetchHospitalsList, getTaskStatus, reverseGeocode, fetchBloodBanks } from "@/lib/api";
-import { Hospital, MapPin, Calendar, User, Phone, AlertTriangle, Droplet, Loader2, Clock, Navigation, CheckCircle, Truck, Activity, Thermometer, Heart, Wind, AlertCircle, Stethoscope, Pill, TestTube, Bed, ChevronDown, ChevronUp, Save, Edit3 } from "lucide-react";
+import { Hospital, MapPin, Calendar, User, Phone, AlertTriangle, Droplet, Loader2, Clock, Navigation, CheckCircle, Truck, Activity, Thermometer, Heart, Wind, AlertCircle, Stethoscope, Pill, TestTube, Bed, ChevronDown, ChevronUp, Save, Edit3, X } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -73,6 +73,11 @@ export default function DoctorEmergencyTab() {
     consultant_name: "",
     bed_number: "",
   });
+
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyCases, setHistoryCases] = useState<EmergencyCase[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [expandedHistoryCards, setExpandedHistoryCards] = useState<Set<string>>(new Set());
 
   const getCaseStatus = useCallback((c: EmergencyCase): "new" | "pending" | "solved" => {
     const arrived = c.duration_min ? hasPatientArrived(c.created_at, c.duration_min, now) : false;
@@ -209,6 +214,40 @@ export default function DoctorEmergencyTab() {
     }
   };
 
+  const loadHistoryCases = async () => {
+    if (!selectedHospital) return;
+    setLoadingHistory(true);
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const response = await fetch(
+        `${API_URL}/api/route/emergency/cases?hospital_name=${encodeURIComponent(selectedHospital)}`
+      );
+      const data = await response.json();
+      const historical = (data || []).filter((c: EmergencyCase) => {
+        const createdDate = new Date(c.created_at).toISOString().split("T")[0];
+        return createdDate !== today;
+      });
+      setHistoryCases(historical);
+    } catch (err) {
+      console.error("Failed to load history:", err);
+      setHistoryCases([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const toggleHistoryExpand = (taskId: string) => {
+    setExpandedHistoryCards((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(taskId)) {
+        newSet.delete(taskId);
+      } else {
+        newSet.add(taskId);
+      }
+      return newSet;
+    });
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
@@ -264,6 +303,14 @@ export default function DoctorEmergencyTab() {
     }, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Load history when modal opens
+  useEffect(() => {
+    if (showHistory && selectedHospital) {
+      loadHistoryCases();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showHistory, selectedHospital]);
 
   const formatTime = (dateStr: string) => {
     if (!dateStr) return "-";
@@ -324,7 +371,8 @@ export default function DoctorEmergencyTab() {
   };
 
   return (
-    <div className="space-y-6">
+    <>
+      <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-orange-500 rounded-xl flex items-center justify-center">
@@ -373,6 +421,14 @@ export default function DoctorEmergencyTab() {
             >
               <Loader2 className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
               {refreshing ? "Refreshing..." : "Refresh"}
+            </button>
+            <button
+              onClick={() => setShowHistory(true)}
+              disabled={!selectedHospital}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-purple-600 bg-purple-50 rounded-xl hover:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed transition border border-purple-200"
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              History
             </button>
           </div>
         </div>
@@ -1113,6 +1169,193 @@ export default function DoctorEmergencyTab() {
         </div>
       )}
     </div>
+
+      {/* History Modal */}
+      {showHistory && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm"
+          onClick={() => setShowHistory(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}>
+
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">Emergency History</h3>
+                  <p className="text-xs text-gray-500">{selectedHospital}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowHistory(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingHistory ? (
+                <div className="text-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-purple-600 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">Loading history...</p>
+                </div>
+              ) : historyCases.length === 0 ? (
+                <div className="text-center py-12">
+                  <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">No previous emergency cases found</p>
+                  <p className="text-sm text-gray-400 mt-1">For {selectedHospital}</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {Object.entries(
+                    historyCases.reduce((groups, c) => {
+                      const dt = new Date(c.created_at).toISOString().split("T")[0];
+                      if (!groups[dt]) groups[dt] = [];
+                      groups[dt].push(c);
+                      return groups;
+                    }, {} as Record<string, EmergencyCase[]>)
+                  )
+                    .sort(([a], [b]) => b.localeCompare(a))
+                    .map(([date, dateCases]) => (
+                      <div key={date}>
+                        <div className="flex items-center gap-2 mb-3 sticky top-0 bg-white pb-2 z-10">
+                          <Calendar className="w-4 h-4 text-purple-600" />
+                          <h4 className="text-sm font-bold text-gray-800">
+                            {new Date(date + "T00:00:00").toLocaleDateString("en-IN", {
+                              day: "2-digit", month: "long", year: "numeric"
+                            })}
+                          </h4>
+                          <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                            {dateCases.length} case{dateCases.length > 1 ? "s" : ""}
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {dateCases.map((c) => (
+                            <div key={c.task_id}
+                              className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden transition hover:border-purple-200">
+                              <button onClick={() => toggleHistoryExpand(c.task_id)}
+                                className="w-full flex items-center justify-between p-4 text-left">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center shrink-0">
+                                    <User className="w-4 h-4 text-gray-600" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-semibold text-gray-900 truncate">
+                                      {c.patient_name || "Unknown Patient"}
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      {c.patient_age && <span className="text-xs text-gray-500">{c.patient_age}y</span>}
+                                      {c.patient_sex && <span className="text-xs text-gray-500">{c.patient_sex}</span>}
+                                      {c.patient_case && (
+                                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${c.patient_case === "Heart Attack" ? "bg-red-100 text-red-700" : c.patient_case === "Accident" ? "bg-orange-100 text-orange-700" : c.patient_case === "Burn" ? "bg-yellow-100 text-yellow-700" : "bg-gray-200 text-gray-600"}`}>
+                                          {c.patient_case}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3 shrink-0">
+                                  <span className="text-xs text-gray-400">{formatTime(c.created_at)}</span>
+                                  {expandedHistoryCards.has(c.task_id)
+                                    ? <ChevronUp className="w-4 h-4 text-gray-400" />
+                                    : <ChevronDown className="w-4 h-4 text-gray-400" />
+                                  }
+                                </div>
+                              </button>
+
+                              {expandedHistoryCards.has(c.task_id) && (
+                                <div className="px-4 pb-4 border-t border-gray-200">
+                                  {(c.patient_bp_systolic || c.patient_bp_diastolic || c.patient_temperature || c.patient_pulse || c.patient_spo2) && (
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
+                                      {c.patient_bp_systolic || c.patient_bp_diastolic ? (
+                                        <div className="bg-cyan-50 rounded-lg p-2 border border-cyan-200">
+                                          <p className="text-[10px] font-semibold text-cyan-600">BP</p>
+                                          <p className="text-sm font-bold text-cyan-800">{c.patient_bp_systolic}/{c.patient_bp_diastolic}</p>
+                                        </div>
+                                      ) : null}
+                                      {c.patient_temperature ? (
+                                        <div className="bg-orange-50 rounded-lg p-2 border border-orange-200">
+                                          <p className="text-[10px] font-semibold text-orange-600">Temp</p>
+                                          <p className="text-sm font-bold text-orange-800">{c.patient_temperature}°</p>
+                                        </div>
+                                      ) : null}
+                                      {c.patient_pulse ? (
+                                        <div className="bg-rose-50 rounded-lg p-2 border border-rose-200">
+                                          <p className="text-[10px] font-semibold text-rose-600">Pulse</p>
+                                          <p className="text-sm font-bold text-rose-800">{c.patient_pulse}</p>
+                                        </div>
+                                      ) : null}
+                                      {c.patient_spo2 ? (
+                                        <div className="bg-purple-50 rounded-lg p-2 border border-purple-200">
+                                          <p className="text-[10px] font-semibold text-purple-600">SpO2</p>
+                                          <p className="text-sm font-bold text-purple-800">{c.patient_spo2}%</p>
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  )}
+
+                                  {(c.distance_km || c.duration_min) && (
+                                    <div className="flex flex-wrap gap-2 mt-3">
+                                      {c.distance_km ? (
+                                        <div className="bg-blue-50 rounded-lg px-2.5 py-1.5 border border-blue-200">
+                                          <p className="text-[10px] text-blue-600">Distance</p>
+                                          <p className="text-xs font-bold text-blue-800">{c.distance_km.toFixed(1)} km</p>
+                                        </div>
+                                      ) : null}
+                                      {c.duration_min ? (
+                                        <div className="bg-emerald-50 rounded-lg px-2.5 py-1.5 border border-emerald-200">
+                                          <p className="text-[10px] text-emerald-600">Duration</p>
+                                          <p className="text-xs font-bold text-emerald-800">{c.duration_min.toFixed(0)} min</p>
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  )}
+
+                                  {(c.ambulance_number || c.driver_name || c.driver_mobile) && (
+                                    <div className="mt-3 pt-2 border-t border-gray-200">
+                                      <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                                        <Truck className="w-3 h-3 inline mr-1" />
+                                        Ambulance
+                                      </p>
+                                      <div className="flex flex-wrap gap-2">
+                                        {c.ambulance_number ? (
+                                          <span className="text-xs text-gray-700 bg-gray-100 px-2 py-0.5 rounded">{c.ambulance_number}</span>
+                                        ) : null}
+                                        {c.driver_name ? (
+                                          <span className="text-xs text-gray-700 bg-gray-100 px-2 py-0.5 rounded">{c.driver_name}</span>
+                                        ) : null}
+                                        {c.driver_mobile ? (
+                                          <span className="text-xs text-gray-700 bg-gray-100 px-2 py-0.5 rounded">{c.driver_mobile}</span>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {c.patient_mobile && (
+                                    <div className="mt-2 pt-2 border-t border-gray-200">
+                                      <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                                        <Phone className="w-3 h-3 inline mr-1" />
+                                        Contact
+                                      </p>
+                                      <p className="text-xs text-gray-700">{c.patient_mobile}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
