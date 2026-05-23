@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Calendar, MapPin, Phone, AlertTriangle, Droplet, Heart, UserPlus, CheckCircle2, Clock, FileText, Stethoscope, MapPinOff, Navigation, X, PartyPopper, ExternalLink } from "lucide-react";
+import { Calendar, MapPin, Phone, AlertTriangle, Droplet, Heart, UserPlus, CheckCircle2, Clock, FileText, Stethoscope, MapPinOff, Navigation, X, PartyPopper, ExternalLink, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { fetchHospitalsList, fetchHospitalInfo, HospitalInfo } from "@/lib/api";
+import FamilyMemberManager, { FamilyMember } from "./FamilyMemberManager";
 
 const CASE_TYPES = [
   { value: "General OPD", label: "General OPD" },
@@ -130,6 +131,11 @@ export default function AppointmentTab() {
   const [selectedSlotDate, setSelectedSlotDate] = useState<string>("");
   const [showAppointmentPopup, setShowAppointmentPopup] = useState(false);
   const [bookedAppointment, setBookedAppointment] = useState<Appointment | null>(null);
+  const [showFamilyManager, setShowFamilyManager] = useState(false);
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
+  const [showMemberDropdown, setShowMemberDropdown] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Get user location and fetch nearby hospitals
   const fetchNearbyHospitals = useCallback(async (lat?: number, lon?: number) => {
@@ -177,6 +183,46 @@ export default function AppointmentTab() {
     }
   }, []);
 
+  const fetchFamilyMembers = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("patient_family_members")
+        .select("*")
+        .eq("patient_email", user.email!)
+        .order("created_at", { ascending: true });
+      setFamilyMembers(data || []);
+    } catch (err) {
+      console.error("Error fetching family members:", err);
+    }
+  };
+
+  const filteredMembers = useMemo(() => {
+    if (!name.trim()) return familyMembers;
+    const q = name.trim().toLowerCase();
+    return familyMembers.filter((m) => m.name.toLowerCase().includes(q));
+  }, [name, familyMembers]);
+
+  const selectMember = (member: FamilyMember) => {
+    setName(member.name);
+    setAge(member.age?.toString() || "");
+    setPatientPhone(member.phone || "");
+    if (member.address) setAddress(member.address);
+    if (member.religion) setReligion(member.religion);
+    setShowMemberDropdown(false);
+  };
+
+  const handleNameChange = (value: string) => {
+    setName(value);
+    // If typing something that doesn't exactly match a member name, clear auto-filled fields
+    const exactMatch = familyMembers.find((m) => m.name.toLowerCase() === value.trim().toLowerCase());
+    if (!exactMatch) {
+      // Only clear if fields were previously auto-filled from a member
+      // Don't clear if user just started typing
+    }
+  };
+
   const getCurrentLocation = () => {
     setGettingLocation(true);
     setLocationError("");
@@ -206,7 +252,20 @@ export default function AppointmentTab() {
   useEffect(() => {
     fetchNearbyHospitals();
     fetchAppointments();
+    fetchFamilyMembers();
   }, [fetchNearbyHospitals]);
+
+  // Close member dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
+          nameInputRef.current && !nameInputRef.current.contains(e.target as Node)) {
+        setShowMemberDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   // Fetch doctor info when hospital and case type are selected
   useEffect(() => {
@@ -342,6 +401,15 @@ export default function AppointmentTab() {
     }
   };
 
+  const handleMemberSelect = (member: FamilyMember) => {
+    setName(member.name);
+    setAge(member.age?.toString() || "");
+    setPatientPhone(member.phone || "");
+    if (member.address) setAddress(member.address);
+    if (member.religion) setReligion(member.religion);
+    setShowFamilyManager(false);
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'scheduled':
@@ -389,7 +457,30 @@ export default function AppointmentTab() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5"><UserPlus className="w-4 h-4 inline mr-1" />Full Name *</label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter patient full name" className="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 focus:border-emerald-500 focus:outline-none transition" required />
+              <div className="relative">
+                <input ref={nameInputRef} type="text" value={name} onChange={(e) => handleNameChange(e.target.value)} onFocus={() => setShowMemberDropdown(true)} placeholder="Enter patient full name or select from family" className="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 focus:border-emerald-500 focus:outline-none transition" required />
+                {familyMembers.length > 0 && showMemberDropdown && filteredMembers.length > 0 && (
+                  <div ref={dropdownRef} className="absolute z-50 top-full mt-1 left-0 right-0 bg-white rounded-xl border-2 border-emerald-200 shadow-lg max-h-56 overflow-y-auto">
+                    {filteredMembers.map((member) => (
+                      <button key={member.id} type="button" onClick={() => selectMember(member)}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-emerald-50 text-left transition border-b border-gray-100 last:border-0">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-100 to-indigo-100 flex items-center justify-center shrink-0">
+                          <UserPlus className="w-4 h-4 text-purple-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{member.name}</p>
+                          <p className="text-xs text-gray-500">{member.age ? `${member.age}y` : ""} {member.blood_group ? `| ${member.blood_group}` : ""} {member.phone ? `| ${member.phone}` : ""}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {familyMembers.length > 0 && showMemberDropdown && filteredMembers.length === 0 && name.trim() && (
+                  <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-white rounded-xl border-2 border-gray-200 shadow-lg p-4 text-center text-sm text-gray-400">
+                    No matching family members found
+                  </div>
+                )}
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5"><Heart className="w-4 h-4 inline mr-1" />Age *</label>
@@ -562,6 +653,26 @@ export default function AppointmentTab() {
         </form>
       </motion.div>
 
+      {/* Family Members */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+            <Users className="w-5 h-5 text-purple-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Family Members</h2>
+            <p className="text-sm text-gray-500">Manage family members for quick appointment booking</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setShowFamilyManager(true)}
+          className="w-full py-3 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl font-medium hover:from-purple-600 hover:to-indigo-700 transition-all flex items-center justify-center gap-2 shadow-md"
+        >
+          <Users className="w-5 h-5" />
+          Manage Family Members
+        </button>
+      </motion.div>
+
       {/* Appointments Button */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <div className="flex items-center gap-3 mb-4">
@@ -581,6 +692,13 @@ export default function AppointmentTab() {
           View All Appointments
         </button>
       </motion.div>
+
+      {/* Family Member Manager Modal */}
+      <FamilyMemberManager
+        isOpen={showFamilyManager}
+        onClose={() => setShowFamilyManager(false)}
+        onMemberSelect={handleMemberSelect}
+      />
 
       {/* Appointment Confirmation Popup */}
       {showAppointmentPopup && bookedAppointment && (
