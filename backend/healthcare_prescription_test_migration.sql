@@ -22,10 +22,21 @@ CREATE TABLE IF NOT EXISTS doctor_prescriptions (
     hospital_id UUID REFERENCES hospitals(id) ON DELETE SET NULL,
     hospital_name VARCHAR(255),
     symptoms TEXT,
+    chief_complaint TEXT,
+    symptom_notes TEXT,
+    severity_level INTEGER DEFAULT 0,
+    duration TEXT,
+    existing_diseases TEXT,
     diagnosis TEXT,
+    emergency_indicators TEXT, -- JSON array of strings
     prescription_notes TEXT,
     medicines JSONB, -- [{name, dosage, frequency, duration, instructions}]
     follow_up_date DATE,
+    bp_systolic INTEGER,
+    bp_diastolic INTEGER,
+    temperature DOUBLE PRECISION,
+    pulse INTEGER,
+    spo2 INTEGER,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -34,6 +45,32 @@ CREATE INDEX IF NOT EXISTS idx_doc_prescriptions_patient ON doctor_prescriptions
 CREATE INDEX IF NOT EXISTS idx_doc_prescriptions_doctor ON doctor_prescriptions(doctor_id);
 CREATE INDEX IF NOT EXISTS idx_doc_prescriptions_hospital ON doctor_prescriptions(hospital_id);
 CREATE INDEX IF NOT EXISTS idx_doc_prescriptions_date ON doctor_prescriptions(created_at);
+
+-- Vital signs columns (for existing tables)
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS bp_systolic INTEGER;
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS bp_diastolic INTEGER;
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS temperature DOUBLE PRECISION;
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS pulse INTEGER;
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS spo2 INTEGER;
+
+-- New symptom assessment columns (for existing tables)
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS chief_complaint TEXT;
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS symptom_notes TEXT;
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS severity_level INTEGER DEFAULT 0;
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS duration TEXT;
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS existing_diseases TEXT;
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS emergency_indicators TEXT; -- JSON array of strings
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS respiratory_rate INTEGER;
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS blood_sugar INTEGER;
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS weight DECIMAL(5,2);
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS height DECIMAL(5,2);
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS bmi DECIMAL(4,2);
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS pain_score INTEGER;
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS allergies TEXT;
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS smoking_history VARCHAR(50);
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS alcohol_history VARCHAR(50);
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS past_medications TEXT;
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Active';
 
 -- Doctor assigned tests (MRI, CT Scan, Sonography, etc.)
 CREATE TABLE IF NOT EXISTS doctor_tests (

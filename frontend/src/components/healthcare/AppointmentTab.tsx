@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Calendar, MapPin, Phone, AlertTriangle, Droplet, Heart, UserPlus, CheckCircle2, Clock, FileText, Stethoscope, MapPinOff, Navigation, X, PartyPopper, ExternalLink, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { fetchHospitalsList, fetchHospitalInfo, HospitalInfo } from "@/lib/api";
@@ -134,6 +134,7 @@ export default function AppointmentTab() {
   const [showFamilyManager, setShowFamilyManager] = useState(false);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
+  const [showUpcomingAppointments, setShowUpcomingAppointments] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -203,6 +204,27 @@ export default function AppointmentTab() {
     const q = name.trim().toLowerCase();
     return familyMembers.filter((m) => m.name.toLowerCase().includes(q));
   }, [name, familyMembers]);
+
+  const upcomingAppointments = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return appointments.filter(apt => {
+      if (apt.status !== 'scheduled') return false;
+      const aptDate = new Date(apt.appointment_date);
+      return aptDate >= today;
+    });
+  }, [appointments]);
+
+  const daysUntil = (dateStr: string) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(dateStr);
+    target.setHours(0, 0, 0, 0);
+    const diff = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff === 0) return { text: "Today", color: "bg-emerald-100 text-emerald-700" };
+    if (diff === 1) return { text: "Tomorrow", color: "bg-amber-100 text-amber-700" };
+    return { text: `${diff} days left`, color: "bg-blue-100 text-blue-700" };
+  };
 
   const selectMember = (member: FamilyMember) => {
     setName(member.name);
@@ -425,6 +447,165 @@ export default function AppointmentTab() {
 
   return (
     <div className="space-y-6">
+      {/* Quick Actions - Single unified card */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+      >
+        <div className="grid grid-cols-3 divide-x divide-gray-100">
+          {/* Patient Appoint */}
+          <button
+            onClick={() => setShowUpcomingAppointments(!showUpcomingAppointments)}
+            className="flex flex-col items-center gap-1 py-3 px-1 hover:bg-amber-50/50 transition-colors relative group"
+          >
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center mb-0.5">
+              <Clock className="w-4 h-4 text-amber-600" />
+            </div>
+            <span className="text-[11px] font-semibold text-gray-800 leading-tight text-center">Patient<br />Appoint</span>
+            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${upcomingAppointments.length > 0 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>
+              {upcomingAppointments.length > 0 ? `${upcomingAppointments.length} upcoming` : 'None'}
+            </span>
+          </button>
+
+          {/* Family Members */}
+          <button
+            onClick={() => setShowFamilyManager(true)}
+            className="flex flex-col items-center gap-1 py-3 px-1 hover:bg-purple-50/50 transition-colors relative group"
+          >
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-100 to-indigo-100 flex items-center justify-center mb-0.5">
+              <Users className="w-4 h-4 text-purple-600" />
+            </div>
+            <span className="text-[11px] font-semibold text-gray-800 leading-tight text-center">Family<br />Members</span>
+            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${familyMembers.length > 0 ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
+              {familyMembers.length > 0 ? `${familyMembers.length} members` : 'Add'}
+            </span>
+          </button>
+
+          {/* All Appointments */}
+          <button
+            onClick={() => router.push("/patient/appointments")}
+            className="flex flex-col items-center gap-1 py-3 px-1 hover:bg-blue-50/50 transition-colors relative group"
+          >
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center mb-0.5">
+              <Calendar className="w-4 h-4 text-blue-600" />
+            </div>
+            <span className="text-[11px] font-semibold text-gray-800 leading-tight text-center">All<br />Appointments</span>
+            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${appointments.length > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+              {appointments.length > 0 ? `${appointments.length} total` : 'None'}
+            </span>
+          </button>
+        </div>
+      </motion.div>
+
+      {/* Upcoming Appointments (collapsible) */}
+      <AnimatePresence>
+        {showUpcomingAppointments && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+            className="overflow-hidden"
+          >
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+                  <Clock className="w-4.5 h-4.5 text-amber-600" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-900">Upcoming Appointments</h2>
+                  <p className="text-[11px] text-gray-500">
+                    {upcomingAppointments.length > 0
+                      ? `Showing ${upcomingAppointments.length} future appointment${upcomingAppointments.length !== 1 ? 's' : ''}`
+                      : 'No upcoming appointments'}
+                  </p>
+                </div>
+              </div>
+              {upcomingAppointments.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
+                    <Calendar className="w-7 h-7 text-gray-300" />
+                  </div>
+                  <p className="font-medium text-gray-600">No Upcoming Appointments</p>
+                  <p className="text-sm mt-1">Book a new appointment using the form below</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {upcomingAppointments.map((apt) => {
+                    const dayInfo = daysUntil(apt.appointment_date);
+                    return (
+                      <motion.div
+                        key={apt.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        onClick={() => router.push(`/patient/appointment/${apt.id}`)}
+                        className="group relative p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200 hover:border-amber-300 hover:shadow-lg transition-all cursor-pointer"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="font-semibold text-gray-900 text-base truncate">{apt.patient_name}</h3>
+                              <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${dayInfo.color}`}>
+                                {dayInfo.text}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-gray-600">
+                              <span className="flex items-center gap-1.5">
+                                <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                                {new Date(apt.appointment_date).toLocaleDateString('en-IN', {
+                                  day: 'numeric', month: 'short', year: 'numeric'
+                                })}
+                              </span>
+                              {apt.appointment_date && new Date(apt.appointment_date).getHours() > 0 && (
+                                <span className="flex items-center gap-1.5">
+                                  <Clock className="w-3.5 h-3.5 text-amber-500" />
+                                  {new Date(apt.appointment_date).toLocaleTimeString('en-IN', {
+                                    hour: '2-digit', minute: '2-digit'
+                                  })}
+                                </span>
+                              )}
+                              <span className="flex items-center gap-1.5">
+                                <Heart className="w-3.5 h-3.5 text-rose-400" />
+                                Age: {apt.age}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                              {apt.hospital_name && (
+                                <span className="flex items-center gap-1.5 text-blue-600 font-medium">
+                                  <Stethoscope className="w-3.5 h-3.5" />
+                                  {apt.hospital_name}
+                                </span>
+                              )}
+                              <span className="flex items-center gap-1.5 text-emerald-600">
+                                <FileText className="w-3.5 h-3.5" />
+                                {apt.case_type}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                              <MapPin className="w-3 h-3" />
+                              <span className="line-clamp-1">{apt.address}</span>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-2 shrink-0">
+                            <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                              Scheduled
+                            </span>
+                            <div className="flex items-center gap-1 text-xs text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity font-medium">
+                              View Details <ExternalLink className="w-3 h-3" />
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Book New Appointment */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -651,46 +832,6 @@ export default function AppointmentTab() {
             {loading ? <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />Booking...</> : <><Calendar className="w-5 h-5" />Book Appointment</>}
           </motion.button>
         </form>
-      </motion.div>
-
-      {/* Family Members */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
-            <Users className="w-5 h-5 text-purple-600" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Family Members</h2>
-            <p className="text-sm text-gray-500">Manage family members for quick appointment booking</p>
-          </div>
-        </div>
-        <button
-          onClick={() => setShowFamilyManager(true)}
-          className="w-full py-3 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl font-medium hover:from-purple-600 hover:to-indigo-700 transition-all flex items-center justify-center gap-2 shadow-md"
-        >
-          <Users className="w-5 h-5" />
-          Manage Family Members
-        </button>
-      </motion.div>
-
-      {/* Appointments Button */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-            <Clock className="w-5 h-5 text-blue-600" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Your Appointments</h2>
-            <p className="text-sm text-gray-500">{appointments.length} appointment{appointments.length !== 1 ? 's' : ''} booked</p>
-          </div>
-        </div>
-        <button
-          onClick={() => router.push("/patient/appointments")}
-          className="w-full py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center gap-2 shadow-md"
-        >
-          <Calendar className="w-5 h-5" />
-          View All Appointments
-        </button>
       </motion.div>
 
       {/* Family Member Manager Modal */}

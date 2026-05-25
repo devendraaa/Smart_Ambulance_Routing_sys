@@ -62,6 +62,7 @@ export async function getTaskStatus(taskId: string) {
     error?: string;
     result?: Record<string, unknown>;
     map_url?: string;
+    patient_uhid?: string;
     patient_name?: string;
     patient_age?: string;
     patient_sex?: string;
@@ -384,6 +385,7 @@ export type EmergencyCase = {
   hospital_name: string;
   origin_lat: number;
   origin_lon: number;
+  patient_uhid?: string;
   patient_name?: string;
   patient_age?: string;
   patient_sex?: string;

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import date, datetime
 from supabase import create_client, AsyncClient
 import os
@@ -36,7 +36,14 @@ class PrescriptionCreate(BaseModel):
     appointment_id: Optional[str] = None
     doctor_name: Optional[str] = None
     symptoms: Optional[str] = None
+    chief_complaint: Optional[str] = None
+    symptom_notes: Optional[str] = None
+    severity_level: Optional[int] = None
+    duration: Optional[str] = None
+    existing_diseases: Optional[str] = None
     diagnosis: Optional[str] = None
+    emergency_indicators: Optional[List[str]] = None
+    vitals: Optional[Dict[str, Any]] = None
     medicines: Optional[str] = None
     treatment: Optional[str] = None
     notes: Optional[str] = None
@@ -83,6 +90,9 @@ class VideoConsultationCreate(BaseModel):
 
 class MedicineCreate(BaseModel):
     patient_email: str
+    patient_name: Optional[str] = None
+    hospital_name: Optional[str] = None
+    appointment_id: Optional[str] = None
     prescription_id: Optional[str] = None
     medicine_name: str
     dosage: Optional[str] = None
@@ -90,6 +100,28 @@ class MedicineCreate(BaseModel):
     timing: Optional[str] = None
     duration: Optional[str] = None
     instructions: Optional[str] = None
+    route: Optional[str] = 'Oral'
+    is_prn: Optional[bool] = False
+    quantity: Optional[str] = None
+    refills: Optional[str] = '0'
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+
+
+class MedicineUpdate(BaseModel):
+    medicine_name: Optional[str] = None
+    dosage: Optional[str] = None
+    frequency: Optional[str] = None
+    timing: Optional[str] = None
+    duration: Optional[str] = None
+    instructions: Optional[str] = None
+    route: Optional[str] = None
+    is_prn: Optional[bool] = None
+    quantity: Optional[str] = None
+    refills: Optional[str] = None
+    is_active: Optional[bool] = None
+    medicine_collected: Optional[bool] = None
+    collected_at: Optional[datetime] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
 
@@ -117,7 +149,14 @@ async def create_prescription(data: PrescriptionCreate):
             "appointment_id": data.appointment_id,
             "doctor_name": data.doctor_name,
             "symptoms": data.symptoms,
+            "chief_complaint": data.chief_complaint,
+            "symptom_notes": data.symptom_notes,
+            "severity_level": data.severity_level,
+            "duration": data.duration,
+            "existing_diseases": data.existing_diseases,
             "diagnosis": data.diagnosis,
+            "emergency_indicators": data.emergency_indicators,
+            "vitals": data.vitals,
             "medicines": data.medicines,
             "treatment": data.treatment,
             "notes": data.notes,
@@ -391,6 +430,9 @@ async def add_medicine(data: MedicineCreate):
     try:
         result = sb.table("patient_medicines").insert({
             "patient_email": data.patient_email,
+            "patient_name": data.patient_name,
+            "hospital_name": data.hospital_name,
+            "appointment_id": data.appointment_id,
             "prescription_id": data.prescription_id,
             "medicine_name": data.medicine_name,
             "dosage": data.dosage,
@@ -398,6 +440,10 @@ async def add_medicine(data: MedicineCreate):
             "timing": data.timing,
             "duration": data.duration,
             "instructions": data.instructions,
+            "route": data.route,
+            "is_prn": data.is_prn,
+            "quantity": data.quantity,
+            "refills": data.refills,
             "start_date": data.start_date.isoformat() if data.start_date else None,
             "end_date": data.end_date.isoformat() if data.end_date else None,
         }).execute()
@@ -430,19 +476,49 @@ async def get_patient_medicines(patient_email: str, active_only: bool = True, pa
 
 
 @router.put("/medicines/{medicine_id}")
-async def update_medicine(medicine_id: str, is_active: Optional[bool] = None):
+async def update_medicine(medicine_id: str, data: MedicineUpdate):
     sb = get_supabase()
     if not sb:
         raise HTTPException(503, "Database not configured")
 
     try:
-        update_data = {}
-        if is_active is not None:
-            update_data["is_active"] = is_active
+        update_data = {k: v for k, v in data.model_dump().items() if v is not None}
         result = sb.table("patient_medicines").update(update_data).eq("id", medicine_id).execute()
         return {"message": "Medicine updated", "id": medicine_id}
     except Exception as e:
         raise HTTPException(500, f"Failed to update medicine: {str(e)}")
+
+
+@router.delete("/medicines/{medicine_id}")
+async def delete_medicine(medicine_id: str):
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database not configured")
+
+    try:
+        sb.table("patient_medicines").delete().eq("id", medicine_id).execute()
+        return {"message": "Medicine deleted", "id": medicine_id}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to delete medicine: {str(e)}")
+
+
+@router.post("/medicines/{medicine_id}/toggle-collect")
+async def toggle_collect_medicine(medicine_id: str):
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database not configured")
+
+    try:
+        current = sb.table("patient_medicines").select("medicine_collected").eq("id", medicine_id).single().execute()
+        was_collected = current.data.get("medicine_collected", False)
+        update_data = {
+            "medicine_collected": not was_collected,
+            "collected_at": datetime.utcnow().isoformat() if not was_collected else None,
+        }
+        sb.table("patient_medicines").update(update_data).eq("id", medicine_id).execute()
+        return {"message": "Collection status toggled", "id": medicine_id, "collected": not was_collected}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to toggle collection: {str(e)}")
 
 
 # --- Diet Plan Endpoints ---
@@ -478,10 +554,66 @@ class DoctorPrescriptionCreate(BaseModel):
     hospital_id: Optional[str] = None
     hospital_name: Optional[str] = None
     symptoms: Optional[str] = None
+    chief_complaint: Optional[str] = None
+    symptom_notes: Optional[str] = None
+    severity_level: Optional[int] = None
+    duration: Optional[str] = None
+    existing_diseases: Optional[str] = None
     diagnosis: Optional[str] = None
+    emergency_indicators: Optional[List[str]] = None
     prescription_notes: Optional[str] = None
     medicines: Optional[str] = None  # JSON string
     follow_up_date: Optional[str] = None
+    bp_systolic: Optional[int] = None
+    bp_diastolic: Optional[int] = None
+    temperature: Optional[float] = None
+    pulse: Optional[int] = None
+    spo2: Optional[int] = None
+    respiratory_rate: Optional[int] = None
+    blood_sugar: Optional[int] = None
+    weight: Optional[float] = None
+    height: Optional[float] = None
+    bmi: Optional[float] = None
+    pain_score: Optional[int] = None
+    allergies: Optional[str] = None
+    smoking_history: Optional[str] = None
+    alcohol_history: Optional[str] = None
+    past_medications: Optional[str] = None
+    status: Optional[str] = "Active"
+
+
+class DoctorPrescriptionUpdate(BaseModel):
+    patient_name: Optional[str] = None
+    patient_phone: Optional[str] = None
+    doctor_name: Optional[str] = None
+    hospital_name: Optional[str] = None
+    symptoms: Optional[str] = None
+    chief_complaint: Optional[str] = None
+    symptom_notes: Optional[str] = None
+    severity_level: Optional[int] = None
+    duration: Optional[str] = None
+    existing_diseases: Optional[str] = None
+    diagnosis: Optional[str] = None
+    emergency_indicators: Optional[List[str]] = None
+    prescription_notes: Optional[str] = None
+    medicines: Optional[str] = None
+    follow_up_date: Optional[str] = None
+    bp_systolic: Optional[int] = None
+    bp_diastolic: Optional[int] = None
+    temperature: Optional[float] = None
+    pulse: Optional[int] = None
+    spo2: Optional[int] = None
+    respiratory_rate: Optional[int] = None
+    blood_sugar: Optional[int] = None
+    weight: Optional[float] = None
+    height: Optional[float] = None
+    bmi: Optional[float] = None
+    pain_score: Optional[int] = None
+    allergies: Optional[str] = None
+    smoking_history: Optional[str] = None
+    alcohol_history: Optional[str] = None
+    past_medications: Optional[str] = None
+    status: Optional[str] = None
 
 
 class DoctorTestCreate(BaseModel):
@@ -522,14 +654,73 @@ async def create_doctor_prescription(data: DoctorPrescriptionCreate):
             "hospital_id": data.hospital_id,
             "hospital_name": data.hospital_name,
             "symptoms": data.symptoms,
+            "chief_complaint": data.chief_complaint,
+            "symptom_notes": data.symptom_notes,
+            "severity_level": data.severity_level,
+            "duration": data.duration,
+            "existing_diseases": data.existing_diseases,
             "diagnosis": data.diagnosis,
+            "emergency_indicators": data.emergency_indicators,
             "prescription_notes": data.prescription_notes,
             "medicines": data.medicines,
             "follow_up_date": data.follow_up_date,
+            "bp_systolic": data.bp_systolic,
+            "bp_diastolic": data.bp_diastolic,
+            "temperature": data.temperature,
+            "pulse": data.pulse,
+            "spo2": data.spo2,
+            "respiratory_rate": data.respiratory_rate,
+            "blood_sugar": data.blood_sugar,
+            "weight": data.weight,
+            "height": data.height,
+            "bmi": data.bmi,
+            "pain_score": data.pain_score,
+            "allergies": data.allergies,
+            "smoking_history": data.smoking_history,
+            "alcohol_history": data.alcohol_history,
+            "past_medications": data.past_medications,
+            "status": "Active",
         }).execute()
         return {"id": result.data[0]["id"], "message": "Prescription created successfully"}
     except Exception as e:
         raise HTTPException(500, f"Failed to create prescription: {str(e)}")
+
+
+@router.put("/doctor/prescriptions/{prescription_id}")
+async def update_doctor_prescription(prescription_id: str, data: DoctorPrescriptionUpdate):
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database not configured")
+
+    try:
+        update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+        if not update_data:
+            raise HTTPException(400, "No fields to update")
+        result = sb.table("doctor_prescriptions").update(update_data).eq("id", prescription_id).execute()
+        if not result.data:
+            raise HTTPException(404, "Prescription not found")
+        return {"id": result.data[0]["id"], "message": "Prescription updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Failed to update prescription: {str(e)}")
+
+
+@router.delete("/doctor/prescriptions/{prescription_id}")
+async def delete_doctor_prescription(prescription_id: str):
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database not configured")
+
+    try:
+        result = sb.table("doctor_prescriptions").delete().eq("id", prescription_id).execute()
+        if not result.data:
+            raise HTTPException(404, "Prescription not found")
+        return {"message": "Prescription deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Failed to delete prescription: {str(e)}")
 
 
 @router.get("/doctor/prescriptions")

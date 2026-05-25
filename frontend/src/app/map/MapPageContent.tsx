@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { getFullRoute, getTaskStatus, fetchSensorsNearRoute, stopSensors, fetchTrafficSignals } from "@/lib/api";
+import { QRCodeCanvas } from "qrcode.react";
 import { motion } from "framer-motion";
 import { Map, Layers, Navigation, Loader2, CheckCircle2, AlertCircle, Radio, StopCircle, TrafficCone } from "lucide-react";
 
@@ -47,6 +48,9 @@ export default function MapPageContent({ taskId }: MapPageContentProps) {
   const [stopLoading, setStopLoading] = useState(false);
   const [stopError, setStopError] = useState<string | null>(null);
   const [stopSuccess, setStopSuccess] = useState(false);
+  const [patientName, setPatientName] = useState<string | null>(null);
+  const [patientUhid, setPatientUhid] = useState<string | null>(null);
+  const [patientCase, setPatientCase] = useState<string | null>(null);
 
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -86,6 +90,9 @@ export default function MapPageContent({ taskId }: MapPageContentProps) {
         setTaskError(status.error || null);
         setDistanceKm(status.distance_km || null);
         setDurationMin(status.duration_min || null);
+        setPatientName(status.patient_name || null);
+        setPatientUhid(status.patient_uhid || null);
+        setPatientCase(status.patient_case || null);
 
         if (status.status === "completed") {
           setLoading(true);
@@ -418,6 +425,33 @@ export default function MapPageContent({ taskId }: MapPageContentProps) {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">All Current Route Sensors Active</h1>
           <p className="text-gray-500 mt-1 text-sm">Task: {taskId?.slice(0, 8)}...</p>
         </div>
+
+        {/* Patient Info + QR Code */}
+        {patientUhid && (
+          <div className="bg-gradient-to-br from-rose-50 to-orange-50 rounded-2xl border border-orange-100 p-3 flex items-center gap-4">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-gray-500 font-medium">Patient</p>
+              <p className="text-sm font-bold text-gray-900 truncate">{patientName || "—"}</p>
+              <p className="text-[10px] font-mono text-gray-600 mt-0.5">{patientUhid}</p>
+              {patientCase && (
+                <span className="inline-block mt-1 px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-semibold rounded-full">
+                  {patientCase}
+                </span>
+              )}
+            </div>
+            <QRCodeCanvas
+              value={JSON.stringify({
+                uhid: patientUhid,
+                name: patientName || "",
+                caseType: patientCase || "",
+              })}
+              size={80}
+              level="M"
+              includeMargin
+            />
+          </div>
+        )}
+
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 w-full">
           {distanceKm != null && (
             <div className="bg-green-50 border border-green-200 rounded-xl px-2 sm:px-3 py-2 text-center">

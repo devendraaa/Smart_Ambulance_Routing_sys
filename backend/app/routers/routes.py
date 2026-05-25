@@ -17,6 +17,7 @@ router = APIRouter()
 @router.post("/compute", response_model=RouteTaskStartResponse)
 async def start_route_computation(data: RouteComputeRequest):
     task_id = str(uuid4())
+    patient_uhid = f"RTE-{uuid4().hex[:8].upper()}"
     insert_data = {
         "id": task_id,
         "origin_lat": data.origin_lat,
@@ -24,6 +25,7 @@ async def start_route_computation(data: RouteComputeRequest):
         "hospital_name": data.hospital_name,
         "status": "pending",
         "progress": 0.0,
+        "patient_uhid": patient_uhid,
     }
     if data.hospital_lat:
         insert_data["hospital_lat"] = data.hospital_lat
@@ -72,7 +74,7 @@ async def start_route_computation(data: RouteComputeRequest):
         "hospital_lon": data.hospital_lon,
     })
 
-    return RouteTaskStartResponse(task_id=task_id, status="pending")
+    return RouteTaskStartResponse(task_id=task_id, status="pending", patient_uhid=patient_uhid)
 
 
 # IMPORTANT: Emergency endpoints must be BEFORE /{task_id} routes
@@ -116,6 +118,7 @@ async def get_emergency_cases(
                 hospital_name=task.get("hospital_name", ""),
                 origin_lat=task.get("origin_lat", 0),
                 origin_lon=task.get("origin_lon", 0),
+                patient_uhid=task.get("patient_uhid"),
                 patient_name=task.get("patient_name"),
                 patient_age=task.get("patient_age"),
                 patient_sex=task.get("patient_sex"),
@@ -180,6 +183,8 @@ async def get_task_status(task_id: str):
         "map_url": task.get("map_url") if task["status"] == "completed" else None,
     }
 
+    if task.get("patient_uhid"):
+        response_data["patient_uhid"] = task["patient_uhid"]
     if task.get("patient_name"):
         response_data["patient_name"] = task["patient_name"]
     if task.get("patient_age"):

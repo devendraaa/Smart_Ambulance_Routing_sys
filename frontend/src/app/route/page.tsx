@@ -9,6 +9,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Map, Layers, Navigation,Waypoints, MapPin, Radio, Send, AlertCircle, CheckCircle, StopCircle } from "lucide-react";
 import Link from "next/link";
 import { getFullRoute, getTaskRoadSensors, fetchTrafficSignals, publishAmbLocation, stopSensors } from "@/lib/api";
+import { QRCodeCanvas } from "qrcode.react";
 import { useEffect, useRef, useState, useCallback } from "react";
 
 type ViewMode = 'main' | 'nodes' | 'active-sensors' | 'traffic-signals' | 'amb-location';
@@ -681,91 +682,117 @@ function RoutePageContent() {
               <p className="text-xs text-gray-500">Emergency case details</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
-            {status.patient_date && (
-              <div className="bg-white/60 rounded-xl p-3">
-                <p className="text-xs text-gray-500 font-medium">Date</p>
-                <p className="text-sm font-bold text-gray-900">{status.patient_date}</p>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
+                {status.patient_uhid && (
+                  <div className="bg-white/60 rounded-xl p-3">
+                    <p className="text-xs text-gray-500 font-medium">UHID</p>
+                    <p className="text-sm font-bold text-gray-900 font-mono">{status.patient_uhid}</p>
+                  </div>
+                )}
+                {status.patient_date && (
+                  <div className="bg-white/60 rounded-xl p-3">
+                    <p className="text-xs text-gray-500 font-medium">Date</p>
+                    <p className="text-sm font-bold text-gray-900">{status.patient_date}</p>
+                  </div>
+                )}
+                {status.patient_case && (
+                  <div className="bg-red-50 rounded-xl p-3 border border-red-200">
+                    <p className="text-xs text-red-600 font-medium">Case Type</p>
+                    <p className="text-sm font-bold text-red-800">{status.patient_case}</p>
+                  </div>
+                )}
+                {status.patient_name && (
+                  <div className="bg-white/60 rounded-xl p-3">
+                    <p className="text-xs text-gray-500 font-medium">Patient Name</p>
+                    <p className="text-sm font-bold text-gray-900 truncate">{status.patient_name}</p>
+                  </div>
+                )}
+                {status.patient_age && (
+                  <div className="bg-white/60 rounded-xl p-3">
+                    <p className="text-xs text-gray-500 font-medium">Age</p>
+                    <p className="text-sm font-bold text-gray-900">{status.patient_age} years</p>
+                  </div>
+                )}
+                {status.patient_sex && (
+                  <div className="bg-white/60 rounded-xl p-3">
+                    <p className="text-xs text-gray-500 font-medium">Sex</p>
+                    <p className="text-sm font-bold text-gray-900">{status.patient_sex}</p>
+                  </div>
+                )}
+                {status.patient_blood_group && (
+                  <div className="bg-red-50 rounded-xl p-3 border border-red-200">
+                    <p className="text-xs text-red-600 font-medium">Blood Group</p>
+                    <p className="text-sm font-bold text-red-800">{status.patient_blood_group}</p>
+                  </div>
+                )}
+                {status.patient_mobile && (
+                  <div className="bg-white/60 rounded-xl p-3">
+                    <p className="text-xs text-gray-500 font-medium">Mobile</p>
+                    <p className="text-sm font-bold text-gray-900">{status.patient_mobile}</p>
+                  </div>
+                )}
               </div>
-            )}
-            {status.patient_case && (
-              <div className="bg-red-50 rounded-xl p-3 border border-red-200">
-                <p className="text-xs text-red-600 font-medium">Case Type</p>
-                <p className="text-sm font-bold text-red-800">{status.patient_case}</p>
-              </div>
-            )}
-            {status.patient_name && (
-              <div className="bg-white/60 rounded-xl p-3">
-                <p className="text-xs text-gray-500 font-medium">Patient Name</p>
-                <p className="text-sm font-bold text-gray-900 truncate">{status.patient_name}</p>
-              </div>
-            )}
-            {status.patient_age && (
-              <div className="bg-white/60 rounded-xl p-3">
-                <p className="text-xs text-gray-500 font-medium">Age</p>
-                <p className="text-sm font-bold text-gray-900">{status.patient_age} years</p>
-              </div>
-            )}
-            {status.patient_sex && (
-              <div className="bg-white/60 rounded-xl p-3">
-                <p className="text-xs text-gray-500 font-medium">Sex</p>
-                <p className="text-sm font-bold text-gray-900">{status.patient_sex}</p>
-              </div>
-            )}
-            {status.patient_blood_group && (
-              <div className="bg-red-50 rounded-xl p-3 border border-red-200">
-                <p className="text-xs text-red-600 font-medium">Blood Group</p>
-                <p className="text-sm font-bold text-red-800">{status.patient_blood_group}</p>
-              </div>
-            )}
-            {status.patient_mobile && (
-              <div className="bg-white/60 rounded-xl p-3">
-                <p className="text-xs text-gray-500 font-medium">Mobile</p>
-                <p className="text-sm font-bold text-gray-900">{status.patient_mobile}</p>
+
+              {/* Physiological Vitals Display */}
+              {(status.patient_bp_systolic || status.patient_bp_diastolic ||
+                status.patient_temperature || status.patient_pulse || status.patient_spo2) && (
+                <div className="mt-4 pt-4 border-t border-orange-200/50">
+                  <div className="flex items-center gap-2 mb-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-cyan-600">
+                      <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                    </svg>
+                    <span className="text-xs font-bold text-cyan-700">Physiological Vitals</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    {(status.patient_bp_systolic || status.patient_bp_diastolic) && (
+                      <div className="bg-cyan-50 rounded-xl p-3 border border-cyan-200">
+                        <p className="text-xs text-cyan-600 font-medium">Blood Pressure</p>
+                        <p className="text-sm font-bold text-cyan-800">
+                          {status.patient_bp_systolic}/{status.patient_bp_diastolic} mmHg
+                        </p>
+                      </div>
+                    )}
+                    {status.patient_temperature && (
+                      <div className="bg-orange-50 rounded-xl p-3 border border-orange-200">
+                        <p className="text-xs text-orange-600 font-medium">Temperature</p>
+                        <p className="text-sm font-bold text-orange-800">{status.patient_temperature}°C</p>
+                      </div>
+                    )}
+                    {status.patient_pulse && (
+                      <div className="bg-rose-50 rounded-xl p-3 border border-rose-200">
+                        <p className="text-xs text-rose-600 font-medium">Pulse Rate</p>
+                        <p className="text-sm font-bold text-rose-800">{status.patient_pulse} bpm</p>
+                      </div>
+                    )}
+                    {status.patient_spo2 && (
+                      <div className="bg-purple-50 rounded-xl p-3 border border-purple-200">
+                        <p className="text-xs text-purple-600 font-medium">SpO2</p>
+                        <p className="text-sm font-bold text-purple-800">{status.patient_spo2}%</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {status.patient_uhid && (
+              <div className="flex-shrink-0 flex flex-col items-center bg-white/70 rounded-xl border border-orange-200/50 p-4">
+                <QRCodeCanvas
+                  value={JSON.stringify({
+                    uhid: status.patient_uhid,
+                    name: status.patient_name || "",
+                    caseType: status.patient_case || "",
+                  })}
+                  size={120}
+                  level="M"
+                  includeMargin
+                />
+                <p className="text-[10px] font-mono text-gray-500 mt-2">{status.patient_uhid}</p>
               </div>
             )}
           </div>
-
-          {/* Physiological Vitals Display */}
-          {(status.patient_bp_systolic || status.patient_bp_diastolic ||
-            status.patient_temperature || status.patient_pulse || status.patient_spo2) && (
-            <div className="mt-4 pt-4 border-t border-orange-200/50">
-              <div className="flex items-center gap-2 mb-3">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-cyan-600">
-                  <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-                </svg>
-                <span className="text-xs font-bold text-cyan-700">Physiological Vitals</span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                {(status.patient_bp_systolic || status.patient_bp_diastolic) && (
-                  <div className="bg-cyan-50 rounded-xl p-3 border border-cyan-200">
-                    <p className="text-xs text-cyan-600 font-medium">Blood Pressure</p>
-                    <p className="text-sm font-bold text-cyan-800">
-                      {status.patient_bp_systolic}/{status.patient_bp_diastolic} mmHg
-                    </p>
-                  </div>
-                )}
-                {status.patient_temperature && (
-                  <div className="bg-orange-50 rounded-xl p-3 border border-orange-200">
-                    <p className="text-xs text-orange-600 font-medium">Temperature</p>
-                    <p className="text-sm font-bold text-orange-800">{status.patient_temperature}°C</p>
-                  </div>
-                )}
-                {status.patient_pulse && (
-                  <div className="bg-rose-50 rounded-xl p-3 border border-rose-200">
-                    <p className="text-xs text-rose-600 font-medium">Pulse Rate</p>
-                    <p className="text-sm font-bold text-rose-800">{status.patient_pulse} bpm</p>
-                  </div>
-                )}
-                {status.patient_spo2 && (
-                  <div className="bg-purple-50 rounded-xl p-3 border border-purple-200">
-                    <p className="text-xs text-purple-600 font-medium">SpO2</p>
-                    <p className="text-sm font-bold text-purple-800">{status.patient_spo2}%</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </motion.div>
       )}
 

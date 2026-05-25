@@ -212,6 +212,7 @@ export interface Medicine {
   patient_email: string;
   patient_name?: string;
   hospital_name?: string;
+  appointment_id?: string;
   prescription_id?: string;
   medicine_name: string;
   dosage?: string;
@@ -219,16 +220,23 @@ export interface Medicine {
   timing?: string;
   duration?: string;
   instructions?: string;
+  route?: string;
+  is_prn?: boolean;
+  quantity?: string;
+  refills?: string;
   is_active: boolean;
+  medicine_collected?: boolean;
+  collected_at?: string;
   start_date?: string;
   end_date?: string;
   created_at: string;
-  medicine_collected?: boolean;
-  collected_at?: string;
 }
 
 export async function addMedicine(data: {
   patient_email: string;
+  patient_name?: string;
+  hospital_name?: string;
+  appointment_id?: string;
   prescription_id?: string;
   medicine_name: string;
   dosage?: string;
@@ -236,6 +244,10 @@ export async function addMedicine(data: {
   timing?: string;
   duration?: string;
   instructions?: string;
+  route?: string;
+  is_prn?: boolean;
+  quantity?: string;
+  refills?: string;
   start_date?: string;
   end_date?: string;
 }) {
@@ -253,10 +265,22 @@ export async function getPatientMedicines(patientEmail: string, activeOnly = tru
   return fetchAPI<{ medicines: Medicine[] }>(url);
 }
 
-export async function updateMedicine(medicineId: string, isActive?: boolean) {
+export async function updateMedicine(medicineId: string, data: Partial<Medicine>) {
   return fetchAPI<{ message: string; id: string }>(`/api/healthcare/medicines/${medicineId}`, {
     method: "PUT",
-    body: JSON.stringify({ is_active: isActive }),
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteMedicine(medicineId: string) {
+  return fetchAPI<{ message: string; id: string }>(`/api/healthcare/medicines/${medicineId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function toggleCollectMedicine(medicineId: string) {
+  return fetchAPI<{ message: string; id: string; collected: boolean }>(`/api/healthcare/medicines/${medicineId}/toggle-collect`, {
+    method: "POST",
   });
 }
 

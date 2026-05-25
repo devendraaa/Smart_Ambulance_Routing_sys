@@ -29,6 +29,7 @@ class RouteComputeRequest(BaseModel):
 class RouteTaskStartResponse(BaseModel):
     task_id: str
     status: str
+    patient_uhid: Optional[str] = None
 
 
 class RouteTaskStatusResponse(BaseModel):
@@ -42,6 +43,7 @@ class RouteTaskStatusResponse(BaseModel):
     error: Optional[str] = None
     result: Optional[dict] = None
     map_url: Optional[str] = None
+    patient_uhid: Optional[str] = None
     patient_name: Optional[str] = None
     patient_age: Optional[str] = None
     patient_sex: Optional[str] = None
@@ -75,6 +77,7 @@ class EmergencyCaseResponse(BaseModel):
     hospital_name: str
     origin_lat: float
     origin_lon: float
+    patient_uhid: Optional[str] = None
     patient_name: Optional[str] = None
     patient_age: Optional[str] = None
     patient_sex: Optional[str] = None

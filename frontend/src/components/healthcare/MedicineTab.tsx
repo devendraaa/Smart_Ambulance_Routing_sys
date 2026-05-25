@@ -90,7 +90,7 @@ export default function MedicineTab() {
   const handleToggleActive = async (medicineId: string, currentActive: boolean) => {
     setLoading(true);
     try {
-      await updateMedicine(medicineId, !currentActive);
+      await updateMedicine(medicineId, { is_active: !currentActive });
       fetchMedicines();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update medicine");
@@ -269,8 +269,11 @@ export default function MedicineTab() {
                       >
                         <div className="flex items-start justify-between mb-3 gap-2">
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{med.medicine_name}</h3>
-                            {med.dosage && <p className="text-xs sm:text-sm text-gray-600 mt-0.5">{med.dosage}</p>}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{med.medicine_name}</h3>
+                              {med.is_prn && <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded font-medium">PRN</span>}
+                            </div>
+                            {med.dosage && <p className="text-xs sm:text-sm text-gray-600 mt-0.5">{med.dosage} {med.route && `(${med.route})`}</p>}
                           </div>
                           <div className="flex flex-wrap items-center gap-1 shrink-0">
                             {med.medicine_collected && (
@@ -302,6 +305,16 @@ export default function MedicineTab() {
                           {med.duration && (
                             <div className="flex items-center gap-2 text-gray-600">
                               <Calendar className="w-4 h-4" /> {med.duration}
+                            </div>
+                          )}
+                          {med.quantity && (
+                            <div className="flex items-center gap-2 text-gray-600">
+                              <span className="text-base">📦</span> {med.quantity}
+                            </div>
+                          )}
+                          {med.refills && med.refills !== "0" && (
+                            <div className="flex items-center gap-2 text-gray-600">
+                              <span className="text-base">🔄</span> Refills: {med.refills}
                             </div>
                           )}
                           {med.instructions && (

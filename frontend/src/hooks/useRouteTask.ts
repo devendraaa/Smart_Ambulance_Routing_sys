@@ -15,6 +15,7 @@ export function useRouteTask(taskId: string | null) {
     error?: string;
     result?: Record<string, unknown>;
     map_url?: string;
+    patient_uhid?: string;
     patient_name?: string;
     patient_age?: string;
     patient_sex?: string;

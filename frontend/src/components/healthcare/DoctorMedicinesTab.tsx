@@ -1,41 +1,53 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Pill, Search, Plus, X } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Pill, Search, Plus, CheckCircle2, Building2, Users, PackageCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import MedicineForm from "./MedicineForm";
 
 interface PatientMedicine {
   id: string;
   patient_email: string;
+  patient_name?: string;
+  hospital_name?: string;
   medicine_name: string;
   dosage: string;
   frequency: string;
   timing: string;
   duration: string;
   instructions: string;
+  route?: string;
+  is_prn?: boolean;
+  quantity?: string;
+  refills?: string;
   is_active: boolean;
+  medicine_collected?: boolean;
+  collected_at?: string;
   created_at: string;
+  appointment_id?: string;
 }
 
-const DOSAGE_OPTIONS = ["5mg", "10mg", "25mg", "50mg", "100mg", "250mg", "500mg", "1g"];
-const FREQUENCY_OPTIONS = ["Once daily", "Twice daily", "Three times daily", "Four times daily", "As needed"];
-const TIMING_OPTIONS = ["Before meal", "After meal", "With food", "Empty stomach", "Bedtime"];
-const DURATION_OPTIONS = ["3 days", "5 days", "7 days", "10 days", "14 days", "1 month", "2 months", "3 months"];
+function groupByPatient(medicines: PatientMedicine[]): { patient_name: string; medicines: PatientMedicine[] }[] {
+  const map = new Map<string, PatientMedicine[]>();
+  for (const med of medicines) {
+    const name = med.patient_name || med.patient_email.split("@")[0];
+    if (!map.has(name)) map.set(name, []);
+    map.get(name)!.push(med);
+  }
+  return Array.from(map.entries())
+    .map(([patient_name, meds]) => ({ patient_name, medicines: meds }))
+    .sort((a, b) => a.patient_name.localeCompare(b.patient_name));
+}
 
 export default function DoctorMedicinesTab() {
   const [medicines, setMedicines] = useState<PatientMedicine[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newMedicine, setNewMedicine] = useState({
-    patient_email: "",
-    medicine_name: "",
-    dosage: "",
-    frequency: "Once daily",
-    timing: "After meal",
-    duration: "7 days",
-    instructions: "",
-  });
+  const [error, setError] = useState("");
+  const [selectedHospital, setSelectedHospital] = useState<string>("all");
+
+  const isAdmin = true; // DoctorMedicinesTab always editable
 
   useEffect(() => {
     loadMedicines();
@@ -47,8 +59,7 @@ export default function DoctorMedicinesTab() {
         .from("patient_medicines")
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(100);
-
+        .limit(200);
       if (error) throw error;
       setMedicines(data || []);
     } catch (err) {
@@ -58,73 +69,78 @@ export default function DoctorMedicinesTab() {
     }
   };
 
-  const filteredMedicines = medicines.filter((med) =>
-    med.patient_email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    med.medicine_name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleAddMedicine = async () => {
-    if (!newMedicine.patient_email || !newMedicine.medicine_name) {
-      alert("Patient email and medicine name are required");
-      return;
-    }
-
-    try {
-      const { error } = await supabase.from("patient_medicines").insert([{
-        patient_email: newMedicine.patient_email,
-        medicine_name: newMedicine.medicine_name,
-        dosage: newMedicine.dosage,
-        frequency: newMedicine.frequency,
-        timing: newMedicine.timing,
-        duration: newMedicine.duration,
-        instructions: newMedicine.instructions,
-        is_active: true,
-      }]);
-
-      if (error) throw error;
-
-      setShowAddModal(false);
-      setNewMedicine({
-        patient_email: "",
-        medicine_name: "",
-        dosage: "",
-        frequency: "Once daily",
-        timing: "After meal",
-        duration: "7 days",
-        instructions: "",
-      });
-      loadMedicines();
-    } catch (err) {
-      console.error("Error adding medicine:", err);
-      alert("Failed to add medicine");
-    }
+  const handleSaveMedicine = async (formData: any) => {
+    const { error } = await supabase.from("patient_medicines").insert([{
+      patient_email: formData.patient_email || "unknown@patient.com",
+      patient_name: formData.patient_name || "",
+      hospital_name: formData.hospital_name || "",
+      medicine_name: formData.medicine_name,
+      dosage: formData.dosage,
+      frequency: formData.frequency,
+      timing: formData.timing,
+      duration: formData.duration,
+      instructions: formData.instructions,
+      route: formData.route,
+      is_prn: formData.is_prn,
+      quantity: formData.quantity,
+      refills: formData.refills,
+      is_active: true,
+    }]);
+    if (error) throw new Error(error.message || JSON.stringify(error));
+    loadMedicines();
   };
 
-  const toggleMedicineStatus = async (medId: string, currentStatus: boolean) => {
-    try {
-      await supabase
-        .from("patient_medicines")
-        .update({ is_active: !currentStatus })
-        .eq("id", medId);
+  const toggleActive = async (medId: string, currentActive: boolean) => {
+    await supabase.from("patient_medicines").update({ is_active: !currentActive }).eq("id", medId);
+    setMedicines(medicines.map(m => m.id === medId ? { ...m, is_active: !currentActive } : m));
+  };
 
-      setMedicines(medicines.map((med) =>
-        med.id === medId ? { ...med, is_active: !currentStatus } : med
-      ));
-    } catch (err) {
-      console.error("Error updating medicine:", err);
-    }
+  const toggleCollected = async (medId: string, currentlyCollected: boolean) => {
+    await supabase.from("patient_medicines").update({
+      medicine_collected: !currentlyCollected,
+      collected_at: !currentlyCollected ? new Date().toISOString() : null,
+    }).eq("id", medId);
+    setMedicines(medicines.map(m =>
+      m.id === medId ? { ...m, medicine_collected: !currentlyCollected } : m
+    ));
   };
 
   const deleteMedicine = async (medId: string) => {
-    if (!confirm("Are you sure you want to delete this medicine?")) return;
-
-    try {
-      await supabase.from("patient_medicines").delete().eq("id", medId);
-      setMedicines(medicines.filter((med) => med.id !== medId));
-    } catch (err) {
-      console.error("Error deleting medicine:", err);
-    }
+    if (!confirm("Delete this medicine?")) return;
+    await supabase.from("patient_medicines").delete().eq("id", medId);
+    setMedicines(medicines.filter(m => m.id !== medId));
   };
+
+  const filteredMedicines = useMemo(() => {
+    return medicines.filter(m => {
+      if (searchQuery && !m.medicine_name.toLowerCase().includes(searchQuery.toLowerCase()) &&
+          !m.patient_email.toLowerCase().includes(searchQuery.toLowerCase()) &&
+          !(m.patient_name || "").toLowerCase().includes(searchQuery.toLowerCase())) {
+        return false;
+      }
+      if (selectedHospital !== "all" && m.hospital_name !== selectedHospital) return false;
+      return true;
+    });
+  }, [medicines, searchQuery, selectedHospital]);
+
+  const patientGroups = useMemo(() => groupByPatient(filteredMedicines), [filteredMedicines]);
+
+  const hospitals = useMemo(() => {
+    const set = new Set<string>();
+    for (const m of medicines) if (m.hospital_name) set.add(m.hospital_name);
+    return Array.from(set).sort();
+  }, [medicines]);
+
+  const totalStats = useMemo(() => {
+    let patients = 0, total = 0, collected = 0, active = 0;
+    for (const g of patientGroups) {
+      patients++;
+      total += g.medicines.length;
+      collected += g.medicines.filter(m => m.medicine_collected).length;
+      active += g.medicines.filter(m => m.is_active).length;
+    }
+    return { patients, total, collected, active };
+  }, [patientGroups]);
 
   return (
     <div className="space-y-6">
@@ -134,13 +150,16 @@ export default function DoctorMedicinesTab() {
           Patient Medicines
         </h2>
         <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="Search by email or medicine..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="rounded-lg border-2 border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-          />
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by name, email, medicine..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 rounded-lg border-2 border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none w-48 sm:w-64"
+            />
+          </div>
           <button
             onClick={() => setShowAddModal(true)}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2 transition"
@@ -151,163 +170,141 @@ export default function DoctorMedicinesTab() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="text-center py-8 text-gray-500">Loading medicines...</div>
-      ) : filteredMedicines.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">No medicines found</div>
-      ) : (
-        <div className="space-y-3">
-          {filteredMedicines.map((med) => (
-            <div key={med.id} className={`p-4 rounded-xl border ${med.is_active ? "bg-white border-gray-200" : "bg-gray-50 border-gray-300"}`}>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-gray-900">{med.medicine_name}</h3>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      med.is_active ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-600"
-                    }`}>
-                      {med.is_active ? "Active" : "Inactive"}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600 mt-1">
-                    <span className="font-medium">Dosage:</span> {med.dosage || "N/A"} |
-                    <span className="font-medium"> Freq:</span> {med.frequency} |
-                    <span className="font-medium"> Timing:</span> {med.timing}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    <span className="font-medium">Duration:</span> {med.duration} |
-                    <span className="font-medium"> Patient:</span> {med.patient_email}
-                  </p>
-                  {med.instructions && (
-                    <p className="text-xs text-gray-400 mt-1">Note: {med.instructions}</p>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => toggleMedicineStatus(med.id, med.is_active)}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                      med.is_active
-                        ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
-                        : "bg-green-100 text-green-700 hover:bg-green-200"
-                    }`}
-                  >
-                    {med.is_active ? "Deactivate" : "Activate"}
-                  </button>
-                  <button
-                    onClick={() => deleteMedicine(med.id)}
-                    className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+      <MedicineForm
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSave={handleSaveMedicine}
+        existingMedicineNames={medicines.map(m => m.medicine_name)}
+      />
+
+      {error && (
+        <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 p-3 rounded-xl">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />{error}
         </div>
       )}
 
-      {/* Add Medicine Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Add New Medicine</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {hospitals.length > 1 && (
+        <div className="flex items-center gap-2">
+          <Building2 className="w-4 h-4 text-gray-400" />
+          <select
+            value={selectedHospital}
+            onChange={(e) => setSelectedHospital(e.target.value)}
+            className="rounded-lg border-2 border-gray-200 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none bg-white"
+          >
+            <option value="all">All Hospitals</option>
+            {hospitals.map(h => <option key={h} value={h}>{h}</option>)}
+          </select>
+        </div>
+      )}
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Patient Email *</label>
-                <input
-                  type="email"
-                  value={newMedicine.patient_email}
-                  onChange={(e) => setNewMedicine({ ...newMedicine, patient_email: e.target.value })}
-                  placeholder="patient@example.com"
-                  className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Medicine Name *</label>
-                <input
-                  type="text"
-                  value={newMedicine.medicine_name}
-                  onChange={(e) => setNewMedicine({ ...newMedicine, medicine_name: e.target.value })}
-                  placeholder="e.g., Paracetamol"
-                  className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Dosage</label>
-                  <select
-                    value={newMedicine.dosage}
-                    onChange={(e) => setNewMedicine({ ...newMedicine, dosage: e.target.value })}
-                    className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none bg-white"
-                  >
-                    <option value="">Select dosage</option>
-                    {DOSAGE_OPTIONS.map((d) => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
-                  <select
-                    value={newMedicine.frequency}
-                    onChange={(e) => setNewMedicine({ ...newMedicine, frequency: e.target.value })}
-                    className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none bg-white"
-                  >
-                    {FREQUENCY_OPTIONS.map((f) => <option key={f} value={f}>{f}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Timing</label>
-                  <select
-                    value={newMedicine.timing}
-                    onChange={(e) => setNewMedicine({ ...newMedicine, timing: e.target.value })}
-                    className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none bg-white"
-                  >
-                    {TIMING_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
-                  <select
-                    value={newMedicine.duration}
-                    onChange={(e) => setNewMedicine({ ...newMedicine, duration: e.target.value })}
-                    className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none bg-white"
-                  >
-                    {DURATION_OPTIONS.map((d) => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Instructions</label>
-                <textarea
-                  value={newMedicine.instructions}
-                  onChange={(e) => setNewMedicine({ ...newMedicine, instructions: e.target.value })}
-                  placeholder="Any special instructions..."
-                  rows={3}
-                  className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none resize-none"
-                />
-              </div>
-
-              <button
-                onClick={handleAddMedicine}
-                className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition"
-              >
-                Add Medicine
-              </button>
-            </div>
+      {patientGroups.length > 0 && (
+        <div className="flex flex-wrap gap-3">
+          <div className="px-3 py-1.5 bg-blue-100 rounded-lg flex items-center gap-1.5">
+            <Users className="w-4 h-4 text-blue-600" />
+            <span className="text-sm text-blue-700">{totalStats.patients} patients</span>
           </div>
+          <div className="px-3 py-1.5 bg-pink-100 rounded-lg flex items-center gap-1.5">
+            <Pill className="w-4 h-4 text-pink-600" />
+            <span className="text-sm text-pink-700">{totalStats.total} medicines</span>
+          </div>
+          <div className="px-3 py-1.5 bg-emerald-100 rounded-lg flex items-center gap-1.5">
+            <PackageCheck className="w-4 h-4 text-emerald-600" />
+            <span className="text-sm text-emerald-700">{totalStats.collected} collected</span>
+          </div>
+          <div className="px-3 py-1.5 bg-green-100 rounded-lg flex items-center gap-1.5">
+            <CheckCircle2 className="w-4 h-4 text-green-600" />
+            <span className="text-sm text-green-700">{totalStats.active} active</span>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="text-center py-8 text-gray-500">Loading medicines...</div>
+      ) : patientGroups.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">No medicines found</div>
+      ) : (
+        <div className="space-y-4">
+          {patientGroups.map((group) => {
+            const allCollected = group.medicines.every(m => m.medicine_collected);
+            const collectedCount = group.medicines.filter(m => m.medicine_collected).length;
+            const patientHospital = group.medicines[0]?.hospital_name;
+            return (
+              <div key={group.patient_name} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className={`px-4 py-3 border-b flex items-center gap-3 ${allCollected ? "bg-emerald-50 border-emerald-200" : "bg-gray-50"}`}>
+                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                    <Users className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-900 text-sm truncate">{group.patient_name}</h3>
+                    <p className="text-xs text-gray-500">
+                      {group.medicines.length} meds
+                      {patientHospital && <span> &bull; {patientHospital}</span>}
+                    </p>
+                  </div>
+                  {allCollected ? (
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Collected
+                    </span>
+                  ) : collectedCount > 0 ? (
+                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">
+                      {collectedCount}/{group.medicines.length} collected
+                    </span>
+                  ) : null}
+                </div>
+                <div className="p-4 space-y-2">
+                  {group.medicines.map((med) => (
+                    <div key={med.id} className={`p-3 rounded-lg border ${med.medicine_collected ? "border-emerald-300 bg-emerald-50" : med.is_active ? "border-gray-200 bg-white" : "border-gray-300 bg-gray-50"}`}>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-gray-900 text-sm">{med.medicine_name}</span>
+                            {med.is_prn && <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded font-medium">PRN</span>}
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${med.is_active ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-600"}`}>
+                              {med.is_active ? "Active" : "Inactive"}
+                            </span>
+                            {med.medicine_collected && (
+                              <span className="text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded flex items-center gap-0.5">
+                                <CheckCircle2 className="w-2.5 h-2.5" /> Collected
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-600 mt-1">
+                            D: {med.dosage || "N/A"} | Route: {med.route || "Oral"} | F: {med.frequency} | T: {med.timing} | Dur: {med.duration}
+                            {med.quantity && <span> | Qty: {med.quantity}</span>}
+                            {med.refills && med.refills !== "0" && <span> | Refill: {med.refills}</span>}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">{med.patient_email}{med.patient_name ? ` (${med.patient_name})` : ""}</p>
+                          {med.instructions && <p className="text-[10px] text-gray-500 mt-1">Note: {med.instructions}</p>}
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                          {!med.medicine_collected && (
+                            <button onClick={() => toggleCollected(med.id, false)}
+                              className="px-2 py-1 text-[10px] bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200 font-medium">
+                              Collect
+                            </button>
+                          )}
+                          {med.medicine_collected && (
+                            <button onClick={() => toggleCollected(med.id, true)}
+                              className="px-2 py-1 text-[10px] bg-gray-100 text-gray-600 rounded hover:bg-gray-200 font-medium">
+                              Undo
+                            </button>
+                          )}
+                          <button onClick={() => toggleActive(med.id, med.is_active)}
+                            className={`px-2 py-1 text-[10px] rounded font-medium ${med.is_active ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200" : "bg-green-100 text-green-700 hover:bg-green-200"}`}>
+                            {med.is_active ? "Deactivate" : "Activate"}
+                          </button>
+                          <button onClick={() => deleteMedicine(med.id)}
+                            className="px-2 py-1 text-[10px] bg-red-100 text-red-700 rounded hover:bg-red-200 font-medium">
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
