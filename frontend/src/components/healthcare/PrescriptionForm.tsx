@@ -312,6 +312,31 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
         }
       }
 
+      const validMeds = medRows.filter(m => m.name.trim());
+      if (validMeds.length > 0) {
+        const medicineInserts = validMeds.map(m => ({
+          patient_email: patientEmail,
+          patient_name: patientName,
+          hospital_name: hospitalName || null,
+          appointment_id: appointmentId || null,
+          medicine_name: m.name,
+          dosage: m.dosage,
+          frequency: m.frequency,
+          timing: m.timing,
+          duration: m.duration,
+          route: m.route,
+          instructions: m.instructions,
+          is_prn: m.is_prn,
+          quantity: m.quantity,
+          refills: m.refills,
+          is_active: true,
+        }));
+        const { error: medErr } = await supabase.from("patient_medicines").insert(medicineInserts);
+        if (medErr) {
+          console.error("Error saving medicines to patient_medicines:", medErr);
+        }
+      }
+
       setSymptoms("");
       setDiagnosis("");
       setNotes("");
