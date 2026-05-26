@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
-import { ClipboardList, Plus, Trash2, Loader2, AlertTriangle, Search, FlaskConical } from "lucide-react";
+import { getUsername } from "@/lib/auth";
+import { ClipboardList, Plus, Trash2, Loader2, AlertTriangle, Search, FlaskConical, Sparkles } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 import {
@@ -116,6 +117,7 @@ interface PrescriptionFormProps {
     medicines?: string | null;
     follow_up_date?: string | null;
   } | null;
+  aiPreFill?: { diagnosis: string; suggestedTests: string[] } | null;
   onCompleteVisitSuggested?: (data: SavedPrescriptionData) => void;
 }
 
@@ -123,7 +125,7 @@ function newRow(): MedicineRow {
   return { name: "", dosage: "", frequency: "Once daily", timing: "After meal", duration: "7 days", route: "Oral", instructions: "", is_prn: false, quantity: "", refills: "0" };
 }
 
-export default function PrescriptionForm({ patientEmail, patientName, hospitalName, patientAllergies, onSaved, onCancel, appointmentId, initialData, onCompleteVisitSuggested }: PrescriptionFormProps) {
+export default function PrescriptionForm({ patientEmail, patientName, hospitalName, patientAllergies, onSaved, onCancel, appointmentId, initialData, aiPreFill, onCompleteVisitSuggested }: PrescriptionFormProps) {
   const isEdit = !!initialData;
   const [doctorName, setDoctorName] = useState("");
   const [symptoms, setSymptoms] = useState(initialData?.symptoms || "");
@@ -170,10 +172,18 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
   const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user?.email) setDoctorName(user.email);
-    });
+    const name = getUsername();
+    if (name) setDoctorName(name);
   }, []);
+
+  useEffect(() => {
+    if (aiPreFill) {
+      if (aiPreFill.diagnosis) setDiagnosis(aiPreFill.diagnosis);
+      if (aiPreFill.suggestedTests.length > 0) {
+        setOrderedTests(aiPreFill.suggestedTests.map(t => ({ test_type: t, notes: "" })));
+      }
+    }
+  }, [aiPreFill]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -437,7 +447,14 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
 
       {/* Diagnosis */}
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Diagnosis</label>
+        <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-2">
+          Diagnosis
+          {aiPreFill && (
+            <span className="text-[10px] px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded-full flex items-center gap-0.5">
+              <Sparkles className="w-2.5 h-2.5" /> AI Suggested
+            </span>
+          )}
+        </label>
         <textarea value={diagnosis} onChange={e => setDiagnosis(e.target.value)} placeholder="Enter diagnosis..." rows={2} className="w-full rounded-lg border-2 border-gray-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none resize-none" />
       </div>
 
@@ -594,7 +611,14 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
       {/* Tests */}
       <div>
         <div className="flex items-center justify-between mb-1">
-          <label className="block text-xs font-medium text-gray-700">Order Tests</label>
+          <label className="block text-xs font-medium text-gray-700 flex items-center gap-2">
+            Order Tests
+            {aiPreFill && aiPreFill.suggestedTests.length > 0 && (
+              <span className="text-[10px] px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded-full flex items-center gap-0.5">
+                <Sparkles className="w-2.5 h-2.5" /> AI Suggested
+              </span>
+            )}
+          </label>
         </div>
         <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 space-y-2">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">

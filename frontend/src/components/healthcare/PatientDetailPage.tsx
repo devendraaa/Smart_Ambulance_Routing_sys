@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Calendar, User, Mail, Phone, MapPin, Building2, Pill, FileText, Utensils, ArrowLeft, X, Plus, Trash2, CheckCircle2, Activity, ClipboardList, Loader2, Printer, Edit3 } from "lucide-react";
+import { Calendar, User, Mail, Phone, MapPin, Building2, Pill, FileText, Utensils, ArrowLeft, X, Plus, Trash2, CheckCircle2, Activity, ClipboardList, Loader2, Printer, Edit3, Sparkles, Bot, Brain, FlaskConical, Thermometer, Heart, Wind } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import SymptomsAssessment from "./SymptomsAssessment";
 import PrescriptionForm from "./PrescriptionForm";
@@ -104,7 +104,7 @@ function PatientDetailPage() {
   const [diets, setDiets] = useState<PatientDiet[]>([]);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"symptoms" | "prescriptions" | "medicines" | "reports" | "diet">("symptoms");
+  const [activeTab, setActiveTab] = useState<"symptoms" | "ai-diagnosis" | "prescriptions" | "medicines" | "reports" | "diet">("symptoms");
 
   const [showAddMedicine, setShowAddMedicine] = useState(false);
   const [showAddTest, setShowAddTest] = useState(false);
@@ -125,6 +125,39 @@ function PatientDetailPage() {
   const [completing, setCompleting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [visitNote, setVisitNote] = useState("");
+
+  const [aiPreFill, setAiPreFill] = useState<{ diagnosis: string; suggestedTests: string[] } | null>(null);
+  const aiPreFillApplied = useRef(false);
+
+  const [aiDiagnosisData, setAiDiagnosisData] = useState<{
+    ai_diagnosis: string;
+    ai_disease_predictions: any[];
+    ai_suggested_tests: string[];
+    ai_notes?: string;
+    prescription_id: string;
+  } | null>(null);
+  const [isAiProcessing, setIsAiProcessing] = useState(false);
+
+  useEffect(() => {
+    if (appointment && !aiPreFillApplied.current) {
+      const raw = localStorage.getItem("aiPreFillData");
+      if (raw) {
+        try {
+          const data = JSON.parse(raw);
+          const patientEmail = localStorage.getItem("aiPrescriptionPatientEmail");
+          if (patientEmail === appointment.patient_email) {
+            setAiPreFill({ diagnosis: data.diagnosis || "", suggestedTests: Array.isArray(data.suggestedTests) ? data.suggestedTests : [] });
+            setActiveTab("prescriptions");
+            aiPreFillApplied.current = true;
+            localStorage.removeItem("aiPreFillData");
+            localStorage.removeItem("aiPrescriptionId");
+            localStorage.removeItem("aiPrescriptionPatientEmail");
+            localStorage.removeItem("aiPrescriptionPatientName");
+          }
+        } catch {}
+      }
+    }
+  }, [appointment]);
 
   const isCurrentAppointment = appointment ? isToday(appointment.appointment_date) : false;
   const isCompleted = appointment?.status === "completed";
@@ -149,9 +182,9 @@ function PatientDetailPage() {
     }
   }, [appointment?.id]);
 
-  const loadData = async () => {
+  const loadData = async (silent = false) => {
     if (!appointmentId) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const { data: aptData } = await supabase
         .from("patient_appointments")
@@ -175,7 +208,7 @@ function PatientDetailPage() {
     } catch (err) {
       console.error("Error loading data:", err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -475,6 +508,12 @@ function PatientDetailPage() {
             <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" /> <span>Symptoms</span>
           </button>
           <button
+            onClick={() => setActiveTab("ai-diagnosis")}
+            className={`flex-1 px-1 sm:px-3 py-4 font-medium text-[11px] sm:text-sm flex items-center justify-center gap-1 sm:gap-2 transition whitespace-nowrap ${activeTab === "ai-diagnosis" ? "bg-indigo-50 text-indigo-600 border-b-2 border-indigo-600" : "text-gray-500 hover:text-gray-700"}`}
+          >
+            <Brain className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" /> <span>AI</span>
+          </button>
+          <button
             onClick={() => setActiveTab("prescriptions")}
             className={`flex-1 px-1 sm:px-3 py-4 font-medium text-[11px] sm:text-sm flex items-center justify-center gap-1 sm:gap-2 transition whitespace-nowrap ${activeTab === "prescriptions" ? "bg-emerald-50 text-emerald-600 border-b-2 border-emerald-600" : "text-gray-500 hover:text-gray-700"}`}
           >
@@ -513,7 +552,14 @@ function PatientDetailPage() {
                   patientEmail={appointment.patient_email}
                   patientName={appointment.patient_name}
                   hospitalName={appointment.hospital_name}
-                  onSaved={() => loadData()}
+                  appointmentId={appointment.id}
+                  disableAiRedirect
+                  onAiComplete={(result) => {
+                    setIsAiProcessing(false);
+                    setAiDiagnosisData(result);
+                    setActiveTab("ai-diagnosis");
+                  }}
+                  onSaved={() => { setIsAiProcessing(true); loadData(true); }}
                   onSwitchToPrescriptions={(data) => {
                     setActiveTab("prescriptions");
                     setEditPrescriptionId(data.prescriptionId);
@@ -561,10 +607,139 @@ function PatientDetailPage() {
             </div>
           )}
 
+          {activeTab === "ai-diagnosis" && (
+            <div className="space-y-4">
+              {!aiDiagnosisData && !isAiProcessing && (
+                <div className="text-center py-10">
+                  <div className="w-16 h-16 rounded-2xl bg-indigo-100 flex items-center justify-center mx-auto mb-4">
+                    <Brain className="w-8 h-8 text-indigo-600" />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-800 mb-2">AI Diagnosis</h3>
+                  <p className="text-sm text-gray-500 mb-2">Complete the Symptoms Assessment to generate an AI-powered diagnosis.</p>
+                  <button onClick={() => setActiveTab("symptoms")} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium">
+                    Go to Symptoms
+                  </button>
+                </div>
+              )}
+              {isAiProcessing && !aiDiagnosisData && (
+                <div className="text-center py-10">
+                  <div className="w-16 h-16 rounded-2xl bg-indigo-100 flex items-center justify-center mx-auto mb-4">
+                    <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-800 mb-2">AI Analysis in Progress</h3>
+                  <p className="text-sm text-gray-500">The DxGPT AI is analyzing symptoms and vitals...</p>
+                </div>
+              )}
+              {aiDiagnosisData && (
+                <div className="space-y-4">
+                  {/* Primary Diagnosis */}
+                  <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-6 text-white">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="w-5 h-5" />
+                      <span className="text-xs font-medium text-indigo-200 uppercase tracking-wider">Primary Diagnosis</span>
+                    </div>
+                    <h2 className="text-2xl font-bold">{aiDiagnosisData.ai_diagnosis}</h2>
+                  </div>
+
+                  {/* Predictions */}
+                  {aiDiagnosisData.ai_disease_predictions?.length > 0 && (
+                    <div className="bg-white rounded-2xl border border-indigo-100 p-5">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Brain className="w-5 h-5 text-indigo-600" />
+                        <h3 className="text-sm font-bold text-gray-800">Predicted Diseases</h3>
+                        <span className="text-[10px] px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full">{aiDiagnosisData.ai_disease_predictions.length} conditions</span>
+                      </div>
+                      <div className="space-y-2.5">
+                        {aiDiagnosisData.ai_disease_predictions.map((pred: any, i: number) => {
+                          const disease = pred.disease || "";
+                          const prob = pred.probability || 0;
+                          const pct = typeof prob === "number" ? prob : parseInt(prob) || 0;
+                          const barColor = pct >= 70 ? "bg-red-500" : pct >= 40 ? "bg-amber-500" : "bg-blue-500";
+                          return (
+                            <div key={i} className="p-3 rounded-xl bg-gray-50 border border-gray-100">
+                              <div className="flex items-center gap-3 mb-1.5">
+                                <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold flex items-center justify-center shrink-0">{i + 1}</span>
+                                <span className="text-sm font-semibold text-gray-800 flex-1">{disease}</span>
+                                <span className="text-xs font-bold text-gray-600 w-10 text-right">{pct}%</span>
+                              </div>
+                              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden mb-2">
+                                <div className={`h-full rounded-full ${barColor} transition-all duration-500`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                              </div>
+                              {pred.description && (
+                                <p className="text-xs text-gray-500 mt-1 leading-relaxed">{pred.description}</p>
+                              )}
+                              {pred.symptoms_in_common?.length > 0 && (
+                                <div className="mt-1.5 flex flex-wrap gap-1">
+                                  <span className="text-[10px] text-emerald-600 font-medium">Matches:</span>
+                                  {pred.symptoms_in_common.map((s: string, j: number) => (
+                                    <span key={j} className="text-[10px] px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">{s}</span>
+                                  ))}
+                                </div>
+                              )}
+                              {pred.symptoms_not_in_common?.length > 0 && (
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  <span className="text-[10px] text-amber-600 font-medium">Non-matching:</span>
+                                  {pred.symptoms_not_in_common.map((s: string, j: number) => (
+                                    <span key={j} className="text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded-full border border-amber-200">{s}</span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Suggested Tests */}
+                  {aiDiagnosisData.ai_suggested_tests?.length > 0 && (
+                    <div className="bg-white rounded-2xl border border-purple-100 p-5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <FlaskConical className="w-5 h-5 text-purple-600" />
+                        <h3 className="text-sm font-bold text-gray-800">Suggested Investigations</h3>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {aiDiagnosisData.ai_suggested_tests.map((test: string, i: number) => (
+                          <span key={i} className="text-xs px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg border border-purple-200">{test}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* AI Notes */}
+                  {aiDiagnosisData.ai_notes && (
+                    <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                      <h3 className="text-sm font-bold text-gray-800 mb-2">AI Notes</h3>
+                      <p className="text-sm text-gray-600 leading-relaxed">{aiDiagnosisData.ai_notes}</p>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={() => {
+                        const preFill = {
+                          diagnosis: aiDiagnosisData.ai_diagnosis,
+                          suggestedTests: aiDiagnosisData.ai_suggested_tests || [],
+                        };
+                        setAiPreFill(preFill);
+                        setAiDiagnosisData(null);
+                        setActiveTab("prescriptions");
+                      }}
+                      className="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-semibold text-sm shadow-lg flex items-center justify-center gap-2 transition"
+                    >
+                      <Sparkles className="w-5 h-5" /> Accept AI & Create Prescription
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === "prescriptions" && (
             <div className="space-y-4">
               {canEdit && !editPrescriptionId && (
-                <PrescriptionForm patientEmail={appointment.patient_email} patientName={appointment.patient_name} hospitalName={appointment.hospital_name} appointmentId={appointment.id} onSaved={() => loadData()} onCompleteVisitSuggested={async () => { await fetch(`http://127.0.0.1:8000/api/healthcare/appointments/${appointment.id}/status`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "completed" }) }).catch(() => {}); loadData(); router.push("/doctor?tab=appointments"); }} />
+                <PrescriptionForm patientEmail={appointment.patient_email} patientName={appointment.patient_name} hospitalName={appointment.hospital_name} appointmentId={appointment.id} aiPreFill={aiPreFill} onSaved={() => { setAiPreFill(null); loadData(); }} onCompleteVisitSuggested={async () => { await fetch(`http://127.0.0.1:8000/api/healthcare/appointments/${appointment.id}/status`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "completed" }) }).catch(() => {}); setAiPreFill(null); loadData(); router.push("/doctor?tab=appointments"); }} />
               )}
               {editPrescriptionId && (() => {
                 const p = prescriptions.find(pr => pr.id === editPrescriptionId);

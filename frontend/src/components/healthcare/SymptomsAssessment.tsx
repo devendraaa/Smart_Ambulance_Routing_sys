@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { Activity, Loader2, AlertTriangle } from "lucide-react";
+import { getUsername } from "@/lib/auth";
+import { Activity, Loader2, AlertTriangle, Bot } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -137,15 +139,27 @@ interface SavedAssessmentData {
   pain_score: number;
 }
 
+interface AIDiagnosisResult {
+  ai_diagnosis: string;
+  ai_disease_predictions: any;
+  ai_suggested_tests: any;
+  ai_notes?: string;
+  prescription_id: string;
+}
+
 interface SymptomsAssessmentProps {
   patientEmail: string;
   patientName: string;
   hospitalName?: string;
+  appointmentId?: string;
+  disableAiRedirect?: boolean;
   onSaved: () => void;
   onSwitchToPrescriptions?: (data: SavedAssessmentData) => void;
+  onAiComplete?: (result: AIDiagnosisResult) => void;
 }
 
-export default function SymptomsAssessment({ patientEmail, patientName, hospitalName, onSaved, onSwitchToPrescriptions }: SymptomsAssessmentProps) {
+export default function SymptomsAssessment({ patientEmail, patientName, hospitalName, appointmentId, disableAiRedirect, onSaved, onSwitchToPrescriptions, onAiComplete }: SymptomsAssessmentProps) {
+  const router = useRouter();
   const [doctorName, setDoctorName] = useState("");
 
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
@@ -178,13 +192,33 @@ export default function SymptomsAssessment({ patientEmail, patientName, hospital
   const [bmi, setBmi] = useState("");
   const [painScore, setPainScore] = useState(0);
 
-  const [diagnosis, setDiagnosis] = useState("");
   const [saving, setSaving] = useState(false);
+  const [aiProcessing, setAiProcessing] = useState(false);
+  const [aiProgress, setAiProgress] = useState(0);
+  const [lastPrescriptionId, setLastPrescriptionId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user?.email) setDoctorName(user.email);
-    });
+    if (!aiProcessing || !lastPrescriptionId) {
+      setAiProgress(0);
+      return;
+    }
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/dxgpt/progress/${lastPrescriptionId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setAiProgress(data.progress ?? 0);
+        }
+      } catch {
+        // ignore polling errors
+      }
+    }, 400);
+    return () => clearInterval(interval);
+  }, [aiProcessing, lastPrescriptionId]);
+
+  useEffect(() => {
+    const name = getUsername();
+    if (name) setDoctorName(name);
   }, []);
 
   useEffect(() => {
@@ -209,10 +243,20 @@ export default function SymptomsAssessment({ patientEmail, patientName, hospital
 
   const toggleSymptom = (symptom: string) => {
     setSelectedSymptoms(prev => {
+      let next: string[];
       if (prev.includes(symptom)) {
-        return prev.filter(s => s !== symptom);
+        next = prev.filter(s => s !== symptom);
+      } else {
+        next = [...prev, symptom];
       }
-      return [...prev, symptom];
+      if (next.length > 0) {
+        setChiefComplaint(next[0]);
+        setSymptomsText(next.join(", "));
+      } else {
+        setChiefComplaint("");
+        setSymptomsText("");
+      }
+      return next;
     });
   };
 
@@ -269,7 +313,7 @@ export default function SymptomsAssessment({ patientEmail, patientName, hospital
           severity_level: severityLevel,
           duration: getDurationValue(),
           existing_diseases: existingDiseases.length > 0 ? existingDiseases.join(", ") : "",
-          diagnosis: diagnosis.trim(),
+          diagnosis: "",
           emergency_indicators: emergencyIndicators,
           allergies: allergies.trim(),
           smoking_history: smokingHistory,
@@ -298,6 +342,7 @@ export default function SymptomsAssessment({ patientEmail, patientName, hospital
         throw new Error(`Server error (${res.status}): ${errBody.slice(0, 200)}`);
       }
       const savedData = await res.json();
+      const prescriptionId = savedData.id;
       setSelectedSymptoms([]);
       setSymptomsText("");
       setChiefComplaint("");
@@ -324,13 +369,53 @@ export default function SymptomsAssessment({ patientEmail, patientName, hospital
       setHeight("");
       setBmi("");
       setPainScore(0);
-      setDiagnosis("");
       onSaved();
-      if (onSwitchToPrescriptions) {
+
+      setLastPrescriptionId(prescriptionId);
+      setAiProcessing(true);
+      const aiPromise = fetch(`${API_URL}/api/dxgpt/diagnose/${prescriptionId}`, { method: "POST" })
+        .then(r => r.json())
+        .then(aiData => {
+          console.log("AI diagnosis complete:", aiData);
+          setAiProcessing(false);
+          if (onAiComplete) {
+            onAiComplete({
+              ai_diagnosis: aiData.ai_diagnosis || "",
+              ai_disease_predictions: aiData.ai_disease_predictions || [],
+              ai_suggested_tests: aiData.ai_suggested_tests || [],
+              ai_notes: aiData.ai_notes || "",
+              prescription_id: aiData.prescription_id || prescriptionId,
+            });
+          }
+          return aiData;
+        })
+        .catch(err => {
+          console.error("AI diagnosis failed:", err);
+          setAiProcessing(false);
+          if (onAiComplete) {
+            onAiComplete({
+              ai_diagnosis: "AI analysis unavailable",
+              ai_disease_predictions: [],
+              ai_suggested_tests: [],
+              ai_notes: `Error: ${err.message}`,
+              prescription_id: prescriptionId,
+            });
+          }
+        });
+      aiPromise.finally(() => {
+        if (appointmentId) {
+          localStorage.setItem("aiDiagnosisAppointmentId", appointmentId);
+        }
+        if (!disableAiRedirect) {
+          router.push(`/doctor/ai-diagnosis/${prescriptionId}`);
+        }
+      });
+
+      if (!disableAiRedirect && onSwitchToPrescriptions) {
         onSwitchToPrescriptions({
           prescriptionId: savedData.id,
           symptoms: combinedSymptoms,
-          diagnosis: diagnosis.trim(),
+          diagnosis: chiefComplaint.trim(),
           chief_complaint: chiefComplaint.trim(),
           symptom_notes: symptomNotes.trim(),
           severity_level: severityLevel,
@@ -364,25 +449,18 @@ export default function SymptomsAssessment({ patientEmail, patientName, hospital
   };
 
   return (
+    <>
+      <style>{`
+        @keyframes ai-bounce {
+          0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+          40% { transform: scale(1); opacity: 1; }
+        }
+      `}</style>
     <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4">
       <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
         <Activity className="w-4 h-4 text-rose-500" />
         Record Patient Assessment
       </h4>
-
-      {/* Chief Complaint */}
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">
-          Chief Complaint <span className="text-red-500">*</span>
-        </label>
-        <input
-          type="text"
-          value={chiefComplaint}
-          onChange={e => setChiefComplaint(e.target.value)}
-          placeholder="Primary reason for visit (e.g., chest pain, headache)"
-          className="w-full rounded-lg border-2 border-gray-200 px-3 py-2 text-sm focus:border-rose-400 focus:outline-none"
-        />
-      </div>
 
       {/* Symptoms Checklist */}
       <div className="space-y-2">
@@ -408,6 +486,20 @@ export default function SymptomsAssessment({ patientEmail, patientName, hospital
             {selectedSymptoms.length} symptom{selectedSymptoms.length !== 1 ? "s" : ""} selected
           </p>
         )}
+      </div>
+
+      {/* Chief Complaint */}
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          Chief Complaint <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="text"
+          value={chiefComplaint}
+          onChange={e => setChiefComplaint(e.target.value)}
+          placeholder="Primary reason for visit (e.g., chest pain, headache)"
+          className="w-full rounded-lg border-2 border-gray-200 px-3 py-2 text-sm focus:border-rose-400 focus:outline-none"
+        />
       </div>
 
       {/* Symptom Details */}
@@ -779,25 +871,58 @@ export default function SymptomsAssessment({ patientEmail, patientName, hospital
       {/* Pain Score */}
       <div className="space-y-2">
         <label className="block text-xs font-medium text-gray-600 mb-1">Pain Score (0\u201310)</label>
-        <div className="grid grid-cols-6 sm:flex sm:items-center gap-1">
-          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(score => (
-            <button
-              key={score}
-              type="button"
-              onClick={() => setPainScore(score)}
-              className={`h-10 rounded-lg text-xs font-bold transition ${
-                painScore === score
-                  ? score === 0 ? "bg-gray-400 text-white shadow-md"
-                    : score <= 3 ? "bg-yellow-400 text-white shadow-md"
-                    : score <= 6 ? "bg-orange-400 text-white shadow-md"
-                    : score <= 9 ? "bg-red-500 text-white shadow-md"
-                    : "bg-red-700 text-white shadow-md"
-                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-              } ${score === 10 ? "col-span-2" : ""}`}
-            >
-              {score}
-            </button>
-          ))}
+        <div className="relative pt-6 pb-2">
+          <input
+            type="range"
+            min="0"
+            max="10"
+            value={painScore}
+            onChange={e => setPainScore(parseInt(e.target.value))}
+            className="w-full h-2 rounded-full appearance-none cursor-pointer"
+            style={{
+              background: `linear-gradient(to right, #eab308 0%, #eab308 30%, #ea580c 30%, #ea580c 60%, #dc2626 60%, #dc2626 90%, #b91c1c 90%, #b91c1c 100%)`,
+              accentColor: painScore <= 3 ? "#eab308" : painScore <= 6 ? "#ea580c" : "#dc2626",
+            }}
+          />
+          <style>{`
+            input[type="range"]::-webkit-slider-thumb {
+              -webkit-appearance: none;
+              appearance: none;
+              width: 22px;
+              height: 22px;
+              border-radius: 50%;
+              background: white;
+              border: 3px solid ${painScore <= 3 ? "#eab308" : painScore <= 6 ? "#ea580c" : "#dc2626"};
+              box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+              cursor: pointer;
+              transition: transform 0.15s;
+            }
+            input[type="range"]::-webkit-slider-thumb:hover {
+              transform: scale(1.15);
+            }
+            input[type="range"]::-moz-range-thumb {
+              width: 22px;
+              height: 22px;
+              border-radius: 50%;
+              background: white;
+              border: 3px solid ${painScore <= 3 ? "#eab308" : painScore <= 6 ? "#ea580c" : "#dc2626"};
+              box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+              cursor: pointer;
+            }
+          `}</style>
+          <div className="flex justify-between text-[10px] text-gray-400 mt-2 px-0.5">
+            <span>0</span>
+            <span>1</span>
+            <span>2</span>
+            <span>3</span>
+            <span>4</span>
+            <span>5</span>
+            <span>6</span>
+            <span>7</span>
+            <span>8</span>
+            <span>9</span>
+            <span>10</span>
+          </div>
         </div>
         <div className="flex justify-between text-[10px] text-gray-400 px-1">
           <span>No Pain</span>
@@ -807,43 +932,80 @@ export default function SymptomsAssessment({ patientEmail, patientName, hospital
           <span>Worst</span>
         </div>
         {painScore > 0 && (
-          <p className="text-xs font-medium text-center"
-            style={{
-              color: painScore <= 3 ? "#ca8a04" : painScore <= 6 ? "#ea580c" : "#dc2626"
-            }}
-          >
-            {painScore === 0 ? "No Pain" :
-             painScore <= 3 ? "Mild Pain" :
-             painScore <= 6 ? "Moderate Pain" :
-             painScore <= 9 ? "Severe Pain" : "Worst Possible Pain"}
-          </p>
+          <div className="flex items-center justify-center gap-2">
+            <span
+              className="inline-block px-4 py-1.5 rounded-full text-xs font-bold text-white"
+              style={{
+                backgroundColor: painScore <= 3 ? "#eab308" : painScore <= 6 ? "#ea580c" : painScore <= 9 ? "#dc2626" : "#b91c1c",
+              }}
+            >
+              {painScore}/10
+            </span>
+            <span className="text-xs font-semibold text-gray-600">
+              {painScore === 0 ? "No Pain" :
+               painScore <= 3 ? "Mild Pain" :
+               painScore <= 6 ? "Moderate Pain" :
+               painScore <= 9 ? "Severe Pain" : "Worst Possible Pain"}
+            </span>
+          </div>
         )}
       </div>
 
-      {/* Diagnosis */}
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Diagnosis</label>
-        <textarea
-          value={diagnosis}
-          onChange={e => setDiagnosis(e.target.value)}
-          placeholder="Enter diagnosis..."
-          rows={2}
-          className="w-full rounded-lg border-2 border-gray-200 px-3 py-2 text-sm focus:border-rose-400 focus:outline-none resize-none"
-        />
-      </div>
+      {/* AI Processing Banner */}
+      {aiProcessing && (
+        <div className="bg-gradient-to-br from-indigo-50 via-purple-50 to-indigo-100/80 rounded-2xl border border-indigo-200 p-5 sm:p-6 animate-pulse">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-5 sm:gap-6">
+            {/* Progress Ring */}
+            <div className="relative w-20 h-20 sm:w-24 sm:h-24 shrink-0">
+              <svg className="w-20 h-20 sm:w-24 sm:h-24 -rotate-90" viewBox="0 0 36 36">
+                <circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(99,102,241,0.15)" strokeWidth="3.5" />
+                <circle cx="18" cy="18" r="15.5" fill="none" stroke="url(#aiGrad)" strokeWidth="3.5" strokeLinecap="round"
+                  strokeDasharray={`${aiProgress * 0.9734} 97.34`} style={{ transition: "stroke-dasharray 0.2s ease-out", filter: "drop-shadow(0 0 6px rgba(99,102,241,0.4))" }} />
+                <defs>
+                  <linearGradient id="aiGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#6366f1" />
+                    <stop offset="100%" stopColor="#a855f7" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-lg sm:text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">{aiProgress}%</span>
+              </div>
+            </div>
+
+            {/* Text */}
+            <div className="text-center sm:text-left">
+              <h4 className="text-base sm:text-lg font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 bg-clip-text text-transparent">
+                AI Diagnosis Analysis
+              </h4>
+              <p className="text-xs sm:text-sm text-indigo-500 mt-1 max-w-xs">
+                DxGPT is analyzing symptoms and vitals to generate diagnosis predictions.
+              </p>
+              <div className="flex items-center justify-center sm:justify-start gap-1.5 mt-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" style={{ animation: "ai-bounce 1.2s ease-in-out infinite 0ms" }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-400" style={{ animation: "ai-bounce 1.2s ease-in-out infinite 300ms" }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-pink-400" style={{ animation: "ai-bounce 1.2s ease-in-out infinite 600ms" }} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Save */}
       <button
         onClick={handleSave}
-        disabled={saving}
-        className="w-full px-4 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2 transition"
+        disabled={saving || aiProcessing}
+        className="w-full px-4 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2 transition"
       >
         {saving ? (
           <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+        ) : aiProcessing ? (
+          <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
         ) : (
           <><Activity className="w-4 h-4" /> Save Assessment</>
         )}
       </button>
     </div>
+    </>
   );
 }
