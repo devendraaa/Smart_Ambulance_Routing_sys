@@ -505,7 +505,7 @@ function PatientDetailPage() {
         </div>
 
         {/* Tab Content */}
-        <div className="bg-white rounded-b-2xl shadow-lg border border-t-0 p-6">
+        <div className="bg-white rounded-b-2xl shadow-lg border border-t-0 p-4 sm:p-6">
           {activeTab === "symptoms" && (
             <div className="space-y-4">
               {canEdit && (
@@ -836,20 +836,21 @@ function PatientDetailPage() {
 
       {/* Complete Visit Modal */}
       {showCompleteModal && appointment && (
-        <div className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 pt-16 sm:pt-20 z-[9999] overflow-y-auto">
-          <div className="bg-white rounded-2xl w-full max-w-lg my-4 mx-1 sm:mx-0 p-4 sm:p-6 shadow-2xl">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-[9999] overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] mx-auto shadow-2xl flex flex-col">
+            <div className="p-4 sm:p-6 overflow-y-auto">
             <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
                 <CheckCircle2 className="w-6 h-6 text-emerald-600" />
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-gray-900">Complete Visit</h3>
-                <p className="text-sm text-gray-500">{appointment.patient_name}</p>
+              <div className="min-w-0">
+                <h3 className="text-base sm:text-lg font-bold text-gray-900">Complete Visit</h3>
+                <p className="text-xs sm:text-sm text-gray-500 truncate">{appointment.patient_name}</p>
               </div>
             </div>
 
             {/* Summary */}
-            <div className="bg-gray-50 rounded-xl p-4 mb-4 space-y-2">
+            <div className="bg-gray-50 rounded-xl p-3 sm:p-4 mb-4 space-y-2">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Visit Summary</p>
               <div className="flex items-center gap-2 text-sm">
                 <div className={`w-5 h-5 rounded-full flex items-center justify-center ${prescriptions.length > 0 ? "bg-emerald-100 text-emerald-600" : "bg-gray-200 text-gray-400"}`}>
@@ -920,6 +921,7 @@ function PatientDetailPage() {
             </div>
           </div>
         </div>
+      </div>
       )}
     </div>
   );

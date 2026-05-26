@@ -537,45 +537,43 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
-                <select value={row.dosage} onChange={e => updateRow(i, "dosage", e.target.value)} className="rounded-lg border-2 border-purple-200 px-1.5 py-1 text-xs focus:border-purple-500 focus:outline-none bg-white">
+                <select value={row.dosage} onChange={e => updateRow(i, "dosage", e.target.value)} className="w-full rounded-lg border-2 border-purple-200 px-1.5 py-1 text-xs focus:border-purple-500 focus:outline-none bg-white">
                   <option value="">Dose</option>
                   {DOSAGE_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
-                <select value={row.frequency} onChange={e => updateRow(i, "frequency", e.target.value)} className="rounded-lg border-2 border-purple-200 px-1.5 py-1 text-xs focus:border-purple-500 focus:outline-none bg-white">
+                <select value={row.frequency} onChange={e => updateRow(i, "frequency", e.target.value)} className="w-full rounded-lg border-2 border-purple-200 px-1.5 py-1 text-xs focus:border-purple-500 focus:outline-none bg-white">
                   {FREQUENCY_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
                 </select>
-                <select value={row.timing} onChange={e => updateRow(i, "timing", e.target.value)} className="rounded-lg border-2 border-purple-200 px-1.5 py-1 text-xs focus:border-purple-500 focus:outline-none bg-white">
+                <select value={row.timing} onChange={e => updateRow(i, "timing", e.target.value)} className="w-full rounded-lg border-2 border-purple-200 px-1.5 py-1 text-xs focus:border-purple-500 focus:outline-none bg-white">
                   {TIMING_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
-                <select value={row.duration} onChange={e => updateRow(i, "duration", e.target.value)} className="rounded-lg border-2 border-purple-200 px-1.5 py-1 text-xs focus:border-purple-500 focus:outline-none bg-white">
+                <select value={row.duration} onChange={e => updateRow(i, "duration", e.target.value)} className="w-full rounded-lg border-2 border-purple-200 px-1.5 py-1 text-xs focus:border-purple-500 focus:outline-none bg-white">
                   {DURATION_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
-                <select value={row.route} onChange={e => updateRow(i, "route", e.target.value)} className="rounded-lg border-2 border-purple-200 px-1.5 py-1 text-xs focus:border-purple-500 focus:outline-none bg-white">
+                <select value={row.route} onChange={e => updateRow(i, "route", e.target.value)} className="w-full rounded-lg border-2 border-purple-200 px-1.5 py-1 text-xs focus:border-purple-500 focus:outline-none bg-white">
                   {ROUTE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={row.quantity}
-                    onChange={e => updateRow(i, "quantity", e.target.value)}
-                    placeholder="Qty (e.g. 30 tabs)"
-                    className="w-full rounded-lg border-2 border-purple-200 px-2 py-1 text-xs focus:border-purple-500 focus:outline-none"
-                  />
-                </div>
-                <select value={row.refills} onChange={e => updateRow(i, "refills", e.target.value)} className="rounded-lg border-2 border-purple-200 px-1.5 py-1 text-xs focus:border-purple-500 focus:outline-none bg-white">
+                <input
+                  type="text"
+                  value={row.quantity}
+                  onChange={e => updateRow(i, "quantity", e.target.value)}
+                  placeholder="Qty (e.g. 30 tabs)"
+                  className="w-full rounded-lg border-2 border-purple-200 px-2 py-1 text-xs focus:border-purple-500 focus:outline-none"
+                />
+                <select value={row.refills} onChange={e => updateRow(i, "refills", e.target.value)} className="w-full rounded-lg border-2 border-purple-200 px-1.5 py-1 text-xs focus:border-purple-500 focus:outline-none bg-white">
                   {REFILL_OPTIONS.map(r => <option key={r} value={r}>Refills: {r}</option>)}
                 </select>
-                <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer col-span-2 sm:col-span-1">
                   <input
                     type="checkbox"
                     checked={row.is_prn}
                     onChange={e => updateRow(i, "is_prn", e.target.checked)}
-                    className="w-3.5 h-3.5 text-purple-600 border-gray-300 rounded"
+                    className="w-3.5 h-3.5 text-purple-600 border-gray-300 rounded shrink-0"
                   />
-                  Take as needed (PRN)
+                  <span>Take as needed (PRN)</span>
                 </label>
               </div>
 
@@ -599,11 +597,11 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
           <label className="block text-xs font-medium text-gray-700">Order Tests</label>
         </div>
         <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 space-y-2">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             <select
               value={newTestType}
               onChange={e => setNewTestType(e.target.value)}
-              className="flex-1 rounded-lg border-2 border-purple-200 px-2.5 py-2 text-xs focus:border-purple-500 focus:outline-none bg-white"
+              className="rounded-lg border-2 border-purple-200 px-2.5 py-2 text-xs focus:border-purple-500 focus:outline-none bg-white"
             >
               {TEST_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
@@ -612,7 +610,7 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
               value={newTestNotes}
               onChange={e => setNewTestNotes(e.target.value)}
               placeholder="Notes"
-              className="flex-1 rounded-lg border-2 border-purple-200 px-2.5 py-2 text-xs focus:border-purple-500 focus:outline-none bg-white"
+              className="rounded-lg border-2 border-purple-200 px-2.5 py-2 text-xs focus:border-purple-500 focus:outline-none bg-white flex-1 min-w-0"
             />
             <button
               type="button"
@@ -622,7 +620,7 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
                   setNewTestNotes("");
                 }
               }}
-              className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-medium flex items-center gap-1 shrink-0"
+              className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-medium flex items-center justify-center gap-1 shrink-0"
             >
               <Plus className="w-3 h-3" /> Add
             </button>
@@ -672,34 +670,34 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
 
       {/* Confirmation Modal */}
       {showConfirmModal && createPortal(
-        <div className="fixed inset-0 bg-black/50 z-[99999] flex items-start justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl w-full max-w-lg my-8 mx-1 sm:mx-0 shadow-2xl relative">
+        <div className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] mx-auto shadow-2xl relative flex flex-col">
             {/* Header */}
-            <div className="bg-gradient-to-r from-emerald-500 to-green-600 rounded-t-2xl px-5 py-4 sm:px-6 sm:py-5">
+            <div className="bg-gradient-to-r from-emerald-500 to-green-600 rounded-t-2xl px-4 py-3 sm:px-6 sm:py-5 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                  <ClipboardList className="w-6 h-6 text-white" />
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                  <ClipboardList className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-lg font-bold text-white">Confirm Prescription</h3>
-                  <p className="text-emerald-100 text-sm">Review details before saving</p>
+                  <h3 className="text-base sm:text-lg font-bold text-white">Confirm Prescription</h3>
+                  <p className="text-emerald-100 text-xs sm:text-sm">Review details before saving</p>
                 </div>
               </div>
             </div>
 
-            <div className="p-5 sm:p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto">
               {/* Summary */}
               <div>
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Prescription Summary</h4>
-                <div className="bg-emerald-50 rounded-xl p-4 space-y-2 border border-emerald-100">
+                <div className="bg-emerald-50 rounded-xl p-3 sm:p-4 space-y-2 border border-emerald-100">
                   {symptoms.trim() && (
-                    <p className="text-sm">
+                    <p className="text-xs sm:text-sm">
                       <span className="font-medium text-rose-600">Symptoms:</span>
                       <span className="text-gray-700 ml-1.5">{symptoms.trim()}</span>
                     </p>
                   )}
                   {diagnosis.trim() && (
-                    <p className="text-sm">
+                    <p className="text-xs sm:text-sm">
                       <span className="font-medium text-emerald-600">Diagnosis:</span>
                       <span className="text-gray-700 ml-1.5">{diagnosis.trim()}</span>
                     </p>
@@ -712,30 +710,30 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
                 const meds = medRows.filter(m => m.name.trim());
                 if (meds.length === 0) return null;
                 return (
-                  <div>
+                  <div className="min-w-0">
                     <h5 className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-1.5">
-                      <svg className="w-3.5 h-3.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                      <svg className="w-3.5 h-3.5 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                       Medicines ({meds.length})
                     </h5>
-                    <div className="border border-gray-200 rounded-xl overflow-hidden">
-                      <table className="w-full text-sm">
+                    <div className="border border-gray-200 rounded-xl overflow-x-auto">
+                      <table className="w-full text-sm min-w-[400px]">
                         <thead>
                           <tr className="bg-gray-50 border-b border-gray-200">
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">#</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Medicine</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Dosage</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Frequency</th>
-                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Duration</th>
+                            <th className="px-2 sm:px-3 py-2 sm:py-2.5 text-left text-[10px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">#</th>
+                            <th className="px-2 sm:px-3 py-2 sm:py-2.5 text-left text-[10px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Medicine</th>
+                            <th className="px-2 sm:px-3 py-2 sm:py-2.5 text-left text-[10px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Dosage</th>
+                            <th className="px-2 sm:px-3 py-2 sm:py-2.5 text-left text-[10px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Frequency</th>
+                            <th className="px-2 sm:px-3 py-2 sm:py-2.5 text-left text-[10px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Duration</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                           {meds.map((m, i) => (
                             <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                              <td className="px-3 py-2.5 text-xs text-gray-400 align-top">{i + 1}</td>
-                              <td className="px-3 py-2.5 text-sm font-semibold text-gray-900 align-top">{m.name}</td>
-                              <td className="px-3 py-2.5 text-xs text-gray-600 align-top">{m.dosage || "-"}</td>
-                              <td className="px-3 py-2.5 text-xs text-gray-600 align-top">{m.frequency || "-"}</td>
-                              <td className="px-3 py-2.5 text-xs text-gray-600 align-top">{m.duration || "-"}</td>
+                              <td className="px-2 sm:px-3 py-2 sm:py-2.5 text-xs text-gray-400 align-top whitespace-nowrap">{i + 1}</td>
+                              <td className="px-2 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-gray-900 align-top whitespace-nowrap">{m.name}</td>
+                              <td className="px-2 sm:px-3 py-2 sm:py-2.5 text-xs text-gray-600 align-top whitespace-nowrap">{m.dosage || "-"}</td>
+                              <td className="px-2 sm:px-3 py-2 sm:py-2.5 text-xs text-gray-600 align-top whitespace-nowrap">{m.frequency || "-"}</td>
+                              <td className="px-2 sm:px-3 py-2 sm:py-2.5 text-xs text-gray-600 align-top whitespace-nowrap">{m.duration || "-"}</td>
                             </tr>
                           ))}
                         </tbody>
