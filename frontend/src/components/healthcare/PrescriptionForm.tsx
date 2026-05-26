@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
 import { ClipboardList, Plus, Trash2, Loader2, AlertTriangle, Search, FlaskConical } from "lucide-react";
 import {
@@ -83,6 +84,20 @@ interface MedicineRow {
   refills: string;
 }
 
+export interface SavedPrescriptionData {
+  symptoms: string;
+  diagnosis: string;
+  medicines: Array<{
+    name: string;
+    dosage: string;
+    frequency: string;
+    duration: string;
+    instructions: string;
+  }>;
+  notes?: string;
+  followUpDate?: string;
+}
+
 interface PrescriptionFormProps {
   patientEmail: string;
   patientName: string;
@@ -99,13 +114,14 @@ interface PrescriptionFormProps {
     medicines?: string | null;
     follow_up_date?: string | null;
   } | null;
+  onCompleteVisitSuggested?: (data: SavedPrescriptionData) => void;
 }
 
 function newRow(): MedicineRow {
   return { name: "", dosage: "", frequency: "Once daily", timing: "After meal", duration: "7 days", route: "Oral", instructions: "", is_prn: false, quantity: "", refills: "0" };
 }
 
-export default function PrescriptionForm({ patientEmail, patientName, hospitalName, patientAllergies, onSaved, onCancel, appointmentId, initialData }: PrescriptionFormProps) {
+export default function PrescriptionForm({ patientEmail, patientName, hospitalName, patientAllergies, onSaved, onCancel, appointmentId, initialData, onCompleteVisitSuggested }: PrescriptionFormProps) {
   const isEdit = !!initialData;
   const [doctorName, setDoctorName] = useState("");
   const [symptoms, setSymptoms] = useState(initialData?.symptoms || "");
@@ -147,6 +163,9 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
   const [duplicateWarnings, setDuplicateWarnings] = useState<string[]>([]);
   const [allergyWarnings, setAllergyWarnings] = useState<string[]>([]);
   const [prescriptionType, setPrescriptionType] = useState<"new" | "followup" | "refill">("new");
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [saveAndComplete, setSaveAndComplete] = useState(false);
+  const [debugClicks, setDebugClicks] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -234,34 +253,26 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
     return warnings;
   };
 
-  const handleSave = async () => {
-    if (!symptoms.trim()) { alert("Please enter symptoms"); return; }
-    if (medRows.length === 0) { alert("Please add at least one medicine"); return; }
-
-    const dups = checkDuplicates();
-    const alrs = checkAllergies();
-    setDuplicateWarnings(dups);
-    setAllergyWarnings(alrs);
-    if (dups.length > 0 || alrs.length > 0) {
-      if (dups.length > 0) alert(dups.join("\n"));
-      if (alrs.length > 0) alert(alrs.join("\n"));
-      return;
-    }
-
+  const executeSave = async () => {
     setSaving(true);
     try {
-      const medicinesJson = JSON.stringify(medRows.filter(m => m.name.trim()));
+      const validMeds = medRows.filter(m => m.name.trim());
+      const medicinesJson = JSON.stringify(validMeds);
+      const savedSymptoms = symptoms.trim();
+      const savedDiagnosis = diagnosis.trim();
+      const savedNotes = notes.trim();
+      const savedFollowUp = followUp;
 
       if (isEdit && initialData?.id) {
         const res = await fetch(`http://127.0.0.1:8000/api/healthcare/doctor/prescriptions/${initialData.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            symptoms: symptoms.trim(),
-            diagnosis: diagnosis.trim(),
-            prescription_notes: notes.trim(),
+            symptoms: savedSymptoms,
+            diagnosis: savedDiagnosis,
+            prescription_notes: savedNotes,
             medicines: medicinesJson,
-            follow_up_date: followUp || null,
+            follow_up_date: savedFollowUp || null,
           }),
         });
         if (!res.ok) {
@@ -278,12 +289,12 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
             patient_name: patientName,
             doctor_name: doctorName,
             hospital_name: hospitalName || "",
-            symptoms: symptoms.trim(),
-            diagnosis: diagnosis.trim(),
-            prescription_notes: notes.trim(),
+            symptoms: savedSymptoms,
+            diagnosis: savedDiagnosis,
+            prescription_notes: savedNotes,
             medicines: medicinesJson,
-            follow_up_date: followUp || null,
-            status: prescriptionType === "refill" ? "Active" : "Active",
+            follow_up_date: savedFollowUp || null,
+            status: "Active",
           }),
         });
         if (!res.ok) {
@@ -312,7 +323,6 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
         }
       }
 
-      const validMeds = medRows.filter(m => m.name.trim());
       if (validMeds.length > 0) {
         const medicineInserts = validMeds.map(m => ({
           patient_email: patientEmail,
@@ -347,16 +357,68 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
       setAllergyWarnings([]);
       setPrescriptionType("new");
       onSaved();
+
+      if (saveAndComplete && onCompleteVisitSuggested) {
+        onCompleteVisitSuggested({
+          symptoms: savedSymptoms,
+          diagnosis: savedDiagnosis,
+          medicines: validMeds.map(m => ({
+            name: m.name,
+            dosage: m.dosage,
+            frequency: m.frequency,
+            duration: m.duration,
+            instructions: m.instructions,
+          })),
+          notes: savedNotes,
+          followUpDate: savedFollowUp,
+        });
+      }
     } catch (err) {
       console.error("Error saving prescription:", err);
       alert("Failed to save prescription");
     } finally {
       setSaving(false);
+      setShowConfirmModal(false);
+      setSaveAndComplete(false);
     }
+  };
+
+  const handleSave = async () => {
+    if (!symptoms.trim()) { alert("Please enter symptoms"); return; }
+    if (medRows.length === 0) { alert("Please add at least one medicine"); return; }
+
+    const dups = checkDuplicates();
+    const alrs = checkAllergies();
+    setDuplicateWarnings(dups);
+    setAllergyWarnings(alrs);
+    if (dups.length > 0 || alrs.length > 0) {
+      if (dups.length > 0) alert(dups.join("\n"));
+      if (alrs.length > 0) alert(alrs.join("\n"));
+      return;
+    }
+
+    if (!isEdit) {
+      setShowConfirmModal(true);
+      return;
+    }
+
+    await executeSave();
   };
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+      {/* DEBUG BAR */}
+      <div className="bg-purple-100 border border-purple-300 rounded p-2 text-xs text-purple-800 flex items-center justify-between">
+        <span>DEBUG: isEdit={String(isEdit)} modal={String(showConfirmModal)} clicks={debugClicks}</span>
+        <button
+          type="button"
+          onClick={() => { console.log("DEBUG: test click"); window.alert("DEBUG: Button works!"); setDebugClicks(c => c + 1); }}
+          className="px-2 py-0.5 bg-purple-600 text-white rounded text-[10px]"
+        >
+          Test Click {debugClicks}
+        </button>
+      </div>
+
       <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
         <ClipboardList className="w-4 h-4 text-emerald-500" />
         {isEdit ? "Edit Prescription" : "New Prescription"}
@@ -622,6 +684,103 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
           {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : <><ClipboardList className="w-4 h-4" /> {isEdit ? "Update Prescription" : "Save Prescription"}</>}
         </button>
       </div>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && createPortal(
+        <div className="fixed inset-0 bg-black/50 z-[99999] flex items-start justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-lg my-8 mx-1 sm:mx-0 shadow-2xl relative">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-emerald-500 to-green-600 rounded-t-2xl px-5 py-4 sm:px-6 sm:py-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                  <ClipboardList className="w-6 h-6 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-lg font-bold text-white">Confirm Prescription</h3>
+                  <p className="text-emerald-100 text-sm">Review details before saving</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 sm:p-6 space-y-4">
+              {/* Summary */}
+              <div>
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Prescription Summary</h4>
+                <div className="bg-emerald-50 rounded-xl p-4 space-y-2 border border-emerald-100">
+                  {symptoms.trim() && (
+                    <p className="text-sm">
+                      <span className="font-medium text-rose-600">Symptoms:</span>
+                      <span className="text-gray-700 ml-1.5">{symptoms.trim()}</span>
+                    </p>
+                  )}
+                  {diagnosis.trim() && (
+                    <p className="text-sm">
+                      <span className="font-medium text-emerald-600">Diagnosis:</span>
+                      <span className="text-gray-700 ml-1.5">{diagnosis.trim()}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Medicines Table */}
+              {(() => {
+                const meds = medRows.filter(m => m.name.trim());
+                if (meds.length === 0) return null;
+                return (
+                  <div>
+                    <h5 className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                      Medicines ({meds.length})
+                    </h5>
+                    <div className="border border-gray-200 rounded-xl overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-gray-50 border-b border-gray-200">
+                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">#</th>
+                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Medicine</th>
+                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Dosage</th>
+                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Frequency</th>
+                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Duration</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {meds.map((m, i) => (
+                            <tr key={i} className="hover:bg-gray-50/50 transition-colors">
+                              <td className="px-3 py-2.5 text-xs text-gray-400 align-top">{i + 1}</td>
+                              <td className="px-3 py-2.5 text-sm font-semibold text-gray-900 align-top">{m.name}</td>
+                              <td className="px-3 py-2.5 text-xs text-gray-600 align-top">{m.dosage || "-"}</td>
+                              <td className="px-3 py-2.5 text-xs text-gray-600 align-top">{m.frequency || "-"}</td>
+                              <td className="px-3 py-2.5 text-xs text-gray-600 align-top">{m.duration || "-"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Actions */}
+              <div className="flex flex-col gap-2 pt-2">
+                <button
+                  onClick={() => { setShowConfirmModal(false); setSaveAndComplete(false); }}
+                  className="w-full px-4 py-2.5 border-2 border-gray-200 text-gray-700 rounded-xl font-medium text-sm hover:bg-gray-50 transition"
+                >
+                  Continue Editing
+                </button>
+                <button
+                  onClick={async () => { setSaveAndComplete(true); await executeSave(); }}
+                  disabled={saving}
+                  className="w-full px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 disabled:opacity-50 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-lg transition"
+                >
+                  {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : <><ClipboardList className="w-4 h-4" /> Complete Visit</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

@@ -121,13 +121,33 @@ function PatientDetailPage() {
     instructions: "",
   });
 
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [completing, setCompleting] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const [visitNote, setVisitNote] = useState("");
+
   const isCurrentAppointment = appointment ? isToday(appointment.appointment_date) : false;
+  const isCompleted = appointment?.status === "completed";
+  const isCancelled = appointment?.status === "cancelled";
+  const canEdit = isCurrentAppointment && !isCompleted && !isCancelled;
 
   useEffect(() => {
     if (appointmentId) {
       loadData();
     }
   }, [appointmentId]);
+
+  useEffect(() => {
+    if (appointment?.status === "scheduled" && isCurrentAppointment) {
+      fetch(`http://127.0.0.1:8000/api/healthcare/appointments/${appointment.id}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "in-consultation" })
+      }).then(() => {
+        setAppointment(prev => prev ? { ...prev, status: "in-consultation" } : prev);
+      }).catch(console.error);
+    }
+  }, [appointment?.id]);
 
   const loadData = async () => {
     if (!appointmentId) return;
@@ -297,6 +317,41 @@ function PatientDetailPage() {
     }
   };
 
+  const handleCompleteVisit = async () => {
+    if (!appointment || !confirmed) return;
+    setCompleting(true);
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/api/healthcare/appointments/${appointment.id}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "completed" })
+      });
+      if (!res.ok) throw new Error("Failed to complete visit");
+
+      for (const p of prescriptions) {
+        if (p.status === "Active") {
+          try {
+            await fetch(`http://127.0.0.1:8000/api/healthcare/doctor/prescriptions/${p.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: "Completed" })
+            });
+          } catch (e) { console.error("Failed to update prescription status:", e); }
+        }
+      }
+
+      setAppointment({ ...appointment, status: "completed" });
+      setShowCompleteModal(false);
+      loadData();
+      router.push("/doctor?tab=appointments");
+    } catch (err) {
+      console.error("Error completing visit:", err);
+      alert("Failed to complete visit");
+    } finally {
+      setCompleting(false);
+    }
+  };
+
   const deleteMedicine = async (medId: string) => {
     if (!confirm("Delete this medicine?")) return;
     await supabase.from("patient_medicines").delete().eq("id", medId);
@@ -370,21 +425,46 @@ function PatientDetailPage() {
                   <span className="flex items-center gap-1"><Building2 className="w-4 h-4" />{appointment.hospital_name}</span>
                 </div>
                 <div className="flex items-center gap-2 mt-2">
-                  {isCurrentAppointment && (
+                  {isCurrentAppointment && !isCompleted && (
                     <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs">Today</span>
                   )}
-                  <span className={`px-2 py-0.5 rounded text-xs ${
+                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                     appointment.status === "scheduled" ? "bg-blue-100 text-blue-700" :
+                    appointment.status === "in-consultation" ? "bg-amber-100 text-amber-700" :
                     appointment.status === "completed" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                   }`}>
-                    {appointment.status}
+                    {appointment.status === "scheduled" ? "Waiting" :
+                     appointment.status === "in-consultation" ? "Consulting" :
+                     appointment.status === "completed" ? "Completed" : appointment.status}
                   </span>
                   <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">{appointment.case_type}</span>
                 </div>
               </div>
             </div>
+            {canEdit && (
+              <button
+                onClick={() => setShowCompleteModal(true)}
+                className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-semibold text-sm shadow-lg hover:from-emerald-600 hover:to-green-700 transition-all shrink-0"
+              >
+                <CheckCircle2 className="w-5 h-5" />
+                Complete Visit
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Completed Banner */}
+        {isCompleted && (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-6 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+            </div>
+            <div>
+              <p className="font-semibold text-emerald-800 text-sm">Visit Completed</p>
+              <p className="text-xs text-emerald-600">This consultation is finalized. All records are in view-only mode.</p>
+            </div>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex border-b border-gray-200 bg-white rounded-t-2xl overflow-x-auto">
@@ -428,7 +508,7 @@ function PatientDetailPage() {
         <div className="bg-white rounded-b-2xl shadow-lg border border-t-0 p-6">
           {activeTab === "symptoms" && (
             <div className="space-y-4">
-              {isCurrentAppointment && (
+              {canEdit && (
                 <SymptomsAssessment
                   patientEmail={appointment.patient_email}
                   patientName={appointment.patient_name}
@@ -483,8 +563,8 @@ function PatientDetailPage() {
 
           {activeTab === "prescriptions" && (
             <div className="space-y-4">
-              {isCurrentAppointment && !editPrescriptionId && (
-                <PrescriptionForm patientEmail={appointment.patient_email} patientName={appointment.patient_name} hospitalName={appointment.hospital_name} appointmentId={appointment.id} onSaved={() => loadData()} />
+              {canEdit && !editPrescriptionId && (
+                <PrescriptionForm patientEmail={appointment.patient_email} patientName={appointment.patient_name} hospitalName={appointment.hospital_name} appointmentId={appointment.id} onSaved={() => loadData()} onCompleteVisitSuggested={async () => { await fetch(`http://127.0.0.1:8000/api/healthcare/appointments/${appointment.id}/status`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "completed" }) }).catch(() => {}); loadData(); router.push("/doctor?tab=appointments"); }} />
               )}
               {editPrescriptionId && (() => {
                 const p = prescriptions.find(pr => pr.id === editPrescriptionId);
@@ -524,7 +604,7 @@ function PatientDetailPage() {
                           </div>
                           <div className="flex items-center gap-1">
                             {p.follow_up_date && <span className="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">Follow-up: {new Date(p.follow_up_date).toLocaleDateString("en-IN")}</span>}
-                            {isCurrentAppointment && (
+                            {canEdit && (
                               <>
                                 <button onClick={() => setEditPrescriptionId(p.id)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Edit">
                                   <Edit3 className="w-3.5 h-3.5" />
@@ -569,7 +649,7 @@ function PatientDetailPage() {
 
           {activeTab === "medicines" && (
             <div className="space-y-4">
-              {isCurrentAppointment && (
+              {canEdit && (
                 <button onClick={() => setShowAddMedicine(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2 w-fit">
                   <Plus className="w-4 h-4" /> Add Medicine
                 </button>
@@ -596,7 +676,7 @@ function PatientDetailPage() {
                               <button onClick={() => toggleCollected(med.id, true)} className="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-700 flex items-center gap-0.5 hover:bg-emerald-200">
                                 <CheckCircle2 className="w-3 h-3" /> Collected
                               </button>
-                            ) : isCurrentAppointment && (
+                            ) : canEdit && (
                               <button onClick={() => toggleCollected(med.id, false)} className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600 flex items-center gap-0.5 hover:bg-gray-200">
                                 Mark Collected
                               </button>
@@ -613,7 +693,7 @@ function PatientDetailPage() {
                           </div>
                           {med.instructions && <div className="text-xs text-gray-500 mt-1">Note: {med.instructions}</div>}
                         </div>
-                        {isCurrentAppointment && (
+                        {canEdit && (
                           <button onClick={() => deleteMedicine(med.id)} className="p-2 text-red-600 hover:bg-red-50 rounded shrink-0">
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -628,7 +708,7 @@ function PatientDetailPage() {
 
           {activeTab === "reports" && (
             <div className="space-y-4">
-              {isCurrentAppointment && (
+              {canEdit && (
                 <button onClick={() => setShowAddTest(true)} className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium flex items-center gap-2 w-fit">
                   <Plus className="w-4 h-4" /> Add Test
                 </button>
@@ -647,7 +727,7 @@ function PatientDetailPage() {
                         }`}>{test.status}</span>
                         {test.notes && <div className="text-xs text-gray-500 mt-1">Note: {test.notes}</div>}
                       </div>
-                      {isCurrentAppointment && <button onClick={() => deleteTest(test.id)} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>}
+                      {canEdit && <button onClick={() => deleteTest(test.id)} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>}
                     </div>
                   ))}
                 </div>
@@ -657,7 +737,7 @@ function PatientDetailPage() {
 
           {activeTab === "diet" && (
             <div className="space-y-4">
-              {isCurrentAppointment && (
+              {canEdit && (
                 <button onClick={() => setShowAddDiet(true)} className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium flex items-center gap-2 w-fit">
                   <Plus className="w-4 h-4" /> Add Diet Plan
                 </button>
@@ -677,7 +757,7 @@ function PatientDetailPage() {
                         {diet.timing && <div className="text-sm text-gray-600 mt-1">Time: {diet.timing}</div>}
                         {diet.foods && <div className="text-xs text-gray-500 mt-1">Foods: {diet.foods}</div>}
                       </div>
-                      {isCurrentAppointment && <button onClick={() => deleteDiet(diet.id)} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>}
+                      {canEdit && <button onClick={() => deleteDiet(diet.id)} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>}
                     </div>
                   ))}
                 </div>
@@ -749,6 +829,94 @@ function PatientDetailPage() {
                 </div>
               </div>
               <button onClick={handleAddDiet} className="w-full px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium text-sm">Add Diet Plan</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Complete Visit Modal */}
+      {showCompleteModal && appointment && (
+        <div className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 pt-16 sm:pt-20 z-[9999] overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-lg my-4 mx-1 sm:mx-0 p-4 sm:p-6 shadow-2xl">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Complete Visit</h3>
+                <p className="text-sm text-gray-500">{appointment.patient_name}</p>
+              </div>
+            </div>
+
+            {/* Summary */}
+            <div className="bg-gray-50 rounded-xl p-4 mb-4 space-y-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Visit Summary</p>
+              <div className="flex items-center gap-2 text-sm">
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${prescriptions.length > 0 ? "bg-emerald-100 text-emerald-600" : "bg-gray-200 text-gray-400"}`}>
+                  {prescriptions.length > 0 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                </div>
+                <span className="text-gray-700">Prescriptions: <strong>{prescriptions.length}</strong></span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${medicines.length > 0 ? "bg-emerald-100 text-emerald-600" : "bg-gray-200 text-gray-400"}`}>
+                  {medicines.length > 0 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                </div>
+                <span className="text-gray-700">Medicines: <strong>{medicines.length}</strong></span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${tests.length > 0 ? "bg-emerald-100 text-emerald-600" : "bg-gray-200 text-gray-400"}`}>
+                  {tests.length > 0 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                </div>
+                <span className="text-gray-700">Tests Ordered: <strong>{tests.length}</strong></span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${diets.length > 0 ? "bg-emerald-100 text-emerald-600" : "bg-gray-200 text-gray-400"}`}>
+                  {diets.length > 0 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                </div>
+                <span className="text-gray-700">Diet Plans: <strong>{diets.length}</strong></span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={confirmed}
+                  onChange={(e) => setConfirmed(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                <span className="text-sm text-gray-600">I confirm the consultation is complete and all records are final.</span>
+              </label>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Visit Notes (optional)</label>
+                <textarea
+                  value={visitNote}
+                  onChange={(e) => setVisitNote(e.target.value)}
+                  placeholder="Any closing notes for this visit..."
+                  rows={2}
+                  className="w-full rounded-lg border-2 border-gray-200 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-5">
+              <button
+                onClick={() => { setShowCompleteModal(false); setConfirmed(false); setVisitNote(""); }}
+                className="flex-1 px-4 py-2.5 border-2 border-gray-200 text-gray-700 rounded-xl font-medium text-sm hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCompleteVisit}
+                disabled={!confirmed || completing}
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-semibold text-sm shadow-lg hover:from-emerald-600 hover:to-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {completing ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Completing...</>
+                ) : (
+                  <><CheckCircle2 className="w-4 h-4" /> Complete Visit</>
+                )}
+              </button>
             </div>
           </div>
         </div>

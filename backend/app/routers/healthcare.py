@@ -1019,3 +1019,29 @@ async def update_diet(diet_id: str, is_active: Optional[bool] = None):
         return {"message": "Diet updated", "id": diet_id}
     except Exception as e:
         raise HTTPException(500, f"Failed to update diet: {str(e)}")
+
+
+class AppointmentStatusUpdate(BaseModel):
+    status: str
+
+
+@router.put("/appointments/{appointment_id}/status")
+async def update_appointment_status(appointment_id: str, data: AppointmentStatusUpdate):
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database not configured")
+    valid_statuses = ["scheduled", "in-consultation", "completed", "cancelled"]
+    if data.status not in valid_statuses:
+        raise HTTPException(400, f"Invalid status. Must be one of: {valid_statuses}")
+    try:
+        result = sb.table("patient_appointments").update({
+            "status": data.status,
+            "updated_at": datetime.utcnow().isoformat()
+        }).eq("id", appointment_id).execute()
+        if not result.data:
+            raise HTTPException(404, "Appointment not found")
+        return {"message": f"Appointment status updated to {data.status}", "id": appointment_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Failed to update appointment status: {str(e)}")

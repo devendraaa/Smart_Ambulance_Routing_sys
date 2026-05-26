@@ -134,11 +134,30 @@ function PatientDetailPanel({
   const [loading, setLoading] = useState(true);
   const [showAddPrescription, setShowAddPrescription] = useState(false);
   const [editPrescriptionId, setEditPrescriptionId] = useState<string | null>(null);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [completing, setCompleting] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const [visitNote, setVisitNote] = useState("");
 
   const isCurrentAppointment = isToday(appointment.appointment_date);
+  const isCompleted = appointment.status === "completed";
+  const isCancelled = appointment.status === "cancelled";
+  const canEdit = isCurrentAppointment && !isCompleted && !isCancelled;
 
   useEffect(() => {
     loadPatientData();
+  }, [appointment.id]);
+
+  useEffect(() => {
+    if (appointment.status === "scheduled" && isCurrentAppointment) {
+      fetch(`http://127.0.0.1:8000/api/healthcare/appointments/${appointment.id}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "in-consultation" })
+      }).then(() => {
+        appointment.status = "in-consultation";
+      }).catch(console.error);
+    }
   }, [appointment.id]);
 
   const loadPatientData = async () => {
@@ -171,6 +190,40 @@ function PatientDetailPanel({
     } catch (err) {
       console.error("Error deleting prescription:", err);
       alert("Failed to delete prescription");
+    }
+  };
+
+  const handleCompleteVisit = async () => {
+    if (!confirmed) return;
+    setCompleting(true);
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/api/healthcare/appointments/${appointment.id}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "completed" })
+      });
+      if (!res.ok) throw new Error("Failed to complete visit");
+
+      for (const p of prescriptions) {
+        if (p.status === "Active") {
+          try {
+            await fetch(`http://127.0.0.1:8000/api/healthcare/doctor/prescriptions/${p.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: "Completed" })
+            });
+          } catch (e) { console.error("Failed to update prescription status:", e); }
+        }
+      }
+
+      appointment.status = "completed";
+      setShowCompleteModal(false);
+      loadPatientData();
+    } catch (err) {
+      console.error("Error completing visit:", err);
+      alert("Failed to complete visit");
+    } finally {
+      setCompleting(false);
     }
   };
 
@@ -242,8 +295,13 @@ function PatientDetailPanel({
                 <div className="flex items-center gap-2 mb-1">
                   <User className="w-5 h-5 text-white" />
                   <h2 className="text-lg sm:text-xl font-bold text-white truncate">{appointment.patient_name}</h2>
-                  {isCurrentAppointment && (
+                  {isCurrentAppointment && !isCompleted && (
                     <span className="px-2 py-0.5 bg-white/20 text-white text-xs rounded-full">Today</span>
+                  )}
+                  {isCompleted && (
+                    <span className="px-2 py-0.5 bg-emerald-500/30 text-emerald-100 text-xs rounded-full flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Completed
+                    </span>
                   )}
                 </div>
                 <p className="text-blue-100 text-xs sm:text-sm truncate">{appointment.patient_email}</p>
@@ -257,14 +315,34 @@ function PatientDetailPanel({
                   )}
                 </div>
               </div>
-              <button
-                onClick={onClose}
-                className="p-1.5 sm:p-2 bg-white/20 hover:bg-white/30 rounded-lg transition"
-              >
-                <X className="w-5 h-5 text-white" />
-              </button>
+              <div className="flex items-center gap-2">
+                {canEdit && !showAddPrescription && !editPrescriptionId && (
+                  <button
+                    onClick={() => setShowCompleteModal(true)}
+                    className="p-2 bg-emerald-500/30 hover:bg-emerald-500/50 text-emerald-100 rounded-lg transition flex items-center gap-1.5 text-xs whitespace-nowrap"
+                    title="Complete Visit"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">Complete</span>
+                  </button>
+                )}
+                <button
+                  onClick={onClose}
+                  className="p-1.5 sm:p-2 bg-white/20 hover:bg-white/30 rounded-lg transition"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
+              </div>
             </div>
           </div>
+
+          {/* Completed Banner */}
+          {isCompleted && (
+            <div className="bg-emerald-50 border-b border-emerald-200 px-4 py-3 flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              <p className="text-sm text-emerald-800 font-medium">Visit completed — all records are in view-only mode.</p>
+            </div>
+          )}
 
           {/* Tabs */}
           <div className="flex border-b border-gray-200 bg-gray-50 overflow-x-auto">
@@ -317,7 +395,7 @@ function PatientDetailPanel({
               <>
                 {activeTab === "symptoms" && (
                   <div className="space-y-4">
-                    {isCurrentAppointment && (
+                    {canEdit && (
                       <SymptomsAssessment
                         patientEmail={appointment.patient_email}
                         patientName={appointment.patient_name}
@@ -360,7 +438,7 @@ function PatientDetailPanel({
                 )}
                 {activeTab === "prescriptions" && (
                   <div className="space-y-4">
-                    {isCurrentAppointment && !showAddPrescription && !editPrescriptionId && (
+                    {canEdit && !showAddPrescription && !editPrescriptionId && (
                       <button onClick={() => setShowAddPrescription(true)} className="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium flex items-center justify-center gap-2 transition">
                         <ClipboardList className="w-4 h-4" /> New Prescription
                       </button>
@@ -373,6 +451,11 @@ function PatientDetailPanel({
                         appointmentId={appointment.id}
                         onSaved={() => { setShowAddPrescription(false); loadPatientData(); }}
                         onCancel={() => setShowAddPrescription(false)}
+                        onCompleteVisitSuggested={() => {
+                          loadPatientData();
+                          setShowCompleteModal(true);
+                          setConfirmed(false);
+                        }}
                       />
                     )}
                     {editPrescriptionId && (() => {
@@ -414,7 +497,7 @@ function PatientDetailPanel({
                                 </div>
                                 <div className="flex items-center gap-1">
                                   {p.follow_up_date && <span className="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">Follow-up: {new Date(p.follow_up_date).toLocaleDateString("en-IN")}</span>}
-                                  {isCurrentAppointment && (
+                                  {canEdit && (
                                     <>
                                       <button onClick={() => setEditPrescriptionId(p.id)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Edit">
                                         <Edit3 className="w-3.5 h-3.5" />
@@ -457,17 +540,105 @@ function PatientDetailPanel({
                   </div>
                 )}
                 {activeTab === "medicines" && (
-                  <MedicinesSection patientEmail={appointment.patient_email} patientName={appointment.patient_name} appointmentId={appointment.id} hospitalName={appointment.hospital_name} medicines={medicines} isEditable={isCurrentAppointment} onRefresh={loadPatientData} />
+                  <MedicinesSection patientEmail={appointment.patient_email} patientName={appointment.patient_name} appointmentId={appointment.id} hospitalName={appointment.hospital_name} medicines={medicines} isEditable={canEdit} onRefresh={loadPatientData} />
                 )}
                 {activeTab === "reports" && (
-                  <ReportsSection patientEmail={appointment.patient_email} patientName={appointment.patient_name} appointmentId={appointment.id} hospitalName={appointment.hospital_name} tests={tests} isEditable={isCurrentAppointment} onRefresh={loadPatientData} />
+                  <ReportsSection patientEmail={appointment.patient_email} patientName={appointment.patient_name} appointmentId={appointment.id} hospitalName={appointment.hospital_name} tests={tests} isEditable={canEdit} onRefresh={loadPatientData} />
                 )}
                 {activeTab === "diet" && (
-                  <DietSection patientEmail={appointment.patient_email} appointmentId={appointment.id} diets={diets} isEditable={isCurrentAppointment} onRefresh={loadPatientData} />
+                  <DietSection patientEmail={appointment.patient_email} appointmentId={appointment.id} diets={diets} isEditable={canEdit} onRefresh={loadPatientData} />
                 )}
               </>
             )}
           </div>
+
+          {/* Complete Visit Modal */}
+          {showCompleteModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 z-[60] overflow-y-auto">
+              <div className="bg-white rounded-2xl w-full max-w-lg my-8 mx-1 sm:mx-0 p-4 sm:p-6 shadow-2xl">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                    <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Complete Visit</h3>
+                    <p className="text-sm text-gray-500">{appointment.patient_name}</p>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-xl p-4 mb-4 space-y-2">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Visit Summary</p>
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${prescriptions.length > 0 ? "bg-emerald-100 text-emerald-600" : "bg-gray-200 text-gray-400"}`}>
+                      {prescriptions.length > 0 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                    </div>
+                    <span className="text-gray-700">Prescriptions: <strong>{prescriptions.length}</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${medicines.length > 0 ? "bg-emerald-100 text-emerald-600" : "bg-gray-200 text-gray-400"}`}>
+                      {medicines.length > 0 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                    </div>
+                    <span className="text-gray-700">Medicines: <strong>{medicines.length}</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${tests.length > 0 ? "bg-emerald-100 text-emerald-600" : "bg-gray-200 text-gray-400"}`}>
+                      {tests.length > 0 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                    </div>
+                    <span className="text-gray-700">Tests Ordered: <strong>{tests.length}</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${diets.length > 0 ? "bg-emerald-100 text-emerald-600" : "bg-gray-200 text-gray-400"}`}>
+                      {diets.length > 0 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                    </div>
+                    <span className="text-gray-700">Diet Plans: <strong>{diets.length}</strong></span>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={confirmed}
+                      onChange={(e) => setConfirmed(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className="text-sm text-gray-600">I confirm the consultation is complete and all records are final.</span>
+                  </label>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Visit Notes (optional)</label>
+                    <textarea
+                      value={visitNote}
+                      onChange={(e) => setVisitNote(e.target.value)}
+                      placeholder="Any closing notes for this visit..."
+                      rows={2}
+                      className="w-full rounded-lg border-2 border-gray-200 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none resize-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 mt-5">
+                  <button
+                    onClick={() => { setShowCompleteModal(false); setConfirmed(false); setVisitNote(""); }}
+                    className="flex-1 px-4 py-2.5 border-2 border-gray-200 text-gray-700 rounded-xl font-medium text-sm hover:bg-gray-50 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCompleteVisit}
+                    disabled={!confirmed || completing}
+                    className="flex-1 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-semibold text-sm shadow-lg hover:from-emerald-600 hover:to-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {completing ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Completing...</>
+                    ) : (
+                      <><CheckCircle2 className="w-4 h-4" /> Complete Visit</>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
     </div>
@@ -903,7 +1074,7 @@ export default function DoctorAppointmentsTab() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("scheduled");
   const [filterHospital, setFilterHospital] = useState<string>("all");
   const [filterCaseType, setFilterCaseType] = useState<string>("all");
   const [hospitals, setHospitals] = useState<{ name: string; count: number }[]>([]);
@@ -1024,7 +1195,8 @@ export default function DoctorAppointmentsTab() {
           className="px-3 py-2.5 rounded-xl border-2 border-gray-200 text-sm focus:border-blue-500 focus:outline-none bg-white min-w-[120px]"
         >
           <option value="all">Status</option>
-          <option value="scheduled">Scheduled</option>
+          <option value="scheduled">Waiting</option>
+          <option value="in-consultation">Consulting</option>
           <option value="completed">Completed</option>
           <option value="cancelled">Cancelled</option>
         </select>
@@ -1037,35 +1209,59 @@ export default function DoctorAppointmentsTab() {
       ) : (
         /* Cards instead of table for mobile */
         <div className="space-y-3">
-          {filteredAppointments.map((apt) => (
+          {filteredAppointments.map((apt) => {
+            const isCompleted = apt.status === "completed";
+            const isConsulting = apt.status === "in-consultation";
+            return (
             <div
               key={apt.id}
-              onClick={() => router.push(`/doctor/patient?id=${apt.id}`)}
-              className="bg-white rounded-xl border border-gray-200 p-4 hover:border-blue-300 transition cursor-pointer"
+              onClick={async () => {
+                if (isCompleted) return;
+                if (apt.status === "scheduled") {
+                  try {
+                    await fetch(`http://127.0.0.1:8000/api/healthcare/appointments/${apt.id}/status`, {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ status: "in-consultation" }),
+                    });
+                  } catch (e) { console.error("Failed to set in-consultation:", e); }
+                }
+                router.push(`/doctor/patient?id=${apt.id}`);
+              }}
+              className={`bg-white rounded-xl border border-gray-200 p-4 transition ${
+                isCompleted
+                  ? "opacity-60 cursor-default border-gray-100"
+                  : "hover:border-blue-300 cursor-pointer"
+              }`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold text-gray-900 truncate">{apt.patient_name}</h3>
-                    {isToday(apt.appointment_date) && (
+                    <h3 className={`font-semibold truncate ${isCompleted ? "text-gray-500" : "text-gray-900"}`}>{apt.patient_name}</h3>
+                    {isToday(apt.appointment_date) && !isCompleted && (
                       <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-medium">Today</span>
                     )}
+                    {isConsulting && (
+                      <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-medium flex items-center gap-0.5">
+                        <Clock className="w-2.5 h-2.5" /> Consulting
+                      </span>
+                    )}
                   </div>
-                  <p className="text-xs text-gray-500 truncate">{apt.patient_email}</p>
+                  <p className={`text-xs truncate ${isCompleted ? "text-gray-400" : "text-gray-500"}`}>{apt.patient_email}</p>
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    <span className="text-xs text-gray-600 flex items-center gap-1">
+                    <span className={`text-xs flex items-center gap-1 ${isCompleted ? "text-gray-400" : "text-gray-600"}`}>
                       <Stethoscope className="w-3 h-3" />
                       {apt.case_type?.slice(0, 12) || "General"}
                     </span>
                     <span className="text-xs text-gray-400">|</span>
-                    <span className="text-xs text-gray-600 flex items-center gap-1">
+                    <span className={`text-xs flex items-center gap-1 ${isCompleted ? "text-gray-400" : "text-gray-600"}`}>
                       <Calendar className="w-3 h-3" />
                       {new Date(apt.appointment_date).toLocaleDateString("en-IN", { day: 'numeric', month: 'short' })}
                     </span>
                     {apt.hospital_name && (
                       <>
                         <span className="text-xs text-gray-400">|</span>
-                        <span className="text-xs text-gray-500 truncate max-w-[80px]">{apt.hospital_name}</span>
+                        <span className={`text-xs truncate max-w-[80px] ${isCompleted ? "text-gray-400" : "text-gray-500"}`}>{apt.hospital_name}</span>
                       </>
                     )}
                   </div>
@@ -1073,15 +1269,23 @@ export default function DoctorAppointmentsTab() {
                 <div className="flex flex-col items-end gap-2">
                   <span className={`text-[10px] px-2 py-1 rounded-full font-medium ${
                     apt.status === "scheduled" ? "bg-blue-100 text-blue-700" :
+                    apt.status === "in-consultation" ? "bg-amber-100 text-amber-700" :
                     apt.status === "completed" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                   }`}>
-                    {apt.status}
+                    {apt.status === "scheduled" ? "Waiting" :
+                     apt.status === "in-consultation" ? "Consulting" :
+                     apt.status === "completed" ? "Completed" : apt.status}
                   </span>
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                  {isCompleted ? (
+                    <CheckCircle2 className="w-4 h-4 text-green-400" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                  )}
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
