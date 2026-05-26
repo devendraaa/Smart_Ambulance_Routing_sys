@@ -399,12 +399,7 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
       return;
     }
 
-    if (!isEdit) {
-      setShowConfirmModal(true);
-      return;
-    }
-
-    await executeSave();
+    setShowConfirmModal(true);
   };
 
   return (
