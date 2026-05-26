@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
 import { ClipboardList, Plus, Trash2, Loader2, AlertTriangle, Search, FlaskConical } from "lucide-react";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 import {
   COMMON_MEDICINES,
   DOSAGE_OPTIONS,
@@ -263,7 +265,7 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
       const savedFollowUp = followUp;
 
       if (isEdit && initialData?.id) {
-        const res = await fetch(`http://127.0.0.1:8000/api/healthcare/doctor/prescriptions/${initialData.id}`, {
+        const res = await fetch(`${API_URL}/api/healthcare/doctor/prescriptions/${initialData.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -280,7 +282,7 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
           throw new Error("Failed to update prescription");
         }
       } else {
-        const res = await fetch("http://127.0.0.1:8000/api/healthcare/doctor/prescriptions", {
+        const res = await fetch(`${API_URL}/api/healthcare/doctor/prescriptions`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -374,7 +376,8 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
       }
     } catch (err) {
       console.error("Error saving prescription:", err);
-      alert("Failed to save prescription");
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      alert(`Failed to save prescription: ${msg}`);
     } finally {
       setSaving(false);
       setShowConfirmModal(false);
