@@ -419,8 +419,8 @@ function PatientDetailPage() {
               </div>
               <div>
                 <h2 className="text-xl font-bold text-gray-900">{appointment.patient_name}</h2>
-                <div className="flex flex-wrap items-center gap-2 mt-1 text-sm text-gray-600">
-                  <span className="flex items-center gap-1"><Mail className="w-4 h-4" />{appointment.patient_email}</span>
+                  <div className="flex flex-wrap items-center gap-2 mt-1 text-sm text-gray-600">
+                    <span className="flex items-center gap-1 min-w-0"><Mail className="w-4 h-4 shrink-0" /><span className="truncate">{appointment.patient_email}</span></span>
                   <span className="flex items-center gap-1"><Calendar className="w-4 h-4" />{new Date(appointment.appointment_date).toLocaleDateString()}</span>
                   <span className="flex items-center gap-1"><Building2 className="w-4 h-4" />{appointment.hospital_name}</span>
                 </div>
@@ -466,41 +466,41 @@ function PatientDetailPage() {
           </div>
         )}
 
-        {/* Tabs */}
+          {/* Tabs */}
         <div className="flex border-b border-gray-200 bg-white rounded-t-2xl overflow-x-auto">
           <button
             onClick={() => setActiveTab("symptoms")}
-            className={`flex-1 px-3 py-4 font-medium text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 transition whitespace-nowrap ${activeTab === "symptoms" ? "bg-rose-50 text-rose-600 border-b-2 border-rose-600" : "text-gray-500 hover:text-gray-700"}`}
+            className={`flex-1 px-1 sm:px-3 py-4 font-medium text-[11px] sm:text-sm flex items-center justify-center gap-1 sm:gap-2 transition whitespace-nowrap ${activeTab === "symptoms" ? "bg-rose-50 text-rose-600 border-b-2 border-rose-600" : "text-gray-500 hover:text-gray-700"}`}
           >
-            <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>Symptoms</span>
+            <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" /> <span>Symptoms</span>
           </button>
           <button
             onClick={() => setActiveTab("prescriptions")}
-            className={`flex-1 px-3 py-4 font-medium text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 transition whitespace-nowrap ${activeTab === "prescriptions" ? "bg-emerald-50 text-emerald-600 border-b-2 border-emerald-600" : "text-gray-500 hover:text-gray-700"}`}
+            className={`flex-1 px-1 sm:px-3 py-4 font-medium text-[11px] sm:text-sm flex items-center justify-center gap-1 sm:gap-2 transition whitespace-nowrap ${activeTab === "prescriptions" ? "bg-emerald-50 text-emerald-600 border-b-2 border-emerald-600" : "text-gray-500 hover:text-gray-700"}`}
           >
-            <ClipboardList className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>Prescriptions</span>
-            <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px]">{prescriptions.length}</span>
+            <ClipboardList className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" /> <span>Prescriptions</span>
+            <span className="bg-emerald-100 text-emerald-700 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px]">{prescriptions.length}</span>
           </button>
           <button
             onClick={() => setActiveTab("medicines")}
-            className={`flex-1 px-3 py-4 font-medium text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 transition whitespace-nowrap ${activeTab === "medicines" ? "bg-blue-50 text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:text-gray-700"}`}
+            className={`flex-1 px-1 sm:px-3 py-4 font-medium text-[11px] sm:text-sm flex items-center justify-center gap-1 sm:gap-2 transition whitespace-nowrap ${activeTab === "medicines" ? "bg-blue-50 text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:text-gray-700"}`}
           >
-            <Pill className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>Medicines</span>
-            <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs">{medicines.length}</span>
+            <Pill className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" /> <span>Medicines</span>
+            <span className="bg-blue-100 text-blue-700 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px]">{medicines.length}</span>
           </button>
           <button
             onClick={() => setActiveTab("reports")}
-            className={`flex-1 px-3 py-4 font-medium text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 transition whitespace-nowrap ${activeTab === "reports" ? "bg-purple-50 text-purple-600 border-b-2 border-purple-600" : "text-gray-500 hover:text-gray-700"}`}
+            className={`flex-1 px-1 sm:px-3 py-4 font-medium text-[11px] sm:text-sm flex items-center justify-center gap-1 sm:gap-2 transition whitespace-nowrap ${activeTab === "reports" ? "bg-purple-50 text-purple-600 border-b-2 border-purple-600" : "text-gray-500 hover:text-gray-700"}`}
           >
-            <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>Tests</span>
-            <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full text-xs">{tests.length}</span>
+            <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" /> <span>Tests</span>
+            <span className="bg-purple-100 text-purple-700 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px]">{tests.length}</span>
           </button>
           <button
             onClick={() => setActiveTab("diet")}
-            className={`flex-1 px-3 py-4 font-medium text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 transition whitespace-nowrap ${activeTab === "diet" ? "bg-green-50 text-green-600 border-b-2 border-green-600" : "text-gray-500 hover:text-gray-700"}`}
+            className={`flex-1 px-1 sm:px-3 py-4 font-medium text-[11px] sm:text-sm flex items-center justify-center gap-1 sm:gap-2 transition whitespace-nowrap ${activeTab === "diet" ? "bg-green-50 text-green-600 border-b-2 border-green-600" : "text-gray-500 hover:text-gray-700"}`}
           >
-            <Utensils className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>Diet</span>
-            <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs">{diets.length}</span>
+            <Utensils className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" /> <span>Diet</span>
+            <span className="bg-green-100 text-green-700 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px]">{diets.length}</span>
           </button>
         </div>
 
@@ -602,7 +602,7 @@ function PatientDetailPage() {
                               "bg-gray-100 text-gray-600"
                             }`}>{p.status || "Active"}</span>
                           </div>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 flex-wrap justify-end">
                             {p.follow_up_date && <span className="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">Follow-up: {new Date(p.follow_up_date).toLocaleDateString("en-IN")}</span>}
                             {canEdit && (
                               <>
@@ -809,7 +809,7 @@ function PatientDetailPage() {
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Diet Name *</label>
                 <input type="text" value={newDiet.diet_name} onChange={(e) => setNewDiet({ ...newDiet, diet_name: e.target.value })} className="w-full rounded-lg border-2 border-gray-200 px-3 sm:px-4 py-2.5 text-sm focus:border-green-500 focus:outline-none" />
               </div>
-              <div className="grid grid-cols-2 gap-2 sm:gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Diet Type</label>
                   <select value={newDiet.diet_type} onChange={(e) => setNewDiet({ ...newDiet, diet_type: e.target.value })} className="w-full rounded-lg border-2 border-gray-200 px-3 sm:px-4 py-2.5 text-sm focus:border-green-500 focus:outline-none bg-white">

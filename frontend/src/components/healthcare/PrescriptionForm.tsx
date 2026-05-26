@@ -165,7 +165,6 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
   const [prescriptionType, setPrescriptionType] = useState<"new" | "followup" | "refill">("new");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [saveAndComplete, setSaveAndComplete] = useState(false);
-  const [debugClicks, setDebugClicks] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -407,18 +406,6 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
-      {/* DEBUG BAR */}
-      <div className="bg-purple-100 border border-purple-300 rounded p-2 text-xs text-purple-800 flex items-center justify-between">
-        <span>DEBUG: isEdit={String(isEdit)} modal={String(showConfirmModal)} clicks={debugClicks}</span>
-        <button
-          type="button"
-          onClick={() => { console.log("DEBUG: test click"); window.alert("DEBUG: Button works!"); setDebugClicks(c => c + 1); }}
-          className="px-2 py-0.5 bg-purple-600 text-white rounded text-[10px]"
-        >
-          Test Click {debugClicks}
-        </button>
-      </div>
-
       <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
         <ClipboardList className="w-4 h-4 text-emerald-500" />
         {isEdit ? "Edit Prescription" : "New Prescription"}

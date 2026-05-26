@@ -775,13 +775,13 @@ export default function SymptomsAssessment({ patientEmail, patientName, hospital
       {/* Pain Score */}
       <div className="space-y-2">
         <label className="block text-xs font-medium text-gray-600 mb-1">Pain Score (0\u201310)</label>
-        <div className="flex items-center gap-1">
+        <div className="grid grid-cols-6 sm:flex sm:items-center gap-1">
           {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(score => (
             <button
               key={score}
               type="button"
               onClick={() => setPainScore(score)}
-              className={`w-full h-10 rounded-lg text-xs font-bold transition ${
+              className={`h-10 rounded-lg text-xs font-bold transition ${
                 painScore === score
                   ? score === 0 ? "bg-gray-400 text-white shadow-md"
                     : score <= 3 ? "bg-yellow-400 text-white shadow-md"
@@ -789,7 +789,7 @@ export default function SymptomsAssessment({ patientEmail, patientName, hospital
                     : score <= 9 ? "bg-red-500 text-white shadow-md"
                     : "bg-red-700 text-white shadow-md"
                   : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-              }`}
+              } ${score === 10 ? "col-span-2" : ""}`}
             >
               {score}
             </button>

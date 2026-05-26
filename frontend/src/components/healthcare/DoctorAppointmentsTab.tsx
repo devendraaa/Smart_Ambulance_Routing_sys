@@ -348,40 +348,40 @@ function PatientDetailPanel({
           <div className="flex border-b border-gray-200 bg-gray-50 overflow-x-auto">
             <button
               onClick={() => setActiveTab("symptoms")}
-              className={`flex-1 px-2 py-3 font-medium text-[11px] sm:text-sm flex items-center justify-center gap-1 transition whitespace-nowrap ${activeTab === "symptoms" ? "bg-white text-rose-600 border-b-2 border-rose-600" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
+              className={`flex-1 px-1 sm:px-2 py-3 font-medium text-[11px] sm:text-sm flex items-center justify-center gap-1 transition whitespace-nowrap ${activeTab === "symptoms" ? "bg-white text-rose-600 border-b-2 border-rose-600" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
             >
-              <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
               <span>Symptoms</span>
             </button>
             <button
               onClick={() => setActiveTab("prescriptions")}
-              className={`flex-1 px-2 py-3 font-medium text-[11px] sm:text-sm flex items-center justify-center gap-1 transition whitespace-nowrap ${activeTab === "prescriptions" ? "bg-white text-emerald-600 border-b-2 border-emerald-600" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
+              className={`flex-1 px-1 sm:px-2 py-3 font-medium text-[11px] sm:text-sm flex items-center justify-center gap-1 transition whitespace-nowrap ${activeTab === "prescriptions" ? "bg-white text-emerald-600 border-b-2 border-emerald-600" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
             >
-              <ClipboardList className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <ClipboardList className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
               <span>Prescriptions</span>
               <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full text-[10px]">{prescriptions.length}</span>
             </button>
             <button
               onClick={() => setActiveTab("medicines")}
-              className={`flex-1 px-2 py-3 font-medium text-[11px] sm:text-sm flex items-center justify-center gap-1 transition whitespace-nowrap ${activeTab === "medicines" ? "bg-white text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
+              className={`flex-1 px-1 sm:px-2 py-3 font-medium text-[11px] sm:text-sm flex items-center justify-center gap-1 transition whitespace-nowrap ${activeTab === "medicines" ? "bg-white text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
             >
-              <Pill className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <Pill className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
               <span>Meds</span>
               <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full text-[10px]">{medicines.length}</span>
             </button>
             <button
               onClick={() => setActiveTab("reports")}
-              className={`flex-1 px-2 py-3 font-medium text-[11px] sm:text-sm flex items-center justify-center gap-1 transition whitespace-nowrap ${activeTab === "reports" ? "bg-white text-purple-600 border-b-2 border-purple-600" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
+              className={`flex-1 px-1 sm:px-2 py-3 font-medium text-[11px] sm:text-sm flex items-center justify-center gap-1 transition whitespace-nowrap ${activeTab === "reports" ? "bg-white text-purple-600 border-b-2 border-purple-600" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
             >
-              <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
               <span>Tests</span>
               <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full text-[10px]">{tests.length}</span>
             </button>
             <button
               onClick={() => setActiveTab("diet")}
-              className={`flex-1 px-2 py-3 font-medium text-[11px] sm:text-sm flex items-center justify-center gap-1 transition whitespace-nowrap ${activeTab === "diet" ? "bg-white text-green-600 border-b-2 border-green-600" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
+              className={`flex-1 px-1 sm:px-2 py-3 font-medium text-[11px] sm:text-sm flex items-center justify-center gap-1 transition whitespace-nowrap ${activeTab === "diet" ? "bg-white text-green-600 border-b-2 border-green-600" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
             >
-              <Utensils className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <Utensils className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
               <span>Diet</span>
               <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full text-[10px]">{diets.length}</span>
             </button>
@@ -495,7 +495,7 @@ function PatientDetailPanel({
                                     "bg-gray-100 text-gray-600"
                                   }`}>{p.status || "Active"}</span>
                                 </div>
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1 flex-wrap justify-end">
                                   {p.follow_up_date && <span className="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">Follow-up: {new Date(p.follow_up_date).toLocaleDateString("en-IN")}</span>}
                                   {canEdit && (
                                     <>
@@ -1176,15 +1176,15 @@ export default function DoctorAppointmentsTab() {
         <select
           value={filterHospital}
           onChange={(e) => setFilterHospital(e.target.value)}
-          className="px-3 py-2.5 rounded-xl border-2 border-gray-200 text-sm focus:border-blue-500 focus:outline-none bg-white min-w-[140px]"
+          className="w-full sm:w-auto px-3 py-2.5 rounded-xl border-2 border-gray-200 text-sm focus:border-blue-500 focus:outline-none bg-white sm:min-w-[140px]"
         >
           <option value="all">All Hospitals</option>
-          {hospitals.map((h) => (<option key={h.name} value={h.name}>{h.name.slice(0, 15)}...</option>))}
+          {hospitals.map((h) => (<option key={h.name} value={h.name}>{h.name}</option>))}
         </select>
         <select
           value={filterCaseType}
           onChange={(e) => setFilterCaseType(e.target.value)}
-          className="px-3 py-2.5 rounded-xl border-2 border-gray-200 text-sm focus:border-blue-500 focus:outline-none bg-white min-w-[140px]"
+          className="w-full sm:w-auto px-3 py-2.5 rounded-xl border-2 border-gray-200 text-sm focus:border-blue-500 focus:outline-none bg-white sm:min-w-[140px]"
         >
           <option value="all">All Case Types</option>
           {CASE_TYPES.map((ct) => (<option key={ct.value} value={ct.value}>{ct.label}</option>))}
@@ -1192,7 +1192,7 @@ export default function DoctorAppointmentsTab() {
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-3 py-2.5 rounded-xl border-2 border-gray-200 text-sm focus:border-blue-500 focus:outline-none bg-white min-w-[120px]"
+          className="w-full sm:w-auto px-3 py-2.5 rounded-xl border-2 border-gray-200 text-sm focus:border-blue-500 focus:outline-none bg-white sm:min-w-[120px]"
         >
           <option value="all">Status</option>
           <option value="scheduled">Waiting</option>
@@ -1249,9 +1249,9 @@ export default function DoctorAppointmentsTab() {
                   </div>
                   <p className={`text-xs truncate ${isCompleted ? "text-gray-400" : "text-gray-500"}`}>{apt.patient_email}</p>
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    <span className={`text-xs flex items-center gap-1 ${isCompleted ? "text-gray-400" : "text-gray-600"}`}>
-                      <Stethoscope className="w-3 h-3" />
-                      {apt.case_type?.slice(0, 12) || "General"}
+                    <span className={`text-xs flex items-center gap-1 truncate max-w-[100px] sm:max-w-[200px] ${isCompleted ? "text-gray-400" : "text-gray-600"}`}>
+                      <Stethoscope className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{apt.case_type || "General"}</span>
                     </span>
                     <span className="text-xs text-gray-400">|</span>
                     <span className={`text-xs flex items-center gap-1 ${isCompleted ? "text-gray-400" : "text-gray-600"}`}>
@@ -1261,7 +1261,7 @@ export default function DoctorAppointmentsTab() {
                     {apt.hospital_name && (
                       <>
                         <span className="text-xs text-gray-400">|</span>
-                        <span className={`text-xs truncate max-w-[80px] ${isCompleted ? "text-gray-400" : "text-gray-500"}`}>{apt.hospital_name}</span>
+                        <span className={`text-xs truncate max-w-[120px] sm:max-w-[200px] ${isCompleted ? "text-gray-400" : "text-gray-500"}`}>{apt.hospital_name}</span>
                       </>
                     )}
                   </div>
