@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Activity, Loader2, AlertTriangle } from "lucide-react";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
 const COMMON_SYMPTOMS = [
   "Fever", "Headache", "Cough", "Cold/Runny Nose", "Sore Throat",
   "Nausea/Vomiting", "Diarrhea", "Constipation", "Dizziness", "Fatigue/Weakness",
@@ -253,7 +255,7 @@ export default function SymptomsAssessment({ patientEmail, patientName, hospital
         ? "Checklist: " + selectedSymptoms.join(", ") + (symptomsText.trim() ? " | " + symptomsText.trim() : "")
         : symptomsText.trim();
 
-      const res = await fetch("http://127.0.0.1:8000/api/healthcare/doctor/prescriptions", {
+      const res = await fetch(`${API_URL}/api/healthcare/doctor/prescriptions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -290,9 +292,10 @@ export default function SymptomsAssessment({ patientEmail, patientName, hospital
         }),
       });
       if (!res.ok) {
-        const errBody = await res.text();
+        let errBody = "";
+        try { errBody = await res.text(); } catch {}
         console.error("Server error:", res.status, errBody);
-        throw new Error(`Failed: ${res.status}`);
+        throw new Error(`Server error (${res.status}): ${errBody.slice(0, 200)}`);
       }
       const savedData = await res.json();
       setSelectedSymptoms([]);
@@ -353,7 +356,8 @@ export default function SymptomsAssessment({ patientEmail, patientName, hospital
       }
     } catch (err) {
       console.error("Error saving symptoms:", err);
-      alert("Failed to save assessment");
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      alert(`Failed to save assessment: ${msg}`);
     } finally {
       setSaving(false);
     }
