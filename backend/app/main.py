@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 import os
+import traceback
 from app.routers import routes, hospitals, sensors, mqtt
 from app.routers import hospitals_new
 from app.routers import blood_banks
@@ -32,6 +34,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    print(f"[FATAL] Unhandled exception on {request.method} {request.url}: {exc}")
+    print(traceback.format_exc())
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal server error: {str(exc)}"},
+    )
+
 
 app.include_router(routes.router, prefix="/api/route", tags=["routes"])
 app.include_router(hospitals.router, prefix="/api/hospitals", tags=["hospitals"])

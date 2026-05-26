@@ -16,6 +16,7 @@ router = APIRouter()
 
 @router.post("/compute", response_model=RouteTaskStartResponse)
 async def start_route_computation(data: RouteComputeRequest):
+    import traceback
     task_id = str(uuid4())
     patient_uhid = f"RTE-{uuid4().hex[:8].upper()}"
     insert_data = {
@@ -51,7 +52,6 @@ async def start_route_computation(data: RouteComputeRequest):
         insert_data["driver_name"] = data.driver_name
     if data.driver_mobile:
         insert_data["driver_mobile"] = data.driver_mobile
-    # Physiological conditions
     if data.patient_bp_systolic:
         insert_data["patient_bp_systolic"] = data.patient_bp_systolic
     if data.patient_bp_diastolic:
@@ -63,16 +63,25 @@ async def start_route_computation(data: RouteComputeRequest):
     if data.patient_spo2:
         insert_data["patient_spo2"] = data.patient_spo2
 
-    supabase.table("route_tasks").insert(insert_data).execute()
+    try:
+        supabase.table("route_tasks").insert(insert_data).execute()
+    except Exception as e:
+        print(f"[ROUTE] DB insert failed: {e}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-    task_queue.put({
-        "task_id": task_id,
-        "origin_lat": data.origin_lat,
-        "origin_lon": data.origin_lon,
-        "hospital_name": data.hospital_name,
-        "hospital_lat": data.hospital_lat,
-        "hospital_lon": data.hospital_lon,
-    })
+    try:
+        task_queue.put({
+            "task_id": task_id,
+            "origin_lat": data.origin_lat,
+            "origin_lon": data.origin_lon,
+            "hospital_name": data.hospital_name,
+            "hospital_lat": data.hospital_lat,
+            "hospital_lon": data.hospital_lon,
+        })
+    except Exception as e:
+        print(f"[ROUTE] Task queue error: {e}")
+        print(traceback.format_exc())
 
     return RouteTaskStartResponse(task_id=task_id, status="pending", patient_uhid=patient_uhid)
 
