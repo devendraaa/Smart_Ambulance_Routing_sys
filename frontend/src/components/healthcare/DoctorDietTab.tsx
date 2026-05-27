@@ -292,7 +292,7 @@ export default function DoctorDietTab() {
                 <textarea
                   value={newDiet.foods}
                   onChange={(e) => setNewDiet({ ...newDiet, foods: e.target.value })}
-                  placeholder="Milk - 1 glass&#10;Oats - 50g&#10;Banana - 1"
+                  placeholder={"Milk - 1 glass\nOats - 50g\nBanana - 1"}
                   rows={5}
                   className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none resize-none"
                 />

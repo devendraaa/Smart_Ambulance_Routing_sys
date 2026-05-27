@@ -8,6 +8,8 @@ import SymptomsAssessment from "./SymptomsAssessment";
 import PrescriptionForm from "./PrescriptionForm";
 import MedicineForm from "./MedicineForm";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
 interface Appointment {
   id: string;
   patient_name: string;
@@ -171,7 +173,7 @@ export function PatientDetailContent({ appointmentId, onBack }: { appointmentId:
 
   useEffect(() => {
     if (appointment?.status === "scheduled" && isCurrentAppointment) {
-      fetch(`http://127.0.0.1:8000/api/healthcare/appointments/${appointment.id}/status`, {
+      fetch(`${API_URL}/api/healthcare/appointments/${appointment.id}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "in-consultation" })
@@ -214,7 +216,7 @@ export function PatientDetailContent({ appointmentId, onBack }: { appointmentId:
   const deletePrescription = async (id: string) => {
     if (!confirm("Delete this prescription?")) return;
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/healthcare/doctor/prescriptions/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_URL}/api/healthcare/doctor/prescriptions/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Delete failed");
       loadData();
     } catch (err) {
@@ -353,7 +355,7 @@ export function PatientDetailContent({ appointmentId, onBack }: { appointmentId:
     if (!appointment || !confirmed) return;
     setCompleting(true);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/healthcare/appointments/${appointment.id}/status`, {
+      const res = await fetch(`${API_URL}/api/healthcare/appointments/${appointment.id}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "completed" })
@@ -363,7 +365,7 @@ export function PatientDetailContent({ appointmentId, onBack }: { appointmentId:
       for (const p of prescriptions) {
         if (p.status === "Active") {
           try {
-            await fetch(`http://127.0.0.1:8000/api/healthcare/doctor/prescriptions/${p.id}`, {
+            await fetch(`${API_URL}/api/healthcare/doctor/prescriptions/${p.id}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ status: "Completed" })
@@ -741,7 +743,7 @@ export function PatientDetailContent({ appointmentId, onBack }: { appointmentId:
           {activeTab === "prescriptions" && (
             <div className="space-y-4">
               {canEdit && !editPrescriptionId && (
-                <PrescriptionForm patientEmail={appointment.patient_email} patientName={appointment.patient_name} hospitalName={appointment.hospital_name} appointmentId={appointment.id} aiPreFill={aiPreFill} onSaved={() => { setAiPreFill(null); loadData(); }} onCompleteVisitSuggested={async () => { await fetch(`http://127.0.0.1:8000/api/healthcare/appointments/${appointment.id}/status`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "completed" }) }).catch(() => {}); setAiPreFill(null); loadData(); onBack ? onBack() : router.push("/doctor?tab=appointments"); }} />
+                <PrescriptionForm patientEmail={appointment.patient_email} patientName={appointment.patient_name} hospitalName={appointment.hospital_name} appointmentId={appointment.id} aiPreFill={aiPreFill} onSaved={() => { setAiPreFill(null); loadData(); }} onCompleteVisitSuggested={async () => { await fetch(`${API_URL}/api/healthcare/appointments/${appointment.id}/status`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "completed" }) }).catch(() => {}); setAiPreFill(null); loadData(); onBack ? onBack() : router.push("/doctor?tab=appointments"); }} />
               )}
               {editPrescriptionId && (() => {
                 const p = prescriptions.find(pr => pr.id === editPrescriptionId);

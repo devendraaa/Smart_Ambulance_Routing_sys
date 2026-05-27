@@ -49,55 +49,43 @@ export default function DoctorNavbar() {
     >
       <div className="max-w-7xl mx-auto px-3 sm:px-4">
         <div className="flex items-center justify-between h-14 sm:h-16">
-          {/* Logo */}
-          <Link href="/doctor" className="flex items-center gap-2 sm:gap-3 group">
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              className="w-9 h-9 sm:w-10 sm:h-10 bg-white/20 rounded-xl flex items-center justify-center text-white"
-            >
+          <Link href="/doctor" className="flex items-center gap-2 sm:gap-3 group shrink-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white/20 rounded-xl flex items-center justify-center text-white">
               <Stethoscope className="w-5 h-5 sm:w-6 sm:h-6" />
-            </motion.div>
+            </div>
             <div className="flex flex-col">
-              <span className="font-bold text-sm sm:text-base text-white">
-                Doctor Dashboard
-              </span>
-              <span className="text-[9px] sm:text-[10px] text-blue-200 -mt-0.5 sm:mt-0">
-                Healthcare Portal
-              </span>
+              <span className="font-bold text-sm sm:text-base text-white">Doctor Dashboard</span>
+              <span className="text-[9px] sm:text-[10px] text-blue-200 -mt-0.5">Healthcare Portal</span>
             </div>
           </Link>
 
-          {/* Desktop Navigation - Tab Links */}
-          <div className="hidden md:flex items-center gap-1">
-            {DOCTOR_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => handleTabChange(tab.id, tab.href)}
-                className={`px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-lg transition-all whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? "bg-white text-blue-600 shadow-md"
-                    : "text-blue-100 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                <span className="mr-1">{tab.icon}</span>
-                <span className="hidden lg:inline">{tab.label}</span>
-              </button>
-            ))}
+          <div className="hidden md:flex items-center gap-0.5 mx-2 overflow-x-auto">
+            {DOCTOR_TABS.map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => handleTabChange(tab.id, tab.href)}
+                  className={`relative px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-lg whitespace-nowrap transition-all ${
+                    isActive
+                      ? "bg-white text-blue-600 shadow-md"
+                      : "text-blue-100 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <span className="mr-1">{tab.icon}</span>
+                  <span className="hidden lg:inline">{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
 
-          {/* User Info & Logout */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden sm:block text-xs text-blue-200 px-2 py-1 bg-white/10 rounded-lg">
-              Logged in as Doctor
-            </div>
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleLogout}
-              className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-white/20 hover:bg-white/30 text-white text-xs sm:text-sm font-medium rounded-lg transition"
+              className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white/20 hover:bg-white/30 text-white text-xs sm:text-sm font-medium rounded-lg transition"
             >
               Logout
             </button>
-
-            {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 text-white"
@@ -107,14 +95,8 @@ export default function DoctorNavbar() {
           </div>
         </div>
 
-        {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden py-3 border-t border-white/20"
-          >
+          <div className="md:hidden py-3 border-t border-white/20">
             <div className="flex flex-col gap-1">
               {DOCTOR_TABS.map((tab) => (
                 <button
@@ -131,11 +113,11 @@ export default function DoctorNavbar() {
                 </button>
               ))}
             </div>
-          </motion.div>
+          </div>
         )}
       </div>
 
-      <motion.div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400" />
+      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400" />
     </motion.nav>
   );
 }

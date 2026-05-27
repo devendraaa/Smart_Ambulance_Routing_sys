@@ -20,11 +20,10 @@ MUMBAI_BOUNDS = {
 
 
 @router.get("/")
-async def list_sensors(limit: int = 1000):
-    """List manually added sensors. Capped at 1000 by default to avoid lag."""
-    result = supabase.table("sensors").select("*").order("created_at").limit(limit).execute()
-    print(f"[DEBUG] list_sensors: returning {len(result.data)} sensors (limit={limit})")
-    return result.data
+async def list_sensors(limit: int = 1000, offset: int = 0):
+    """List manually added sensors with pagination."""
+    result = supabase.table("sensors").select("*", count="exact").order("created_at").range(offset, offset + limit - 1).execute()
+    return {"data": result.data, "total": result.count, "limit": limit, "offset": offset}
 
 
 @router.post("/", status_code=201)
@@ -460,13 +459,12 @@ async def sensor_location_count():
 
 
 @router.get("/road")
-async def list_road_sensors(limit: int = 1000):
-    """List road intersection sensors. Capped at 1000 by default to avoid lag."""
+async def list_road_sensors(limit: int = 1000, offset: int = 0):
+    """List road intersection sensors with pagination."""
     result = supabase.table("sensor_locations").select(
-        "sensor_id,latitude,longitude,road_name,intersection_type"
-    ).limit(limit).execute()
-    print(f"[DEBUG] list_road_sensors: returning {len(result.data)} sensors (limit={limit})")
-    return result.data
+        "sensor_id,latitude,longitude,road_name,intersection_type", count="exact"
+    ).range(offset, offset + limit - 1).execute()
+    return {"data": result.data, "total": result.count, "limit": limit, "offset": offset}
 
 
 @router.post("/extract-full-network")
@@ -489,11 +487,7 @@ async def get_road_network(
     north: float = MUMBAI_BOUNDS["north"],
     west: float = MUMBAI_BOUNDS["west"],
     east: float = MUMBAI_BOUNDS["east"],
-# <<<<<<< HEAD
     limit: int = 50000
-# =======
-    # limit: int = 1000
-# >>>>>>> f616973 (mqqt added)
     ):
     """
     Get road network nodes for map display within a bounding box.
@@ -526,8 +520,6 @@ async def get_road_network(
     }
 
 
-# <<<<<<< HEAD
-# =======
 @router.get("/near-route/{task_id}")
 async def get_sensors_near_route(
     task_id: str,

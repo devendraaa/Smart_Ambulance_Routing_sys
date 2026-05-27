@@ -10,7 +10,7 @@ import {
   HeartPulse, History, Hospital
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { fetchAdmittedPatients } from "@/lib/api";
+import { fetchAdmittedPatients, fetchHealthcareHospitals } from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -57,6 +57,7 @@ type PatientData = {
   consultant_name?: string;
   discharge_status?: string;
   admitted_at?: string;
+  hospital_name?: string;
 };
 
 export default function DoctorPatientInfo() {
@@ -69,6 +70,8 @@ export default function DoctorPatientInfo() {
   const [activeSidebar, setActiveSidebar] = useState("patient-info");
   const [todayPatients, setTodayPatients] = useState<any[]>([]);
   const [loadingToday, setLoadingToday] = useState(true);
+  const [hospitals, setHospitals] = useState<{ id: string; name: string }[]>([]);
+  const [selectedHospital, setSelectedHospital] = useState("");
 
   // Data states
   const [prescriptions, setPrescriptions] = useState<any[]>([]);
@@ -98,12 +101,24 @@ export default function DoctorPatientInfo() {
     patient?.triage_level === "yellow" ? "bg-amber-500" :
     patient?.triage_level === "green" ? "bg-emerald-500" : "bg-gray-300";
 
-  // Auto-load today's admitted patients
+  // Auto-load today's admitted patients and hospitals list
+  useEffect(() => {
+    (async () => {
+      try {
+        const hResult = await fetchHealthcareHospitals();
+        if (hResult?.hospitals) {
+          setHospitals(hResult.hospitals);
+        }
+      } catch { /* ignore */ }
+    })();
+  }, []);
+
+  // Fetch patients whenever selected hospital changes
   useEffect(() => {
     (async () => {
       setLoadingToday(true);
       try {
-        const result = await fetchAdmittedPatients();
+        const result = await fetchAdmittedPatients(selectedHospital || undefined);
         if (result?.patients) {
           setTodayPatients(result.patients);
         }
@@ -113,14 +128,14 @@ export default function DoctorPatientInfo() {
         setLoadingToday(false);
       }
     })();
-  }, []);
+  }, [selectedHospital]);
 
   const selectPatientByTaskId = useCallback(async (taskId: string) => {
     setLoadingData(true);
     try {
       const { data: routeData } = await supabase
         .from("route_tasks")
-        .select("*")
+        .select("id, patient_name, patient_age, patient_sex, patient_mobile, patient_email, patient_blood_group, patient_case, patient_bp_systolic, patient_bp_diastolic, patient_temperature, patient_pulse, patient_spo2, ambulance_number, driver_name, distance_km, duration_min, triage_level, ward_name, consultant_name, discharge_status, admitted_at, hospital_name")
         .eq("id", taskId)
         .maybeSingle();
 
@@ -153,6 +168,7 @@ export default function DoctorPatientInfo() {
         consultant_name: routeData.consultant_name,
         discharge_status: routeData.discharge_status,
         admitted_at: routeData.admitted_at,
+        hospital_name: routeData.hospital_name,
       };
 
       // Fetch appointments
@@ -255,7 +271,7 @@ export default function DoctorPatientInfo() {
       // Fetch from route_tasks
       const { data: routeData } = await supabase
         .from("route_tasks")
-        .select("patient_name, patient_age, patient_sex, patient_mobile, patient_blood_group, patient_case, patient_bp_systolic, patient_bp_diastolic, patient_temperature, patient_pulse, patient_spo2, ambulance_number, driver_name, distance_km, duration_min, triage_level, ward_name, consultant_name, discharge_status, admitted_at")
+        .select("patient_name, patient_age, patient_sex, patient_mobile, patient_blood_group, patient_case, patient_bp_systolic, patient_bp_diastolic, patient_temperature, patient_pulse, patient_spo2, ambulance_number, driver_name, distance_km, duration_min, triage_level, ward_name, consultant_name, discharge_status, admitted_at, hospital_name")
         .eq("patient_mobile", email)
         .or(`patient_name.ilike.%${email.split("@")[0]}%`)
         .limit(1)
@@ -459,6 +475,7 @@ export default function DoctorPatientInfo() {
               <InfoCard label="Age" value={patient.patient_age} />
               <InfoCard label="Sex" value={patient.patient_sex} />
               <InfoCard label="Blood Group" value={patient.patient_blood_group} icon={<Droplet className="w-4 h-4 text-red-500" />} />
+              <InfoCard label="Hospital" value={patient.hospital_name} icon={<Building2 className="w-4 h-4 text-blue-500" />} />
               <InfoCard label="Contact" value={patient.patient_mobile} />
               <InfoCard label="Case Type" value={patient.patient_case} />
               <InfoCard label="Discharge Status" value={patient.discharge_status || "—"} />
@@ -928,11 +945,35 @@ export default function DoctorPatientInfo() {
               </div>
             )}
 
-            {/* Today's Admitted Patients */}
+            {/* Hospital Filter */}
             <div className="mt-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Building2 className="w-4 h-4 text-blue-200" />
+                <h3 className="text-sm font-semibold text-blue-100">Filter by Hospital</h3>
+              </div>
+              <select
+                value={selectedHospital}
+                onChange={(e) => setSelectedHospital(e.target.value)}
+                className="w-full rounded-xl border-2 border-white/30 bg-white/20 px-4 py-3 text-white text-sm mb-4"
+                style={{ colorScheme: 'dark' }}
+              >
+                <option value="" style={{ color: '#1f2937' }}>All Hospitals</option>
+                {hospitals.map((h) => (
+                  <option key={h.id} value={h.name} style={{ color: '#1f2937' }}>{h.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Today's Admitted Patients */}
+            <div className="mt-2">
               <div className="flex items-center gap-2 mb-3">
                 <Hospital className="w-4 h-4 text-blue-200" />
                 <h3 className="text-sm font-semibold text-blue-100">Today's Admitted Patients</h3>
+                {selectedHospital && (
+                  <span className="text-xs text-blue-200 bg-white/10 px-2 py-0.5 rounded-full truncate max-w-[200px]">
+                    {selectedHospital}
+                  </span>
+                )}
               </div>
               {loadingToday ? (
                 <div className="bg-white/10 rounded-xl p-4 text-center">
@@ -1065,6 +1106,11 @@ export default function DoctorPatientInfo() {
               <div className="border-t border-gray-100 pt-3">
                 <p className="text-[10px] font-semibold text-gray-500 uppercase mb-2">Diagnosis</p>
                 <p className="text-xs text-gray-700 line-clamp-2">{prescriptions[0]?.diagnosis || "—"}</p>
+              </div>
+
+              <div className="border-t border-gray-100 pt-3">
+                <p className="text-[10px] font-semibold text-gray-500 uppercase mb-2">Hospital</p>
+                <p className="text-xs text-gray-700">{patient.hospital_name || "—"}</p>
               </div>
 
               <div className="border-t border-gray-100 pt-3">

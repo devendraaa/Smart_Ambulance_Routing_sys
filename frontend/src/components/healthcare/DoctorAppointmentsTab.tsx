@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Calendar, Search, Filter, Pill, FileText, Utensils, X, Plus, Trash2, ChevronRight, User, Stethoscope, Clock, Loader2, Activity, ClipboardList, Printer, Edit3, CheckCircle2, Bot, FlaskConical, Brain, Sparkles, AlertTriangle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { fetchHospitalsList } from "@/lib/api";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 import SymptomsAssessment from "./SymptomsAssessment";
 import PrescriptionForm from "./PrescriptionForm";
 import MedicineForm from "./MedicineForm";
@@ -181,7 +183,7 @@ function PatientDetailPanel({
 
   useEffect(() => {
     if (appointment.status === "scheduled" && isCurrentAppointment) {
-      fetch(`http://127.0.0.1:8000/api/healthcare/appointments/${appointment.id}/status`, {
+      fetch(`${API_URL}/api/healthcare/appointments/${appointment.id}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "in-consultation" })
@@ -215,7 +217,7 @@ function PatientDetailPanel({
   const deletePrescription = async (id: string) => {
     if (!confirm("Delete this prescription?")) return;
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/healthcare/doctor/prescriptions/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_URL}/api/healthcare/doctor/prescriptions/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Delete failed");
       loadPatientData();
     } catch (err) {
@@ -228,7 +230,7 @@ function PatientDetailPanel({
     if (!confirmed) return;
     setCompleting(true);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/healthcare/appointments/${appointment.id}/status`, {
+      const res = await fetch(`${API_URL}/api/healthcare/appointments/${appointment.id}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "completed" })
@@ -238,7 +240,7 @@ function PatientDetailPanel({
       for (const p of prescriptions) {
         if (p.status === "Active") {
           try {
-            await fetch(`http://127.0.0.1:8000/api/healthcare/doctor/prescriptions/${p.id}`, {
+            await fetch(`${API_URL}/api/healthcare/doctor/prescriptions/${p.id}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ status: "Completed" })
@@ -1532,7 +1534,7 @@ export default function DoctorAppointmentsTab() {
                 if (isCompleted) return;
                 if (apt.status === "scheduled") {
                   try {
-                    await fetch(`http://127.0.0.1:8000/api/healthcare/appointments/${apt.id}/status`, {
+                    await fetch(`${API_URL}/api/healthcare/appointments/${apt.id}/status`, {
                       method: "PUT",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ status: "in-consultation" }),

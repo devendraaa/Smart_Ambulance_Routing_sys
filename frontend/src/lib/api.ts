@@ -458,6 +458,11 @@ export type HospitalInfo = {
   updated_at: string;
 };
 
+// --- Healthcare Hospitals (from Supabase hospitals table) ---
+export async function fetchHealthcareHospitals() {
+  return fetchAPI<{ hospitals: { id: string; name: string; address?: string; city?: string }[] }>("/api/healthcare/hospitals");
+}
+
 // --- Patient Admission / Discharge / Notes / Transfers ---
 export async function admitPatient(data: {
   task_id: string;

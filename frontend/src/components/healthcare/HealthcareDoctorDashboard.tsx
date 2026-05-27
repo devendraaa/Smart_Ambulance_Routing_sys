@@ -4,11 +4,10 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { logout, getUser } from "@/lib/auth";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import DoctorPatientInfo from "./DoctorPatientInfo";
 import DoctorAppointmentsTab from "./DoctorAppointmentsTab";
 import DoctorMedicinesTab from "./DoctorMedicinesTab";
-import DoctorReportsTab from "./DoctorReportsTab";
-import DoctorDietTab from "./DoctorDietTab";
 import DoctorEmergencyTab from "./DoctorEmergencyTab";
 import DoctorTreatmentTab from "./DoctorTreatmentTab";
 import HospitalInfoTab from "./HospitalInfoTab";
@@ -31,30 +30,18 @@ function TabContent() {
   const user = getUser();
 
   const renderTabContent = () => {
-    switch (activeTab) {
-      case "patient-info":
-        return <DoctorPatientInfo />;
-      case "emergency":
-        return <DoctorEmergencyTab />;
-      case "treatment":
-        return <DoctorTreatmentTab />;
-      case "dispatch":
-        return <DispatchDashboard />;
-      case "appointments":
-        return <DoctorAppointmentsTab />;
-      case "medical":
-        return <MedicalTab />;
-      case "test":
-        return <TestTab isDoctorView={true} />;
-      case "reports":
-        return <DoctorReportsTab />;
-      case "diet":
-        return <DoctorDietTab />;
-      case "hospital-info":
-        return <HospitalInfoTab />;
-      default:
-        return <DoctorPatientInfo />;
-    }
+    const tabs: Record<string, React.ReactNode> = {
+      "patient-info": <DoctorPatientInfo />,
+      "emergency": <DoctorEmergencyTab />,
+      "treatment": <DoctorTreatmentTab />,
+      "dispatch": <DispatchDashboard />,
+      "appointments": <DoctorAppointmentsTab />,
+      "medical": <MedicalTab />,
+      "test": <TestTab isDoctorView={true} />,
+      "hospital-info": <HospitalInfoTab />,
+    };
+    const content = tabs[activeTab] || <DoctorPatientInfo />;
+    return <ErrorBoundary key={activeTab}>{content}</ErrorBoundary>;
   };
 
   if (activeTab === "dispatch") {

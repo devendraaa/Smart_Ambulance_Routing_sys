@@ -98,6 +98,8 @@ async def get_emergency_cases(
     hospital_name: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    page: int = 1,
+    limit: int = 50,
 ):
     """
     Get emergency cases filtered by hospital and/or date range.
@@ -476,3 +478,24 @@ async def get_route_road_sensors(task_id: str):
 
     road_sensors = result_json.get("road_sensors", [])
     return {"road_sensors": road_sensors, "count": len(road_sensors)}
+
+
+@router.delete("/cleanup")
+async def cleanup_old_tasks(days: int = 30):
+    """
+    Delete route tasks older than specified days to free up space.
+    Cascades to coordinates, turn points, traffic signals.
+    """
+    from datetime import datetime, timezone, timedelta
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    # First delete associated child records
+    old_tasks = supabase.table("route_tasks").select("id").lt("created_at", cutoff.isoformat()).execute()
+    task_ids = [t["id"] for t in old_tasks.data]
+    if not task_ids:
+        return {"deleted": 0, "message": "No old tasks to clean up"}
+
+    for table in ["route_task_coordinates", "route_turn_points", "route_traffic_signals"]:
+        supabase.table(table).delete().in_("task_id", task_ids).execute()
+
+    supabase.table("route_tasks").delete().in_("id", task_ids).execute()
+    return {"deleted": len(task_ids), "message": f"Deleted {len(task_ids)} tasks older than {days} days"}
