@@ -457,3 +457,95 @@ export type HospitalInfo = {
   created_at: string;
   updated_at: string;
 };
+
+// --- Patient Admission / Discharge / Notes / Transfers ---
+export async function admitPatient(data: {
+  task_id: string;
+  triage_level: string;
+  triage_notes?: string;
+  ward_name?: string;
+  consultant_name?: string;
+}) {
+  return fetchAPI<{ message: string; task_id: string; admitted_at: string }>("/api/healthcare/admit-patient", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function fetchAdmittedPatients(hospitalName?: string) {
+  let url = "/api/healthcare/admitted-patients";
+  if (hospitalName) url += `?hospital_name=${encodeURIComponent(hospitalName)}`;
+  return fetchAPI<{ patients: EmergencyCase[] }>(url);
+}
+
+export async function fetchAllPatients(hospitalName?: string) {
+  let url = "/api/healthcare/admitted-patients/all";
+  if (hospitalName) url += `?hospital_name=${encodeURIComponent(hospitalName)}`;
+  return fetchAPI<{ patients: EmergencyCase[] }>(url);
+}
+
+export async function dischargePatient(taskId: string) {
+  return fetchAPI<{ message: string; task_id: string }>(`/api/healthcare/discharge-patient/${taskId}`, {
+    method: "PUT",
+  });
+}
+
+export type DoctorNote = {
+  id: string;
+  task_id: string;
+  doctor_name: string;
+  note_type: string;
+  note_text: string;
+  created_at: string;
+};
+
+export async function addDoctorNote(data: {
+  task_id: string;
+  doctor_name: string;
+  note_type?: string;
+  note_text: string;
+}) {
+  return fetchAPI<{ id: string; message: string }>("/api/healthcare/doctor-notes", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function fetchDoctorNotes(taskId: string) {
+  return fetchAPI<{ notes: DoctorNote[] }>(`/api/healthcare/doctor-notes/${taskId}`);
+}
+
+export async function deleteDoctorNote(noteId: string) {
+  return fetchAPI<{ message: string }>(`/api/healthcare/doctor-notes/${noteId}`, {
+    method: "DELETE",
+  });
+}
+
+export type PatientTransfer = {
+  id: string;
+  task_id: string;
+  from_ward: string | null;
+  from_bed: string | null;
+  to_ward: string;
+  to_bed: string | null;
+  reason: string | null;
+  transferred_by: string;
+  transferred_at: string;
+};
+
+export async function createPatientTransfer(data: {
+  task_id: string;
+  to_ward: string;
+  to_bed?: string;
+  reason?: string;
+  transferred_by: string;
+}) {
+  return fetchAPI<{ id: string; message: string }>("/api/healthcare/patient-transfers", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function fetchPatientTransfers(taskId: string) {
+  return fetchAPI<{ transfers: PatientTransfer[] }>(`/api/healthcare/patient-transfers/${taskId}`);
+}

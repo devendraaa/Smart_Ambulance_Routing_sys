@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     CLOUDINARY_API_SECRET: str = ""
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
     ORS_API_KEY: str = ""
+    DXGPT_API_URL: str = ""
+    DXGPT_API_KEY: str = ""
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

@@ -10,9 +10,11 @@ import DoctorMedicinesTab from "./DoctorMedicinesTab";
 import DoctorReportsTab from "./DoctorReportsTab";
 import DoctorDietTab from "./DoctorDietTab";
 import DoctorEmergencyTab from "./DoctorEmergencyTab";
+import DoctorTreatmentTab from "./DoctorTreatmentTab";
 import HospitalInfoTab from "./HospitalInfoTab";
 import MedicalTab from "./MedicalTab";
 import TestTab from "./TestTab";
+import DispatchDashboard from "@/components/dispatch/DispatchDashboard";
 
 function TabContent() {
   const searchParams = useSearchParams();
@@ -34,6 +36,10 @@ function TabContent() {
         return <DoctorPatientInfo />;
       case "emergency":
         return <DoctorEmergencyTab />;
+      case "treatment":
+        return <DoctorTreatmentTab />;
+      case "dispatch":
+        return <DispatchDashboard />;
       case "appointments":
         return <DoctorAppointmentsTab />;
       case "medical":
@@ -50,6 +56,14 @@ function TabContent() {
         return <DoctorPatientInfo />;
     }
   };
+
+  if (activeTab === "dispatch") {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <DispatchDashboard />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

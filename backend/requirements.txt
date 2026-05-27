@@ -9,4 +9,5 @@ pydantic>=2.8
 pydantic-settings>=2.4
 python-dotenv>=1.0
 python-multipart>=0.0.29
+websockets>=12.0
 

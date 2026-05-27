@@ -117,7 +117,7 @@ interface PrescriptionFormProps {
     medicines?: string | null;
     follow_up_date?: string | null;
   } | null;
-  aiPreFill?: { diagnosis: string; suggestedTests: string[] } | null;
+  aiPreFill?: { diagnosis: string; suggestedTests: string[]; symptoms?: string } | null;
   onCompleteVisitSuggested?: (data: SavedPrescriptionData) => void;
 }
 
@@ -178,6 +178,7 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
 
   useEffect(() => {
     if (aiPreFill) {
+      if (aiPreFill.symptoms) setSymptoms(aiPreFill.symptoms);
       if (aiPreFill.diagnosis) setDiagnosis(aiPreFill.diagnosis);
       if (aiPreFill.suggestedTests.length > 0) {
         setOrderedTests(aiPreFill.suggestedTests.map(t => ({ test_type: t, notes: "" })));

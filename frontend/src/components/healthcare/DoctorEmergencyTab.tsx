@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
-import { fetchHospitalsList, getTaskStatus, reverseGeocode, fetchBloodBanks } from "@/lib/api";
-import { Hospital, MapPin, Calendar, User, Phone, AlertTriangle, Droplet, Loader2, Clock, Navigation, CheckCircle, Truck, Activity, Thermometer, Heart, Wind, AlertCircle, Stethoscope, Pill, TestTube, Bed, ChevronDown, ChevronUp, Save, Edit3, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { fetchHospitalsList, getTaskStatus, reverseGeocode, fetchBloodBanks, admitPatient } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
+import { Hospital, MapPin, Calendar, User, Phone, AlertTriangle, Droplet, Loader2, Clock, Navigation, CheckCircle, Truck, Activity, Thermometer, Heart, Wind, AlertCircle, Stethoscope, Pill, TestTube, Bed, ChevronDown, ChevronUp, Save, Edit3, X, LayoutDashboard, ClipboardList, HeartPulse } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -54,7 +56,41 @@ type EmergencyCase = {
   bed_number?: string;
 };
 
+function calculateTriageLevel(c: EmergencyCase): "red" | "yellow" | "green" {
+  // Red (Immediate): Any critical vital or high-risk case
+  if (!c.patient_bp_systolic && !c.patient_bp_diastolic && !c.patient_temperature && !c.patient_pulse && !c.patient_spo2) {
+    // No vitals - triage based on case type
+    if (c.patient_case === "Heart Attack" || c.patient_case === "Stroke") return "red";
+    if (c.patient_case === "Accident" || c.patient_case === "Burn") return "yellow";
+    return "green";
+  }
+  const bpSys = c.patient_bp_systolic;
+  const bpDia = c.patient_bp_diastolic;
+  const temp = c.patient_temperature;
+  const pulse = c.patient_pulse;
+  const spo2 = c.patient_spo2;
+
+  // Critical conditions -> RED
+  if (spo2 !== undefined && spo2 < 90) return "red";
+  if (bpSys !== undefined && (bpSys < 90 || bpSys > 180)) return "red";
+  if (bpDia !== undefined && bpDia > 120) return "red";
+  if (temp !== undefined && (temp > 40 || temp < 35)) return "red";
+  if (pulse !== undefined && (pulse > 140 || pulse < 40)) return "red";
+  if (c.patient_case === "Heart Attack" || c.patient_case === "Stroke") return "red";
+
+  // Urgent conditions -> YELLOW
+  if (spo2 !== undefined && spo2 < 95) return "yellow";
+  if (bpSys !== undefined && (bpSys > 140 || bpSys < 100)) return "yellow";
+  if (temp !== undefined && (temp > 38 || temp < 36)) return "yellow";
+  if (pulse !== undefined && (pulse > 100 || pulse < 60)) return "yellow";
+  if (c.patient_case === "Accident" || c.patient_case === "Burn") return "yellow";
+
+  // Default -> GREEN
+  return "green";
+}
+
 export default function DoctorEmergencyTab() {
+  const router = useRouter();
   const [hospitals, setHospitals] = useState<HospitalInfo[]>([]);
   const [selectedHospital, setSelectedHospital] = useState("");
   const [cases, setCases] = useState<EmergencyCase[]>([]);
@@ -78,6 +114,13 @@ export default function DoctorEmergencyTab() {
   const [historyCases, setHistoryCases] = useState<EmergencyCase[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [expandedHistoryCards, setExpandedHistoryCards] = useState<Set<string>>(new Set());
+
+  // Admit state
+  const [admittingTaskId, setAdmittingTaskId] = useState<string | null>(null);
+  const [admitMessages, setAdmitMessages] = useState<Record<string, string>>({});
+
+  // Triage state per case
+  const [triageLevels, setTriageLevels] = useState<Record<string, "red" | "yellow" | "green">>({});
 
   const getCaseStatus = useCallback((c: EmergencyCase): "new" | "pending" | "solved" => {
     const arrived = c.duration_min ? hasPatientArrived(c.created_at, c.duration_min, now) : false;
@@ -288,9 +331,15 @@ export default function DoctorEmergencyTab() {
     handleRefreshRef.current = handleRefresh;
   });
 
+  const expandedCardsRef = useRef(expandedCards);
+  useEffect(() => {
+    expandedCardsRef.current = expandedCards;
+  }, [expandedCards]);
+
   useEffect(() => {
     if (!selectedHospital) return;
     const interval = setInterval(() => {
+      if (expandedCardsRef.current.size > 0) return;
       handleRefreshRef.current();
     }, 5000);
     return () => clearInterval(interval);
@@ -433,6 +482,8 @@ export default function DoctorEmergencyTab() {
           </div>
         </div>
       </div>
+
+
 
       {/* Status Tabs */}
       {selectedHospital && !loading && cases.length > 0 && (
@@ -925,23 +976,23 @@ export default function DoctorEmergencyTab() {
                   </div>
                 )}
               
-              {/* Doctor Treatment Section */}
+              {/* Triage & Assign Section */}
               <div className="mt-4">
                 <button
                   onClick={() => toggleExpand(emergencyCase.task_id)}
-                  className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl border border-violet-200 hover:from-violet-100 hover:to-purple-100 transition-all"
+                  className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200 hover:from-amber-100 hover:to-orange-100 transition-all"
                 >
                   <div className="flex items-center gap-2">
-                    <Stethoscope className="w-4 h-4 text-violet-600" />
-                    <span className="text-xs font-bold text-violet-700 uppercase tracking-wide">Doctor Treatment</span>
-                    {(emergencyCase.treatment_problem || emergencyCase.consultant_name || emergencyCase.bed_number) && (
-                      <span className="px-2 py-0.5 bg-violet-500 text-white rounded-full text-xs">Saved</span>
+                    <HeartPulse className="w-4 h-4 text-amber-600" />
+                    <span className="text-xs font-bold text-amber-700 uppercase tracking-wide">Triage & Assign</span>
+                    {(emergencyCase.consultant_name || triageLevels[emergencyCase.task_id]) && (
+                      <span className="px-2 py-0.5 bg-amber-500 text-white rounded-full text-xs">Done</span>
                     )}
                   </div>
                   {expandedCards.has(emergencyCase.task_id) ? (
-                    <ChevronUp className="w-4 h-4 text-violet-500" />
+                    <ChevronUp className="w-4 h-4 text-amber-500" />
                   ) : (
-                    <ChevronDown className="w-4 h-4 text-violet-500" />
+                    <ChevronDown className="w-4 h-4 text-amber-500" />
                   )}
                 </button>
 
@@ -950,216 +1001,170 @@ export default function DoctorEmergencyTab() {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="mt-3 bg-white rounded-xl border border-violet-200 p-4"
+                    className="mt-3 bg-white rounded-xl border border-amber-200 p-4"
                   >
-                    {editingId === emergencyCase.task_id ? (
-                      /* Edit Mode */
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          {/* Problem */}
-                          <div>
-                            <label className="block text-xs font-semibold text-violet-600 mb-1.5">
-                              <AlertCircle className="w-3.5 h-3.5 inline mr-1" />
-                              Patient Problem
-                            </label>
-                            <textarea
-                              value={treatmentForm.treatment_problem}
-                              onChange={(e) => setTreatmentForm({ ...treatmentForm, treatment_problem: e.target.value })}
-                              placeholder="Describe patient's problem..."
-                              rows={2}
-                              className="w-full rounded-lg border-2 border-violet-200 bg-violet-50 px-3 py-2 text-sm focus:outline-none focus:border-violet-400 focus:bg-white transition"
-                            />
+                    <div className="space-y-4">
+                      {/* Auto Triage Level */}
+                      {(() => {
+                        const level = calculateTriageLevel(emergencyCase);
+                        const colorMap = {
+                          red: { bg: "bg-red-50 border-red-300", dot: "bg-red-500", text: "text-red-700", icon: AlertTriangle, label: "Immediate (Red)" },
+                          yellow: { bg: "bg-amber-50 border-amber-300", dot: "bg-amber-500", text: "text-amber-700", icon: Activity, label: "Urgent (Yellow)" },
+                          green: { bg: "bg-emerald-50 border-emerald-300", dot: "bg-emerald-500", text: "text-emerald-700", icon: CheckCircle, label: "Non-Urgent (Green)" },
+                        };
+                        const cc = colorMap[level];
+                        const Icon = cc.icon;
+                        return (
+                          <div className={`${cc.bg} rounded-xl border-2 p-4`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <span className={`w-4 h-4 rounded-full ${cc.dot}`} />
+                                <div>
+                                  <p className={`text-sm font-bold ${cc.text}`}>{cc.label}</p>
+                                  <p className="text-xs text-gray-500 mt-0.5">Auto-assigned based on vitals & case type</p>
+                                </div>
+                              </div>
+                              <Icon className={`w-6 h-6 ${cc.text}`} />
+                            </div>
                           </div>
+                        );
+                      })()}
 
-                          {/* Treatment */}
-                          <div>
-                            <label className="block text-xs font-semibold text-violet-600 mb-1.5">
-                              <Stethoscope className="w-3.5 h-3.5 inline mr-1" />
-                              Treatment
-                            </label>
-                            <textarea
-                              value={treatmentForm.treatment_details}
-                              onChange={(e) => setTreatmentForm({ ...treatmentForm, treatment_details: e.target.value })}
-                              placeholder="Treatment given..."
-                              rows={2}
-                              className="w-full rounded-lg border-2 border-violet-200 bg-violet-50 px-3 py-2 text-sm focus:outline-none focus:border-violet-400 focus:bg-white transition"
-                            />
-                          </div>
-
-                          {/* Medicine */}
-                          <div>
-                            <label className="block text-xs font-semibold text-violet-600 mb-1.5">
-                              <Pill className="w-3.5 h-3.5 inline mr-1" />
-                              Medicines
-                            </label>
-                            <textarea
-                              value={treatmentForm.treatment_medicine}
-                              onChange={(e) => setTreatmentForm({ ...treatmentForm, treatment_medicine: e.target.value })}
-                              placeholder="Medicines prescribed..."
-                              rows={2}
-                              className="w-full rounded-lg border-2 border-violet-200 bg-violet-50 px-3 py-2 text-sm focus:outline-none focus:border-violet-400 focus:bg-white transition"
-                            />
-                          </div>
-
-                          {/* Tests */}
-                          <div>
-                            <label className="block text-xs font-semibold text-violet-600 mb-1.5">
-                              <TestTube className="w-3.5 h-3.5 inline mr-1" />
-                              New Tests
-                            </label>
-                            <textarea
-                              value={treatmentForm.treatment_tests}
-                              onChange={(e) => setTreatmentForm({ ...treatmentForm, treatment_tests: e.target.value })}
-                              placeholder="Tests to be conducted..."
-                              rows={2}
-                              className="w-full rounded-lg border-2 border-violet-200 bg-violet-50 px-3 py-2 text-sm focus:outline-none focus:border-violet-400 focus:bg-white transition"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Consultant & Bed in one row */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-violet-100">
-                          <div>
-                            <label className="block text-xs font-semibold text-violet-600 mb-1.5">
-                              <User className="w-3.5 h-3.5 inline mr-1" />
-                              Consultant Doctor
-                            </label>
-                            <input
-                              type="text"
-                              value={treatmentForm.consultant_name}
-                              onChange={(e) => setTreatmentForm({ ...treatmentForm, consultant_name: e.target.value })}
-                              placeholder="Dr. Name"
-                              className="w-full rounded-lg border-2 border-violet-200 bg-violet-50 px-3 py-2 text-sm focus:outline-none focus:border-violet-400 focus:bg-white transition"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-semibold text-violet-600 mb-1.5">
-                              <Bed className="w-3.5 h-3.5 inline mr-1" />
-                              Bed Number
-                            </label>
-                            <input
-                              type="text"
-                              value={treatmentForm.bed_number}
-                              onChange={(e) => setTreatmentForm({ ...treatmentForm, bed_number: e.target.value })}
-                              placeholder="e.g., ICU-101, Ward-A5"
-                              className="w-full rounded-lg border-2 border-violet-200 bg-violet-50 px-3 py-2 text-sm focus:outline-none focus:border-violet-400 focus:bg-white transition"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex justify-end gap-2 pt-3">
-                          <button
-                            onClick={cancelEditing}
-                            className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+                      {/* Consultant Assignment */}
+                      <div>
+                        <label className="block text-xs font-semibold text-amber-600 mb-1.5">
+                          <User className="w-3.5 h-3.5 inline mr-1" />
+                          Assign Consultant
+                        </label>
+                        <div className="flex gap-2">
+                          <select
+                            value={emergencyCase.consultant_name || ""}
+                            onChange={(e) => {
+                              setCases(prev => prev.map(c =>
+                                c.task_id === emergencyCase.task_id ? { ...c, consultant_name: e.target.value } : c
+                              ));
+                            }}
+                            className="flex-1 rounded-lg border-2 border-amber-200 bg-amber-50 px-3 py-2 text-sm focus:outline-none focus:border-amber-400 focus:bg-white transition"
                           >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={() => saveTreatment(emergencyCase.task_id)}
-                            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition"
-                          >
-                            <Save className="w-4 h-4" />
-                            Save
-                          </button>
+                            <option value="">Select consultant...</option>
+                            <option value="Dr. Sharma (Cardio)">Dr. Sharma (Cardio)</option>
+                            <option value="Dr. Verma (Neuro)">Dr. Verma (Neuro)</option>
+                            <option value="Dr. Patel (Ortho)">Dr. Patel (Ortho)</option>
+                            <option value="Dr. Singh (Medicine)">Dr. Singh (Medicine)</option>
+                            <option value="Dr. Gupta (Pediatrics)">Dr. Gupta (Pediatrics)</option>
+                            <option value="Dr. Joshi (Surgery)">Dr. Joshi (Surgery)</option>
+                          </select>
                         </div>
                       </div>
-                    ) : (
-                      /* View Mode */
-                      <div className="space-y-4">
-                        {(emergencyCase.treatment_problem || emergencyCase.treatment_details ||
-                          emergencyCase.treatment_medicine || emergencyCase.treatment_tests ||
-                          emergencyCase.consultant_name || emergencyCase.bed_number) ? (
-                          <div className="space-y-3">
-                            {/* Problem & Treatment */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              {emergencyCase.treatment_problem && (
-                                <div className="bg-rose-50 rounded-lg p-3 border border-rose-100">
-                                  <div className="flex items-center gap-1.5 mb-1">
-                                    <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                                    <span className="text-xs font-semibold text-rose-700">Patient Problem</span>
-                                  </div>
-                                  <p className="text-sm text-rose-800">{emergencyCase.treatment_problem}</p>
-                                </div>
-                              )}
-                              {emergencyCase.treatment_details && (
-                                <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-                                  <div className="flex items-center gap-1.5 mb-1">
-                                    <Stethoscope className="w-3.5 h-3.5 text-blue-600" />
-                                    <span className="text-xs font-semibold text-blue-700">Treatment</span>
-                                  </div>
-                                  <p className="text-sm text-blue-800">{emergencyCase.treatment_details}</p>
-                                </div>
-                              )}
-                            </div>
 
-                            {/* Medicine & Tests */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              {emergencyCase.treatment_medicine && (
-                                <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-100">
-                                  <div className="flex items-center gap-1.5 mb-1">
-                                    <Pill className="w-3.5 h-3.5 text-emerald-600" />
-                                    <span className="text-xs font-semibold text-emerald-700">Medicines</span>
-                                  </div>
-                                  <p className="text-sm text-emerald-800">{emergencyCase.treatment_medicine}</p>
-                                </div>
-                              )}
-                              {emergencyCase.treatment_tests && (
-                                <div className="bg-amber-50 rounded-lg p-3 border border-amber-100">
-                                  <div className="flex items-center gap-1.5 mb-1">
-                                    <TestTube className="w-3.5 h-3.5 text-amber-600" />
-                                    <span className="text-xs font-semibold text-amber-700">New Tests</span>
-                                  </div>
-                                  <p className="text-sm text-amber-800">{emergencyCase.treatment_tests}</p>
-                                </div>
-                              )}
-                            </div>
+                      {/* Bed Assignment */}
+                      <div>
+                        <label className="block text-xs font-semibold text-amber-600 mb-1.5">
+                          <Bed className="w-3.5 h-3.5 inline mr-1" />
+                          Assign Ward
+                        </label>
+                        <select
+                          value={emergencyCase.bed_number || ""}
+                          onChange={(e) => {
+                            setCases(prev => prev.map(c =>
+                              c.task_id === emergencyCase.task_id ? { ...c, bed_number: e.target.value } : c
+                            ));
+                          }}
+                          className="w-full rounded-lg border-2 border-amber-200 bg-amber-50 px-3 py-2 text-sm focus:outline-none focus:border-amber-400 focus:bg-white transition"
+                        >
+                          <option value="">Select ward...</option>
+                          <option value="ICU-01">ICU - Bed 01</option>
+                          <option value="ICU-02">ICU - Bed 02</option>
+                          <option value="ICU-03">ICU - Bed 03</option>
+                          <option value="ICU-04">ICU - Bed 04</option>
+                          <option value="Emergency-01">Emergency - Bed 01</option>
+                          <option value="Emergency-02">Emergency - Bed 02</option>
+                          <option value="Emergency-03">Emergency - Bed 03</option>
+                          <option value="Emergency-04">Emergency - Bed 04</option>
+                          <option value="General-01">General Ward - Bed 01</option>
+                          <option value="General-02">General Ward - Bed 02</option>
+                          <option value="General-03">General Ward - Bed 03</option>
+                          <option value="CCU-01">CCU - Bed 01</option>
+                          <option value="CCU-02">CCU - Bed 02</option>
+                        </select>
+                      </div>
 
-                            {/* Consultant & Bed */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-violet-100">
-                              {emergencyCase.consultant_name && (
-                                <div className="bg-violet-50 rounded-lg p-3 border border-violet-100">
-                                  <div className="flex items-center gap-1.5 mb-1">
-                                    <User className="w-3.5 h-3.5 text-violet-600" />
-                                    <span className="text-xs font-semibold text-violet-700">Consultant</span>
-                                  </div>
-                                  <p className="text-sm font-bold text-violet-800">{emergencyCase.consultant_name}</p>
-                                </div>
-                              )}
-                              {emergencyCase.bed_number && (
-                                <div className="bg-indigo-50 rounded-lg p-3 border border-indigo-100">
-                                  <div className="flex items-center gap-1.5 mb-1">
-                                    <Bed className="w-3.5 h-3.5 text-indigo-600" />
-                                    <span className="text-xs font-semibold text-indigo-700">Bed Number</span>
-                                  </div>
-                                  <p className="text-sm font-bold text-indigo-800">{emergencyCase.bed_number}</p>
-                                </div>
-                              )}
-                            </div>
+                      {/* Quick Notes */}
+                      <div>
+                        <label className="block text-xs font-semibold text-amber-600 mb-1.5">
+                          <ClipboardList className="w-3.5 h-3.5 inline mr-1" />
+                          Triage Notes
+                        </label>
+                        <textarea
+                          value={treatmentForm.treatment_details}
+                          onChange={(e) => setTreatmentForm({ ...treatmentForm, treatment_details: e.target.value })}
+                          placeholder="Clinical notes, immediate actions needed..."
+                          rows={2}
+                          className="w-full rounded-lg border-2 border-amber-200 bg-amber-50/50 px-3 py-2 text-sm focus:outline-none focus:border-amber-400 focus:bg-white transition"
+                        />
+                      </div>
 
-                            <button
-                              onClick={() => startEditing(emergencyCase)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-violet-600 bg-violet-50 rounded-lg hover:bg-violet-100 transition"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                              Edit Treatment
-                            </button>
-                          </div>
+                      {/* Admit Patient Button */}
+                      <button
+                        onClick={async () => {
+                          setAdmittingTaskId(emergencyCase.task_id);
+                          setAdmitMessages(prev => ({ ...prev, [emergencyCase.task_id]: "" }));
+                          try {
+                            const level = calculateTriageLevel(emergencyCase);
+                            await admitPatient({
+                              task_id: emergencyCase.task_id,
+                              triage_level: level,
+                              triage_notes: treatmentForm.treatment_details || undefined,
+                              ward_name: emergencyCase.bed_number?.split("-")[0] || undefined,
+                              consultant_name: emergencyCase.consultant_name || undefined,
+                            });
+                            // Create an appointment for treatment tab
+                            const { data: aptData, error: aptError } = await supabase
+                              .from("patient_appointments")
+                              .insert({
+                                patient_name: emergencyCase.patient_name || "Unknown",
+                                patient_email: emergencyCase.patient_mobile || "",
+                                age: emergencyCase.patient_age ? parseInt(emergencyCase.patient_age) : null,
+                                case_type: emergencyCase.patient_case || "Emergency",
+                                hospital_name: emergencyCase.hospital_name || selectedHospital,
+                                appointment_date: new Date().toISOString(),
+                                status: "in-consultation",
+                              })
+                              .select("id")
+                              .single();
+                            if (aptError) throw aptError;
+                            // Remove from active cases view
+                            setCases(prev => prev.filter(c => c.task_id !== emergencyCase.task_id));
+                            // Redirect to treatment tab
+                            router.push(`/doctor?tab=treatment&patient_id=${aptData.id}`);
+                          } catch (err: any) {
+                            setAdmitMessages(prev => ({
+                              ...prev,
+                              [emergencyCase.task_id]: `Failed to admit: ${err.message}`,
+                            }));
+                          } finally {
+                            setAdmittingTaskId(null);
+                          }
+                        }}
+                        disabled={admittingTaskId === emergencyCase.task_id || !emergencyCase.consultant_name}
+                        className={`w-full mt-2 px-4 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+                          admitMessages[emergencyCase.task_id]?.includes("successfully")
+                            ? "bg-emerald-500 text-white"
+                            : "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-200 hover:shadow-xl hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        }`}
+                      >
+                        {admittingTaskId === emergencyCase.task_id ? (
+                          <><Loader2 className="w-4 h-4 animate-spin" /> Admitting...</>
+                        ) : admitMessages[emergencyCase.task_id]?.includes("successfully") ? (
+                          <><CheckCircle className="w-4 h-4" /> {admitMessages[emergencyCase.task_id]}</>
                         ) : (
-                          <div className="text-center py-4">
-                            <p className="text-sm text-gray-500 mb-3">No treatment details added yet</p>
-                            <button
-                              onClick={() => startEditing(emergencyCase)}
-                              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition mx-auto"
-                            >
-                              <Edit3 className="w-4 h-4" />
-                              Add Treatment Details
-                            </button>
-                          </div>
+                          <><CheckCircle className="w-4 h-4" /> Admit Patient</>
                         )}
-                      </div>
-                    )}
+                      </button>
+                      {admitMessages[emergencyCase.task_id] && !admitMessages[emergencyCase.task_id].includes("successfully") && (
+                        <p className="text-xs text-red-500 mt-1">{admitMessages[emergencyCase.task_id]}</p>
+                      )}
+                    </div>
                   </motion.div>
                 )}
               </div>

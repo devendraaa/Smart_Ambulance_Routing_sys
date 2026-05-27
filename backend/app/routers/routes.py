@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 from uuid import uuid4
 from app.database import supabase
 from app.schemas.route_task import (
@@ -13,6 +14,8 @@ from app.tasks.worker import task_queue
 
 router = APIRouter()
 
+amb_locations: dict[str, dict] = {}
+
 
 @router.post("/compute", response_model=RouteTaskStartResponse)
 async def start_route_computation(data: RouteComputeRequest):
@@ -25,6 +28,7 @@ async def start_route_computation(data: RouteComputeRequest):
         "origin_lon": data.origin_lon,
         "hospital_name": data.hospital_name,
         "status": "pending",
+        "dispatch_status": "unassigned",
         "progress": 0.0,
         "patient_uhid": patient_uhid,
     }
@@ -97,18 +101,24 @@ async def get_emergency_cases(
 ):
     """
     Get emergency cases filtered by hospital and/or date range.
+    Defaults to today's cases if no date range is provided.
     Returns cases with patient details for the doctor dashboard.
     """
+    from datetime import datetime, timezone
+
     query = supabase.table("route_tasks").select("*").order("created_at", desc=True)
 
     if hospital_name:
         query = query.ilike("hospital_name", f"%{hospital_name}%")
 
-    if start_date:
-        query = query.gte("created_at", start_date)
-
-    if end_date:
-        query = query.lte("created_at", end_date + "T23:59:59")
+    if not start_date and not end_date:
+        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        query = query.gte("created_at", today_start)
+    else:
+        if start_date:
+            query = query.gte("created_at", start_date)
+        if end_date:
+            query = query.lte("created_at", end_date + "T23:59:59")
 
     result = query.execute()
 
@@ -163,6 +173,140 @@ async def get_emergency_hospitals():
             hospitals.add(task["hospital_name"])
 
     return {"hospitals": sorted(list(hospitals))}
+
+
+# ==================== DISPATCH DASHBOARD ENDPOINTS ====================
+
+
+@router.get("/dispatch/active")
+async def get_active_dispatch_cases():
+    """Get today's active route tasks for the dispatcher dashboard (filters by dispatch_status, not computation status)."""
+    from datetime import datetime, timezone
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    result = supabase.table("route_tasks").select("*").gte("created_at", today_start).order("created_at", desc=True).execute()
+    active = []
+    for task in result.data:
+        dispatch_status = task.get("dispatch_status", "unassigned")
+        if dispatch_status in ("completed", "cancelled"):
+            continue
+        result_json = task.get("result_json")
+        distance_km = None
+        duration_min = None
+        if result_json and isinstance(result_json, dict):
+            distance_km = result_json.get("distance_km")
+            duration_min = result_json.get("duration_min")
+
+        loc = amb_locations.get(task["id"], {})
+        entry = {
+            "task_id": task["id"],
+            "status": task.get("status", ""),
+            "dispatch_status": dispatch_status,
+            "progress": round(task.get("progress", 0), 4),
+            "patient_uhid": task.get("patient_uhid"),
+            "patient_name": task.get("patient_name"),
+            "patient_age": task.get("patient_age"),
+            "patient_sex": task.get("patient_sex"),
+            "patient_mobile": task.get("patient_mobile"),
+            "patient_case": task.get("patient_case"),
+            "patient_blood_group": task.get("patient_blood_group"),
+            "patient_date": task.get("patient_date"),
+            "hospital_name": task.get("hospital_name", ""),
+            "origin_lat": task.get("origin_lat", 0),
+            "origin_lon": task.get("origin_lon", 0),
+            "hospital_lat": task.get("hospital_lat"),
+            "hospital_lon": task.get("hospital_lon"),
+            "ambulance_number": task.get("ambulance_number"),
+            "driver_name": task.get("driver_name"),
+            "driver_mobile": task.get("driver_mobile"),
+            "patient_bp_systolic": task.get("patient_bp_systolic"),
+            "patient_bp_diastolic": task.get("patient_bp_diastolic"),
+            "patient_temperature": task.get("patient_temperature"),
+            "patient_pulse": task.get("patient_pulse"),
+            "patient_spo2": task.get("patient_spo2"),
+            "distance_km": distance_km,
+            "duration_min": duration_min,
+            "created_at": task.get("created_at", ""),
+            "current_lat": loc.get("lat"),
+            "current_lon": loc.get("lon"),
+            "last_location_update": loc.get("updated_at"),
+        }
+        active.append(entry)
+    return {"cases": active, "count": len(active)}
+
+
+@router.get("/dispatch/stats")
+async def get_dispatch_stats():
+    """Get case counts grouped by dispatch_status."""
+    result = supabase.table("route_tasks").select("dispatch_status").execute()
+    counts: dict[str, int] = {}
+    for task in result.data:
+        s = task.get("dispatch_status", "unassigned")
+        counts[s] = counts.get(s, 0) + 1
+    return {"stats": counts}
+
+
+class AssignAmbulanceRequest(BaseModel):
+    ambulance_number: str
+    driver_name: str
+    driver_mobile: str
+
+
+@router.post("/dispatch/{task_id}/assign")
+async def assign_ambulance(task_id: str, data: AssignAmbulanceRequest):
+    """Assign an ambulance and driver to a route task."""
+    result = supabase.table("route_tasks").select("status").eq("id", task_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    supabase.table("route_tasks").update({
+        "ambulance_number": data.ambulance_number,
+        "driver_name": data.driver_name,
+        "driver_mobile": data.driver_mobile,
+        "dispatch_status": "assigned",
+    }).eq("id", task_id).execute()
+
+    return {
+        "message": "Ambulance assigned",
+        "task_id": task_id,
+        "ambulance_number": data.ambulance_number,
+        "driver_name": data.driver_name,
+    }
+
+
+class UpdateStatusRequest(BaseModel):
+    status: str
+
+
+@router.post("/dispatch/{task_id}/status")
+async def update_dispatch_status(task_id: str, data: UpdateStatusRequest):
+    """Update the dispatch_status of a route task (arrived, delivering, completed, etc.)."""
+    valid = ("unassigned", "assigned", "arrived", "delivering", "completed", "cancelled")
+    if data.status not in valid:
+        raise HTTPException(400, f"Invalid dispatch_status. Must be one of: {valid}")
+
+    result = supabase.table("route_tasks").select("dispatch_status").eq("id", task_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    supabase.table("route_tasks").update({"dispatch_status": data.status}).eq("id", task_id).execute()
+    return {"message": f"Dispatch status updated to {data.status}", "task_id": task_id, "dispatch_status": data.status}
+
+
+class LocationUpdateRequest(BaseModel):
+    lat: float
+    lon: float
+
+
+@router.post("/dispatch/{task_id}/location")
+async def update_ambulance_location(task_id: str, data: LocationUpdateRequest):
+    """Store the current GPS location of an ambulance (called by the driver's browser)."""
+    from datetime import datetime, timezone
+    amb_locations[task_id] = {
+        "lat": data.lat,
+        "lon": data.lon,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    return {"message": "Location updated", "task_id": task_id}
 
 
 @router.get("/{task_id}", response_model=RouteTaskStatusResponse)

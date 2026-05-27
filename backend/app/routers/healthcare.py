@@ -1045,3 +1045,207 @@ async def update_appointment_status(appointment_id: str, data: AppointmentStatus
         raise
     except Exception as e:
         raise HTTPException(500, f"Failed to update appointment status: {str(e)}")
+
+
+# ============== Patient Admission / Discharge / Notes / Transfers ==============
+
+class AdmitPatientCreate(BaseModel):
+    task_id: str
+    triage_level: str
+    triage_notes: Optional[str] = None
+    ward_name: Optional[str] = None
+    consultant_name: Optional[str] = None
+
+
+class DoctorNoteCreate(BaseModel):
+    task_id: str
+    doctor_name: str
+    note_type: str = "clinical"
+    note_text: str
+
+
+class PatientTransferCreate(BaseModel):
+    task_id: str
+    to_ward: str
+    to_bed: Optional[str] = None
+    reason: Optional[str] = None
+    transferred_by: str
+
+
+@router.post("/admit-patient")
+async def admit_patient(data: AdmitPatientCreate):
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database not configured - run admission_tables.sql")
+
+    try:
+        update_data = {
+            "triage_level": data.triage_level,
+            "triage_notes": data.triage_notes,
+            "ward_name": data.ward_name,
+            "admitted_at": datetime.utcnow().isoformat(),
+            "discharge_status": "active",
+        }
+        if data.consultant_name:
+            # store consultant in result_json or a dedicated column
+            # result_json is JSONB, so we can store structured admission data
+            pass
+
+        result = sb.table("route_tasks").update(update_data).eq("id", data.task_id).execute()
+        if not result.data:
+            raise HTTPException(404, "Route task not found")
+
+        return {
+            "message": "Patient admitted successfully",
+            "task_id": data.task_id,
+            "admitted_at": update_data["admitted_at"],
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Failed to admit patient: {str(e)}")
+
+
+@router.get("/admitted-patients")
+async def get_admitted_patients(hospital_name: Optional[str] = None):
+    sb = get_supabase()
+    if not sb:
+        return {"patients": []}
+
+    try:
+        query = sb.table("route_tasks").select("*").eq("discharge_status", "active").order("admitted_at", desc=True, nullsfirst=False)
+        if hospital_name:
+            query = query.eq("hospital_name", hospital_name)
+        result = query.execute()
+        return {"patients": result.data}
+    except Exception as e:
+        return {"patients": [], "error": str(e)}
+
+
+@router.get("/admitted-patients/all")
+async def get_all_admitted_patients(hospital_name: Optional[str] = None):
+    """Get all patients with any discharge status (active, discharged, transferred)."""
+    sb = get_supabase()
+    if not sb:
+        return {"patients": []}
+
+    try:
+        query = sb.table("route_tasks").select("*").order("created_at", desc=True)
+        if hospital_name:
+            query = query.eq("hospital_name", hospital_name)
+        result = query.execute()
+        return {"patients": result.data}
+    except Exception as e:
+        return {"patients": [], "error": str(e)}
+
+
+@router.put("/discharge-patient/{task_id}")
+async def discharge_patient(task_id: str):
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database not configured")
+
+    try:
+        result = sb.table("route_tasks").update({
+            "discharge_status": "discharged",
+        }).eq("id", task_id).execute()
+        if not result.data:
+            raise HTTPException(404, "Route task not found")
+        return {"message": "Patient discharged", "task_id": task_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Failed to discharge patient: {str(e)}")
+
+
+@router.post("/doctor-notes")
+async def add_doctor_note(data: DoctorNoteCreate):
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database not configured")
+
+    try:
+        result = sb.table("patient_doctor_notes").insert({
+            "task_id": data.task_id,
+            "doctor_name": data.doctor_name,
+            "note_type": data.note_type,
+            "note_text": data.note_text,
+        }).execute()
+        return {"id": result.data[0]["id"], "message": "Note added"}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to add note: {str(e)}")
+
+
+@router.get("/doctor-notes/{task_id}")
+async def get_doctor_notes(task_id: str):
+    sb = get_supabase()
+    if not sb:
+        return {"notes": []}
+
+    try:
+        result = sb.table("patient_doctor_notes").select("*").eq("task_id", task_id).order("created_at", desc=True).execute()
+        return {"notes": result.data}
+    except Exception as e:
+        return {"notes": [], "error": str(e)}
+
+
+@router.delete("/doctor-notes/{note_id}")
+async def delete_doctor_note(note_id: str):
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database not configured")
+
+    try:
+        result = sb.table("patient_doctor_notes").delete().eq("id", note_id).execute()
+        if not result.data:
+            raise HTTPException(404, "Note not found")
+        return {"message": "Note deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Failed to delete note: {str(e)}")
+
+
+@router.post("/patient-transfers")
+async def create_patient_transfer(data: PatientTransferCreate):
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database not configured")
+
+    try:
+        # Get current ward/bed info before updating
+        current = sb.table("route_tasks").select("ward_name").eq("id", data.task_id).execute()
+        from_ward = current.data[0].get("ward_name") if current.data else None
+
+        # Create transfer record
+        result = sb.table("patient_transfers").insert({
+            "task_id": data.task_id,
+            "from_ward": from_ward,
+            "from_bed": None,
+            "to_ward": data.to_ward,
+            "to_bed": data.to_bed,
+            "reason": data.reason,
+            "transferred_by": data.transferred_by,
+        }).execute()
+
+        # Update route_tasks with new ward
+        sb.table("route_tasks").update({
+            "ward_name": data.to_ward,
+        }).eq("id", data.task_id).execute()
+
+        return {"id": result.data[0]["id"], "message": "Transfer recorded"}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to create transfer: {str(e)}")
+
+
+@router.get("/patient-transfers/{task_id}")
+async def get_patient_transfers(task_id: str):
+    sb = get_supabase()
+    if not sb:
+        return {"transfers": []}
+
+    try:
+        result = sb.table("patient_transfers").select("*").eq("task_id", task_id).order("transferred_at", desc=True).execute()
+        return {"transfers": result.data}
+    except Exception as e:
+        return {"transfers": [], "error": str(e)}

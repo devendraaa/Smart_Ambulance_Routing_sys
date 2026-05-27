@@ -1539,7 +1539,7 @@ export default function DoctorAppointmentsTab() {
                     });
                   } catch (e) { console.error("Failed to set in-consultation:", e); }
                 }
-                router.push(`/doctor/patient?id=${apt.id}`);
+                router.push(`/doctor?tab=treatment&patient_id=${apt.id}`);
               }}
               className={`bg-white rounded-xl border border-gray-200 p-4 transition ${
                 isCompleted

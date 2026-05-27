@@ -93,10 +93,8 @@ function isToday(dateString: string): boolean {
   return appointmentDate.toDateString() === today.toDateString();
 }
 
-function PatientDetailPage() {
-  const searchParams = useSearchParams();
+export function PatientDetailContent({ appointmentId, onBack }: { appointmentId: string; onBack?: () => void }) {
   const router = useRouter();
-  const appointmentId = searchParams.get("id");
 
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [medicines, setMedicines] = useState<PatientMedicine[]>([]);
@@ -126,7 +124,8 @@ function PatientDetailPage() {
   const [confirmed, setConfirmed] = useState(false);
   const [visitNote, setVisitNote] = useState("");
 
-  const [aiPreFill, setAiPreFill] = useState<{ diagnosis: string; suggestedTests: string[] } | null>(null);
+  const [aiPreFill, setAiPreFill] = useState<{ diagnosis: string; suggestedTests: string[]; symptoms?: string } | null>(null);
+  const [savedSymptoms, setSavedSymptoms] = useState("");
   const aiPreFillApplied = useRef(false);
 
   const [aiDiagnosisData, setAiDiagnosisData] = useState<{
@@ -376,7 +375,7 @@ function PatientDetailPage() {
       setAppointment({ ...appointment, status: "completed" });
       setShowCompleteModal(false);
       loadData();
-      router.push("/doctor?tab=appointments");
+      onBack ? onBack() : router.push("/doctor?tab=appointments");
     } catch (err) {
       console.error("Error completing visit:", err);
       alert("Failed to complete visit");
@@ -424,7 +423,7 @@ function PatientDetailPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-500">Appointment not found</p>
-          <button onClick={() => router.push("/doctor?tab=appointments")} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg">
+          <button onClick={() => onBack ? onBack() : router.push("/doctor?tab=appointments")} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg">
             Back to Appointments
           </button>
         </div>
@@ -437,7 +436,7 @@ function PatientDetailPage() {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
-          <button onClick={() => router.push("/doctor?tab=appointments")} className="p-2 hover:bg-gray-100 rounded-lg">
+          <button onClick={() => onBack ? onBack() : router.push("/doctor?tab=appointments")} className="p-2 hover:bg-gray-100 rounded-lg">
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </button>
           <h1 className="text-2xl font-bold text-gray-900">Patient Details</h1>
@@ -558,9 +557,11 @@ function PatientDetailPage() {
                     setIsAiProcessing(false);
                     setAiDiagnosisData(result);
                     setActiveTab("ai-diagnosis");
+                    if (result.symptoms) setSavedSymptoms(result.symptoms);
                   }}
                   onSaved={() => { setIsAiProcessing(true); loadData(true); }}
                   onSwitchToPrescriptions={(data) => {
+                    setSavedSymptoms(data.symptoms || "");
                     setActiveTab("prescriptions");
                     setEditPrescriptionId(data.prescriptionId);
                     loadData();
@@ -721,6 +722,7 @@ function PatientDetailPage() {
                         const preFill = {
                           diagnosis: aiDiagnosisData.ai_diagnosis,
                           suggestedTests: aiDiagnosisData.ai_suggested_tests || [],
+                          symptoms: savedSymptoms || undefined,
                         };
                         setAiPreFill(preFill);
                         setAiDiagnosisData(null);
@@ -739,7 +741,7 @@ function PatientDetailPage() {
           {activeTab === "prescriptions" && (
             <div className="space-y-4">
               {canEdit && !editPrescriptionId && (
-                <PrescriptionForm patientEmail={appointment.patient_email} patientName={appointment.patient_name} hospitalName={appointment.hospital_name} appointmentId={appointment.id} aiPreFill={aiPreFill} onSaved={() => { setAiPreFill(null); loadData(); }} onCompleteVisitSuggested={async () => { await fetch(`http://127.0.0.1:8000/api/healthcare/appointments/${appointment.id}/status`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "completed" }) }).catch(() => {}); setAiPreFill(null); loadData(); router.push("/doctor?tab=appointments"); }} />
+                <PrescriptionForm patientEmail={appointment.patient_email} patientName={appointment.patient_name} hospitalName={appointment.hospital_name} appointmentId={appointment.id} aiPreFill={aiPreFill} onSaved={() => { setAiPreFill(null); loadData(); }} onCompleteVisitSuggested={async () => { await fetch(`http://127.0.0.1:8000/api/healthcare/appointments/${appointment.id}/status`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "completed" }) }).catch(() => {}); setAiPreFill(null); loadData(); onBack ? onBack() : router.push("/doctor?tab=appointments"); }} />
               )}
               {editPrescriptionId && (() => {
                 const p = prescriptions.find(pr => pr.id === editPrescriptionId);
@@ -1102,4 +1104,9 @@ function PatientDetailPage() {
   );
 }
 
-export default PatientDetailPage;
+export default function PatientDetailPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const appointmentId = searchParams.get("id");
+  return <PatientDetailContent appointmentId={appointmentId || ""} onBack={() => router.push("/doctor?tab=appointments")} />;
+}

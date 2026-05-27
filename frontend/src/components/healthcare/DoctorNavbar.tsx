@@ -10,6 +10,8 @@ import { Stethoscope, Menu, X } from "lucide-react";
 const DOCTOR_TABS = [
   { id: "patient-info", label: "Patient Info", href: "/doctor?tab=patient-info", icon: "👤" },
   { id: "emergency", label: "Emergency", href: "/doctor?tab=emergency", icon: "🚨" },
+  { id: "treatment", label: "Treatment", href: "/doctor?tab=treatment", icon: "💉" },
+  { id: "dispatch", label: "Dispatch", href: "/doctor?tab=dispatch", icon: "📋" },
   { id: "appointments", label: "Appointments", href: "/doctor?tab=appointments", icon: "📅" },
   { id: "medical", label: "Medical", href: "/doctor?tab=medical", icon: "💊" },
   { id: "test", label: "All Test", href: "/doctor?tab=test", icon: "🧪" },

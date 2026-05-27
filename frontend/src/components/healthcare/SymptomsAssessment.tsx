@@ -145,6 +145,8 @@ interface AIDiagnosisResult {
   ai_suggested_tests: any;
   ai_notes?: string;
   prescription_id: string;
+  symptoms?: string;
+  diagnosis?: string;
 }
 
 interface SymptomsAssessmentProps {
@@ -385,6 +387,8 @@ export default function SymptomsAssessment({ patientEmail, patientName, hospital
               ai_suggested_tests: aiData.ai_suggested_tests || [],
               ai_notes: aiData.ai_notes || "",
               prescription_id: aiData.prescription_id || prescriptionId,
+              symptoms: symptomsText,
+              diagnosis: chiefComplaint || symptomsText,
             });
           }
           return aiData;
@@ -399,6 +403,8 @@ export default function SymptomsAssessment({ patientEmail, patientName, hospital
               ai_suggested_tests: [],
               ai_notes: `Error: ${err.message}`,
               prescription_id: prescriptionId,
+              symptoms: symptomsText,
+              diagnosis: chiefComplaint || symptomsText,
             });
           }
         });

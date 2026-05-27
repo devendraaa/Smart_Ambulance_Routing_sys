@@ -175,3 +175,6 @@ ALTER TABLE patient_medicines ADD COLUMN IF NOT EXISTS collected_at TIMESTAMPTZ;
 
 -- Patient UHID for route task patients
 ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS patient_uhid VARCHAR(50);
+
+-- Dispatch status (separate from computation status to avoid collision)
+ALTER TABLE route_tasks ADD COLUMN IF NOT EXISTS dispatch_status VARCHAR(20) NOT NULL DEFAULT 'unassigned';
