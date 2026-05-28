@@ -311,7 +311,6 @@ export function PatientDetailContent({ appointmentId, onBack }: { appointmentId:
         patient_email: appointment.patient_email,
         patient_name: appointment.patient_name,
         appointment_id: appointment.id,
-        hospital_name: appointment.hospital_name,
         test_type: newTest.test_type,
         notes: newTest.notes,
         status: "ordered",
@@ -725,6 +724,7 @@ export function PatientDetailContent({ appointmentId, onBack }: { appointmentId:
                           diagnosis: aiDiagnosisData.ai_diagnosis,
                           suggestedTests: aiDiagnosisData.ai_suggested_tests || [],
                           symptoms: savedSymptoms || undefined,
+                          aiNotes: aiDiagnosisData.ai_notes || undefined,
                         };
                         setAiPreFill(preFill);
                         setAiDiagnosisData(null);

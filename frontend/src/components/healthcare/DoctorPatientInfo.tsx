@@ -10,7 +10,7 @@ import {
   HeartPulse, History, Hospital
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { fetchAdmittedPatients, fetchHealthcareHospitals } from "@/lib/api";
+import { fetchAdmittedPatients, fetchHospitalsList } from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -105,9 +105,9 @@ export default function DoctorPatientInfo() {
   useEffect(() => {
     (async () => {
       try {
-        const hResult = await fetchHealthcareHospitals();
+        const hResult = await fetchHospitalsList();
         if (hResult?.hospitals) {
-          setHospitals(hResult.hospitals);
+          setHospitals(hResult.hospitals.map((h: any) => ({ id: String(h.id), name: h.name })));
         }
       } catch { /* ignore */ }
     })();
@@ -135,7 +135,7 @@ export default function DoctorPatientInfo() {
     try {
       const { data: routeData } = await supabase
         .from("route_tasks")
-        .select("id, patient_name, patient_age, patient_sex, patient_mobile, patient_email, patient_blood_group, patient_case, patient_bp_systolic, patient_bp_diastolic, patient_temperature, patient_pulse, patient_spo2, ambulance_number, driver_name, distance_km, duration_min, triage_level, ward_name, consultant_name, discharge_status, admitted_at, hospital_name")
+        .select("id, patient_name, patient_age, patient_sex, patient_mobile, patient_blood_group, patient_case, patient_bp_systolic, patient_bp_diastolic, patient_temperature, patient_pulse, patient_spo2, ambulance_number, driver_name, triage_level, ward_name, discharge_status, admitted_at, hospital_name")
         .eq("id", taskId)
         .maybeSingle();
 
@@ -271,7 +271,7 @@ export default function DoctorPatientInfo() {
       // Fetch from route_tasks
       const { data: routeData } = await supabase
         .from("route_tasks")
-        .select("patient_name, patient_age, patient_sex, patient_mobile, patient_blood_group, patient_case, patient_bp_systolic, patient_bp_diastolic, patient_temperature, patient_pulse, patient_spo2, ambulance_number, driver_name, distance_km, duration_min, triage_level, ward_name, consultant_name, discharge_status, admitted_at, hospital_name")
+        .select("patient_name, patient_age, patient_sex, patient_mobile, patient_blood_group, patient_case, patient_bp_systolic, patient_bp_diastolic, patient_temperature, patient_pulse, patient_spo2, ambulance_number, driver_name, triage_level, ward_name, discharge_status, admitted_at, hospital_name")
         .eq("patient_mobile", email)
         .or(`patient_name.ilike.%${email.split("@")[0]}%`)
         .limit(1)
@@ -906,6 +906,25 @@ export default function DoctorPatientInfo() {
             <p className="text-blue-100 text-sm">Search by patient email or name</p>
           </div>
           <div className="max-w-2xl mx-auto">
+            {/* Hospital Filter - Top */}
+            <div className="mb-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Building2 className="w-4 h-4 text-blue-200" />
+                <h3 className="text-sm font-semibold text-blue-100">Filter by Hospital</h3>
+              </div>
+              <select
+                value={selectedHospital}
+                onChange={(e) => setSelectedHospital(e.target.value)}
+                className="w-full rounded-xl border-2 border-white/30 bg-white/20 px-4 py-3 text-white text-sm"
+                style={{ colorScheme: 'dark' }}
+              >
+                <option value="" style={{ color: '#1f2937' }}>All Hospitals</option>
+                {hospitals.map((h) => (
+                  <option key={h.id} value={h.name} style={{ color: '#1f2937' }}>{h.name}</option>
+                ))}
+              </select>
+            </div>
+
             <div className="flex flex-col sm:flex-row gap-3">
               <select value={searchType} onChange={(e) => setSearchType(e.target.value as "email" | "name")}
                 className="rounded-xl border-2 border-white/30 bg-white/20 px-4 py-3 text-white text-sm"
@@ -944,25 +963,6 @@ export default function DoctorPatientInfo() {
                 )}
               </div>
             )}
-
-            {/* Hospital Filter */}
-            <div className="mt-6">
-              <div className="flex items-center gap-2 mb-3">
-                <Building2 className="w-4 h-4 text-blue-200" />
-                <h3 className="text-sm font-semibold text-blue-100">Filter by Hospital</h3>
-              </div>
-              <select
-                value={selectedHospital}
-                onChange={(e) => setSelectedHospital(e.target.value)}
-                className="w-full rounded-xl border-2 border-white/30 bg-white/20 px-4 py-3 text-white text-sm mb-4"
-                style={{ colorScheme: 'dark' }}
-              >
-                <option value="" style={{ color: '#1f2937' }}>All Hospitals</option>
-                {hospitals.map((h) => (
-                  <option key={h.id} value={h.name} style={{ color: '#1f2937' }}>{h.name}</option>
-                ))}
-              </select>
-            </div>
 
             {/* Today's Admitted Patients */}
             <div className="mt-2">

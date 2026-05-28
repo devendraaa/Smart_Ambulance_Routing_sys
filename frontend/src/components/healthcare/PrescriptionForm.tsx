@@ -19,6 +19,67 @@ import {
 
 const TEST_TYPES = ["MRI", "CT Scan", "Sonography", "Blood Test", "X-Ray", "ECG", "ECHO", "TMT", "Urine Test", "Stool Test", "Thyroid", "Sugar Test", "Lipid Profile", "Liver Function", "Kidney Function"];
 
+const TEST_TYPE_MAP: Record<string, string> = {
+  "cbc": "Blood Test",
+  "complete blood count": "Blood Test",
+  "blood culture": "Blood Test",
+  "urinalysis": "Urine Test",
+  "malaria smear": "Blood Test",
+  "dengue ns1": "Blood Test",
+  "chest x-ray": "X-Ray",
+  "chest xray": "X-Ray",
+  "x ray chest": "X-Ray",
+  "x-ray chest": "X-Ray",
+  "ultrasound abdomen": "Sonography",
+  "ultrasound": "Sonography",
+  "abg": "Blood Test",
+  "bnp": "Blood Test",
+  "lft": "Liver Function",
+  "liver function test": "Liver Function",
+  "amylase": "Blood Test",
+  "sputum afb": "Blood Test",
+  "crp": "Blood Test",
+  "troponin": "Blood Test",
+  "d-dimer": "Blood Test",
+  "d dimer": "Blood Test",
+  "ecg": "ECG",
+  "electrocardiogram": "ECG",
+  "echo": "ECHO",
+  "echocardiography": "ECHO",
+  "echo cardiography": "ECHO",
+  "ct scan": "CT Scan",
+  "ct head": "CT Scan",
+  "ct brain": "CT Scan",
+  "mri": "MRI",
+  "mri brain": "MRI",
+  "tmt": "TMT",
+  "stress test": "TMT",
+  "thyroid": "Thyroid",
+  "thyroid function": "Thyroid",
+  "sugar test": "Sugar Test",
+  "blood sugar": "Sugar Test",
+  "lipid profile": "Lipid Profile",
+  "kidney function": "Kidney Function",
+  "renal function": "Kidney Function",
+  "stool test": "Stool Test",
+  "stool": "Stool Test",
+  "fundoscopy": "Blood Test",
+  "bp measurement": "Blood Test",
+  "bp lying/standing": "Blood Test",
+  "dix-hallpike": "Blood Test",
+};
+
+function mapTestToDropdown(testName: string): string {
+  const lower = testName.toLowerCase().trim();
+  for (const [key, value] of Object.entries(TEST_TYPE_MAP)) {
+    if (lower.includes(key)) return value;
+  }
+  const matched = TEST_TYPES.find(t =>
+    t.toLowerCase().includes(lower) || lower.includes(t.toLowerCase())
+  );
+  return matched || "Blood Test";
+}
+
 const SYMPTOM_MEDICINE_MAP: Record<string, string[]> = {
   fever: ["Fever & Pain", "Viral Fever"],
   temperature: ["Fever & Pain", "Viral Fever"],
@@ -117,8 +178,8 @@ interface PrescriptionFormProps {
     medicines?: string | null;
     follow_up_date?: string | null;
   } | null;
-  aiPreFill?: { diagnosis: string; suggestedTests: string[]; symptoms?: string } | null;
-  onCompleteVisitSuggested?: (data: SavedPrescriptionData) => void;
+  aiPreFill?: { diagnosis: string; suggestedTests: string[]; symptoms?: string; aiNotes?: string } | null;
+  onCompleteVisitSuggested?: (data: SavedPrescriptionData) => void | Promise<void>;
 }
 
 function newRow(): MedicineRow {
@@ -181,7 +242,11 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
       if (aiPreFill.symptoms) setSymptoms(aiPreFill.symptoms);
       if (aiPreFill.diagnosis) setDiagnosis(aiPreFill.diagnosis);
       if (aiPreFill.suggestedTests.length > 0) {
-        setOrderedTests(aiPreFill.suggestedTests.map(t => ({ test_type: t, notes: "" })));
+        const noteText = aiPreFill.aiNotes || aiPreFill.diagnosis;
+        setOrderedTests(aiPreFill.suggestedTests.map(t => ({
+          test_type: mapTestToDropdown(t),
+          notes: noteText ? `AI: ${noteText}` : "",
+        })));
       }
     }
   }, [aiPreFill]);
@@ -320,7 +385,6 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
         const testInserts = orderedTests.map(t => ({
           patient_email: patientEmail,
           patient_name: patientName,
-          hospital_name: hospitalName || null,
           appointment_id: appointmentId || null,
           test_type: t.test_type,
           notes: t.notes,
@@ -368,10 +432,9 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
       setDuplicateWarnings([]);
       setAllergyWarnings([]);
       setPrescriptionType("new");
-      onSaved();
 
       if (saveAndComplete && onCompleteVisitSuggested) {
-        onCompleteVisitSuggested({
+        await Promise.resolve(onCompleteVisitSuggested({
           symptoms: savedSymptoms,
           diagnosis: savedDiagnosis,
           medicines: validMeds.map(m => ({
@@ -383,8 +446,9 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
           })),
           notes: savedNotes,
           followUpDate: savedFollowUp,
-        });
+        }));
       }
+      onSaved();
     } catch (err) {
       console.error("Error saving prescription:", err);
       const msg = err instanceof Error ? err.message : "Unknown error";
