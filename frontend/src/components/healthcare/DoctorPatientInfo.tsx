@@ -144,7 +144,7 @@ export default function DoctorPatientInfo() {
         return;
       }
 
-      const email = routeData.patient_mobile || routeData.patient_email || taskId;
+      const email = routeData.patient_mobile || taskId;
       const patientData: PatientData = {
         email,
         task_id: routeData.id,
@@ -161,11 +161,8 @@ export default function DoctorPatientInfo() {
         patient_spo2: routeData.patient_spo2,
         ambulance_number: routeData.ambulance_number,
         driver_name: routeData.driver_name,
-        distance_km: routeData.distance_km,
-        duration_min: routeData.duration_min,
         triage_level: routeData.triage_level,
         ward_name: routeData.ward_name,
-        consultant_name: routeData.consultant_name,
         discharge_status: routeData.discharge_status,
         admitted_at: routeData.admitted_at,
         hospital_name: routeData.hospital_name,

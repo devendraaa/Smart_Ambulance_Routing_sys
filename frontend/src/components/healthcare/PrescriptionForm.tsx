@@ -17,31 +17,39 @@ import {
   REFILL_OPTIONS,
 } from "@/lib/medicines";
 
-const TEST_TYPES = ["MRI", "CT Scan", "Sonography", "Blood Test", "X-Ray", "ECG", "ECHO", "TMT", "Urine Test", "Stool Test", "Thyroid", "Sugar Test", "Lipid Profile", "Liver Function", "Kidney Function"];
+const TEST_TYPES = [
+  "MRI", "CT Scan", "Sonography", "X-Ray", "ECG", "ECHO", "TMT",
+  "Blood Test", "Urine Test", "Stool Test",
+  "CBC", "Blood Culture", "Malaria Smear", "Dengue NS1", "CRP", "Troponin", "D-dimer", "ABG", "BNP", "Sputum AFB", "Amylase", "Fundoscopy",
+  "Liver Function", "Kidney Function", "Lipid Profile", "Thyroid", "Sugar Test",
+  "BP Monitoring",
+];
 
 const TEST_TYPE_MAP: Record<string, string> = {
-  "cbc": "Blood Test",
-  "complete blood count": "Blood Test",
-  "blood culture": "Blood Test",
+  "cbc": "CBC",
+  "complete blood count": "CBC",
+  "blood culture": "Blood Culture",
   "urinalysis": "Urine Test",
-  "malaria smear": "Blood Test",
-  "dengue ns1": "Blood Test",
+  "malaria smear": "Malaria Smear",
+  "dengue ns1": "Dengue NS1",
   "chest x-ray": "X-Ray",
   "chest xray": "X-Ray",
   "x ray chest": "X-Ray",
   "x-ray chest": "X-Ray",
   "ultrasound abdomen": "Sonography",
   "ultrasound": "Sonography",
-  "abg": "Blood Test",
-  "bnp": "Blood Test",
+  "abg": "ABG",
+  "arterial blood gas": "ABG",
+  "bnp": "BNP",
   "lft": "Liver Function",
   "liver function test": "Liver Function",
-  "amylase": "Blood Test",
-  "sputum afb": "Blood Test",
-  "crp": "Blood Test",
-  "troponin": "Blood Test",
-  "d-dimer": "Blood Test",
-  "d dimer": "Blood Test",
+  "amylase": "Amylase",
+  "sputum afb": "Sputum AFB",
+  "sputum": "Sputum AFB",
+  "crp": "CRP",
+  "troponin": "Troponin",
+  "d-dimer": "D-dimer",
+  "d dimer": "D-dimer",
   "ecg": "ECG",
   "electrocardiogram": "ECG",
   "echo": "ECHO",
@@ -63,10 +71,10 @@ const TEST_TYPE_MAP: Record<string, string> = {
   "renal function": "Kidney Function",
   "stool test": "Stool Test",
   "stool": "Stool Test",
-  "fundoscopy": "Blood Test",
-  "bp measurement": "Blood Test",
-  "bp lying/standing": "Blood Test",
-  "dix-hallpike": "Blood Test",
+  "fundoscopy": "Fundoscopy",
+  "bp measurement": "BP Monitoring",
+  "bp lying/standing": "BP Monitoring",
+  "dix-hallpike": "BP Monitoring",
 };
 
 function mapTestToDropdown(testName: string): string {
@@ -77,7 +85,14 @@ function mapTestToDropdown(testName: string): string {
   const matched = TEST_TYPES.find(t =>
     t.toLowerCase().includes(lower) || lower.includes(t.toLowerCase())
   );
-  return matched || "Blood Test";
+  return matched || testName;
+}
+
+// Keep the original AI test name alongside the mapped dropdown value
+interface OrderedTest {
+  test_type: string;
+  notes: string;
+  original_name?: string;
 }
 
 const SYMPTOM_MEDICINE_MAP: Record<string, string[]> = {
@@ -194,7 +209,7 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
   const [notes, setNotes] = useState(initialData?.prescription_notes || "");
   const [followUp, setFollowUp] = useState(initialData?.follow_up_date || "");
 
-  const [orderedTests, setOrderedTests] = useState<{ test_type: string; notes: string }[]>([]);
+  const [orderedTests, setOrderedTests] = useState<OrderedTest[]>([]);
   const [newTestType, setNewTestType] = useState("Blood Test");
   const [newTestNotes, setNewTestNotes] = useState("");
 
@@ -241,13 +256,6 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
     if (aiPreFill) {
       if (aiPreFill.symptoms) setSymptoms(aiPreFill.symptoms);
       if (aiPreFill.diagnosis) setDiagnosis(aiPreFill.diagnosis);
-      if (aiPreFill.suggestedTests.length > 0) {
-        const noteText = aiPreFill.aiNotes || aiPreFill.diagnosis;
-        setOrderedTests(aiPreFill.suggestedTests.map(t => ({
-          test_type: mapTestToDropdown(t),
-          notes: noteText ? `AI: ${noteText}` : "",
-        })));
-      }
     }
   }, [aiPreFill]);
 
@@ -381,22 +389,24 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
         }
       }
 
-      if (orderedTests.length > 0) {
-        const testInserts = orderedTests.map(t => ({
-          patient_email: patientEmail,
-          patient_name: patientName,
-          appointment_id: appointmentId || null,
-          test_type: t.test_type,
-          notes: t.notes,
-          status: "ordered",
-          payment_status: "pending",
-          created_at: new Date().toISOString(),
-        }));
-        const { error: testErr } = await supabase.from("patient_tests").insert(testInserts);
-        if (testErr) {
-          console.error("Error saving tests:", testErr);
-          alert("Prescription saved but failed to save some tests");
+      try {
+        if (orderedTests.length > 0) {
+          const testInserts = orderedTests.map(t => ({
+            patient_email: patientEmail,
+            appointment_id: appointmentId || null,
+            test_type: t.test_type,
+            notes: t.notes,
+            status: "ordered",
+            payment_status: "pending",
+            created_at: new Date().toISOString(),
+          }));
+          const { error: testErr } = await supabase.from("patient_tests").insert(testInserts);
+          if (testErr) {
+            console.error("Error saving tests:", testErr);
+          }
         }
+      } catch (e) {
+        console.error("Failed to save tests:", e);
       }
 
       if (validMeds.length > 0) {
@@ -678,11 +688,6 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
         <div className="flex items-center justify-between mb-1">
           <label className="block text-xs font-medium text-gray-700 flex items-center gap-2">
             Order Tests
-            {aiPreFill && aiPreFill.suggestedTests.length > 0 && (
-              <span className="text-[10px] px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded-full flex items-center gap-0.5">
-                <Sparkles className="w-2.5 h-2.5" /> AI Suggested
-              </span>
-            )}
           </label>
         </div>
         <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 space-y-2">
@@ -717,7 +722,7 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
           {orderedTests.length > 0 && (
             <div className="space-y-1.5">
               {orderedTests.map((t, i) => (
-                <div key={i} className="flex items-center justify-between gap-2 bg-white rounded-lg px-3 py-2 border border-purple-100">
+                  <div key={i} className="flex items-center justify-between gap-2 bg-white rounded-lg px-3 py-2 border border-purple-100">
                   <div className="flex-1 min-w-0">
                     <span className="text-xs font-medium text-purple-800">{t.test_type}</span>
                     {t.notes && <span className="text-[10px] text-gray-500 ml-2">- {t.notes}</span>}

@@ -124,6 +124,7 @@ interface Prescription {
   ai_suggested_tests?: any;
   ai_notes?: string;
   ai_processed?: boolean;
+  ai_suggested_diet?: { diet_name: string; diet_type: string; foods: string; instructions: string } | null;
 }
 
 function PatientDetailPanel({
@@ -145,15 +146,17 @@ function PatientDetailPanel({
   const [completing, setCompleting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [visitNote, setVisitNote] = useState("");
-  const [aiPreFillData, setAiPreFillData] = useState<{ diagnosis: string; suggestedTests: string[] } | null>(null);
+  const [aiPreFillData, setAiPreFillData] = useState<{ diagnosis: string; suggestedTests: string[]; suggestedDiet?: any } | null>(null);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [aiDiagnosisData, setAiDiagnosisData] = useState<{
     ai_diagnosis: string;
     ai_disease_predictions: any[];
     ai_suggested_tests: string[];
     ai_notes?: string;
+    ai_suggested_diet?: { diet_name: string; diet_type: string; foods: string; instructions: string } | null;
     prescription_id: string;
   } | null>(null);
+  const [dismissedAiDiet, setDismissedAiDiet] = useState(false);
 
   const isCurrentAppointment = isToday(appointment.appointment_date);
   const isCompleted = appointment.status === "completed";
@@ -451,9 +454,10 @@ function PatientDetailPanel({
                         onAiComplete={(aiResult) => {
                           setAiProcessing(false);
                           setAiDiagnosisData(aiResult);
+                          setDismissedAiDiet(aiResult.ai_suggested_diet ? false : true);
                           setPrescriptions(prev => prev.map(p =>
                             p.id === aiResult.prescription_id
-                              ? { ...p, ai_processed: true, ai_diagnosis: aiResult.ai_diagnosis, ai_disease_predictions: aiResult.ai_disease_predictions, ai_suggested_tests: aiResult.ai_suggested_tests, ai_notes: aiResult.ai_notes || "" }
+                              ? { ...p, ai_processed: true, ai_diagnosis: aiResult.ai_diagnosis, ai_disease_predictions: aiResult.ai_disease_predictions, ai_suggested_tests: aiResult.ai_suggested_tests, ai_notes: aiResult.ai_notes || "", ai_suggested_diet: aiResult.ai_suggested_diet }
                               : p
                           ));
                           setActiveTab("ai-diagnosis");
@@ -499,6 +503,7 @@ function PatientDetailPanel({
                           ai_disease_predictions: Array.isArray(aiPresc.ai_disease_predictions) ? aiPresc.ai_disease_predictions : [],
                           ai_suggested_tests: Array.isArray(aiPresc.ai_suggested_tests) ? aiPresc.ai_suggested_tests : [],
                           ai_notes: aiPresc.ai_notes || "",
+                          ai_suggested_diet: aiPresc.ai_suggested_diet || null,
                           prescription_id: aiPresc.id,
                         };
                       })();
@@ -611,6 +616,30 @@ function PatientDetailPanel({
                             <div className="bg-white rounded-2xl border border-gray-100 p-4">
                               <h4 className="text-xs font-bold text-gray-800 mb-2">AI Notes</h4>
                               <p className="text-sm text-gray-600 leading-relaxed">{aiData.ai_notes}</p>
+                            </div>
+                          )}
+                          {aiData.ai_suggested_diet && (
+                            <div className="bg-white rounded-2xl border border-emerald-100 p-4">
+                              <div className="flex items-center gap-2 mb-3">
+                                <Utensils className="w-4 h-4 text-emerald-600" />
+                                <h4 className="text-xs font-bold text-gray-800">Suggested Diet</h4>
+                              </div>
+                              <div className="bg-emerald-50 rounded-lg p-3 space-y-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-semibold text-sm text-gray-900">{aiData.ai_suggested_diet.diet_name}</span>
+                                  <span className="text-[10px] px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full">{aiData.ai_suggested_diet.diet_type}</span>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Foods</p>
+                                  <p className="text-sm text-gray-700">{aiData.ai_suggested_diet.foods}</p>
+                                </div>
+                                {aiData.ai_suggested_diet.instructions && (
+                                  <div>
+                                    <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Instructions</p>
+                                    <p className="text-sm text-gray-600">{aiData.ai_suggested_diet.instructions}</p>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
                           {canEdit && (
@@ -765,6 +794,25 @@ function PatientDetailPanel({
                               </div>
                             </div>
                           )}
+                          {(() => {
+                            const dietData = aiPrescription.ai_suggested_diet;
+                            if (!dietData) return null;
+                            return (
+                              <div className="mb-3">
+                                <p className="text-xs font-medium text-indigo-600 mb-1.5 flex items-center gap-1">
+                                  <Utensils className="w-3 h-3" /> Suggested Diet
+                                </p>
+                                <div className="bg-emerald-50 rounded-lg p-3 space-y-1.5 border border-emerald-100">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-xs font-semibold text-gray-900">{dietData.diet_name}</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded-full">{dietData.diet_type}</span>
+                                  </div>
+                                  <p className="text-[10px] text-gray-600">{dietData.foods}</p>
+                                  {dietData.instructions && <p className="text-[10px] text-gray-500 italic">{dietData.instructions}</p>}
+                                </div>
+                              </div>
+                            );
+                          })()}
                           {canEdit && (
                             <button
                               onClick={() => {

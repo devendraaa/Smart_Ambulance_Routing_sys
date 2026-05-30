@@ -107,6 +107,40 @@ LOCAL_SYMPTOM_DB = {
     },
 }
 
+# Local diet suggestions mapped to diagnoses
+LOCAL_DIET_DB = {
+    "Acute Coronary Syndrome": {"diet_name": "Heart-Healthy Diet", "diet_type": "Heart", "foods": "Oats, whole grains, berries, leafy greens, fatty fish, nuts, olive oil", "instructions": "Avoid saturated fats, trans fats, high-sodium foods, and processed meats. Limit caffeine. Small frequent meals."},
+    "Gastroesophageal Reflux Disease": {"diet_name": "GERD Management Diet", "diet_type": "General", "foods": "Bananas, melons, oatmeal, whole grains, lean poultry, fish, green vegetables", "instructions": "Avoid spicy, fried, acidic foods. No citrus, tomatoes, chocolate, caffeine, or alcohol. Eat small meals. Don't lie down after eating."},
+    "Costochondritis": {"diet_name": "Anti-Inflammatory Diet", "diet_type": "General", "foods": "Turmeric, ginger, berries, leafy greens, fatty fish, nuts, seeds", "instructions": "Avoid processed foods and refined sugars. Include omega-3 rich foods. Stay hydrated."},
+    "Migraine": {"diet_name": "Migraine Management Diet", "diet_type": "General", "foods": "Leafy greens, almonds, fatty fish, magnesium-rich foods, ginger tea", "instructions": "Avoid trigger foods: aged cheese, chocolate, caffeine, alcohol, artificial sweeteners, processed meats. Eat regular meals, don't skip."},
+    "Tension Headache": {"diet_name": "Balanced Stress-Reduction Diet", "diet_type": "General", "foods": "Complex carbohydrates, green tea, dark chocolate (moderate), magnesium-rich foods", "instructions": "Stay hydrated. Limit caffeine. Eat regular meals to maintain blood sugar. Avoid skipping breakfast."},
+    "Sinusitis": {"diet_name": "Sinus Relief Diet", "diet_type": "General", "foods": "Warm soups, ginger tea, turmeric milk, garlic, onions, citrus fruits, pineapple", "instructions": "Avoid dairy if it thickens mucus. Stay well hydrated. Avoid spicy foods if they worsen symptoms."},
+    "Hypertension": {"diet_name": "DASH Diet", "diet_type": "Low Salt", "foods": "Fruits, vegetables, whole grains, low-fat dairy, lean protein, nuts, seeds", "instructions": "Strictly limit sodium to <1500mg/day. Avoid processed foods, canned foods, pickles. Limit alcohol. Increase potassium intake."},
+    "Viral Upper Respiratory Infection": {"diet_name": "Immune-Boosting Recovery Diet", "diet_type": "General", "foods": "Warm soups, ginger tea, honey, citrus fruits, garlic, turmeric milk, bone broth", "instructions": "Stay well hydrated. Eat light, easy-to-digest foods. Avoid cold beverages and dairy if congested. Rest."},
+    "Urinary Tract Infection": {"diet_name": "UTI Prevention Diet", "diet_type": "General", "foods": "Cranberry juice, blueberries, vitamin C-rich foods, yogurt, probiotics, plenty of water", "instructions": "Avoid caffeine, alcohol, spicy foods, and artificial sweeteners. Drink plenty of water. Include probiotic foods."},
+    "Dengue": {"diet_name": "Dengue Recovery Diet", "diet_type": "General", "foods": "Papaya leaf juice, coconut water, pomegranate, kiwi, orange juice, vegetable soup, porridge", "instructions": "Avoid dark-colored foods that may mimic GI bleeding. Stay hydrated with ORS and fluids. Eat small frequent meals. Avoid oily/spicy foods."},
+    "Malaria": {"diet_name": "Malaria Recovery Diet", "diet_type": "General", "foods": "High-protein foods, lentils, rice, bananas, coconut water, citrus fruits, green leafy vegetables", "instructions": "Stay hydrated. Eat frequent small meals. Avoid oily, fried foods. Include iron-rich foods."},
+    "Asthma": {"diet_name": "Asthma Management Diet", "diet_type": "General", "foods": "Fruits rich in vitamin C, leafy greens, fatty fish, ginger, turmeric, nuts, seeds", "instructions": "Avoid sulfites (dried fruits, wine), processed foods, and known food allergens. Eat anti-inflammatory foods."},
+    "COPD Exacerbation": {"diet_name": "COPD Support Diet", "diet_type": "General", "foods": "High-protein foods, eggs, lean meat, lentils, whole grains, fruits, vegetables", "instructions": "Eat small frequent meals to avoid bloating. Avoid gas-producing foods. Stay hydrated. Limit salt."},
+    "Pneumonia": {"diet_name": "Pneumonia Recovery Diet", "diet_type": "General", "foods": "Warm soups, protein-rich foods, eggs, yogurt, fruits, green vegetables, honey, ginger", "instructions": "Stay well hydrated. Eat small frequent meals. Avoid cold foods and dairy products. Include zinc-rich foods."},
+    "Heart Failure": {"diet_name": "Heart Failure Diet", "diet_type": "Heart", "foods": "Fresh fruits, vegetables, lean protein, whole grains, low-fat dairy", "instructions": "Strictly limit sodium to <1500mg/day. Limit fluid intake as advised. Avoid alcohol. Monitor weight daily."},
+    "Pulmonary Embolism": {"diet_name": "Heart-Healthy Diet", "diet_type": "Heart", "foods": "Oats, berries, leafy greens, fatty fish, nuts, olive oil, garlic", "instructions": "Avoid vitamin K-rich foods in excess if on warfarin. Stay hydrated. Limit salt. Avoid prolonged sitting."},
+    "Acute Gastroenteritis": {"diet_name": "BRAT Diet", "diet_type": "General", "foods": "Bananas, rice, applesauce, toast, clear soups, oral rehydration solution", "instructions": "Avoid dairy, fatty foods, spicy foods, caffeine, and alcohol. Stay hydrated with ORS. Introduce foods gradually."},
+    "Appendicitis": {"diet_name": "Post-Appendectomy Diet", "diet_type": "General", "foods": "Clear liquids, bland foods, toast, rice, boiled vegetables, yogurt", "instructions": "Start with clear liquids. Gradually add soft foods. Avoid gas-producing foods, spicy, and fatty foods."},
+    "Peptic Ulcer Disease": {"diet_name": "Ulcer-Friendly Diet", "diet_type": "General", "foods": "Bananas, oatmeal, whole grains, lean poultry, fish, yogurt, cabbage juice", "instructions": "Avoid spicy foods, caffeine, alcohol, citrus, tomatoes, and NSAIDs. Eat small frequent meals."},
+    "Cholecystitis": {"diet_name": "Gallbladder-Friendly Diet", "diet_type": "Low Salt", "foods": "Lean protein, fish, vegetables, fruits, whole grains, low-fat dairy", "instructions": "Strictly avoid fried, fatty, and oily foods. Eat small frequent meals. Avoid gas-producing vegetables."},
+    "Renal Colic": {"diet_name": "Kidney Stone Prevention Diet", "diet_type": "General", "foods": "Lemon water, citrus fruits, watermelon, cucumber, berries, low-oxalate vegetables", "instructions": "Drink plenty of water (2-3L/day). Limit salt, animal protein, oxalate-rich foods (spinach, beets, nuts). Avoid soda."},
+    "Upper Respiratory Tract Infection": {"diet_name": "Cold Recovery Diet", "diet_type": "General", "foods": "Warm soups, honey, ginger tea, garlic, citrus fruits, chicken soup, turmeric milk", "instructions": "Stay hydrated. Eat warm, soothing foods. Get plenty of rest. Avoid cold beverages."},
+    "Bronchitis": {"diet_name": "Bronchitis Recovery Diet", "diet_type": "General", "foods": "Warm soups, ginger tea, honey, turmeric milk, garlic, fruits rich in vitamin C", "instructions": "Stay hydrated. Avoid dairy if it increases mucus. Avoid cold drinks. Eat anti-inflammatory foods."},
+    "Post-nasal Drip": {"diet_name": "Mucus-Reduction Diet", "diet_type": "General", "foods": "Ginger tea, warm lemon water, turmeric, garlic, onion, spicy foods (if tolerated)", "instructions": "Stay hydrated. Limit dairy products. Avoid caffeine and alcohol. Use steam inhalation."},
+    "Tuberculosis": {"diet_name": "TB Recovery Diet", "diet_type": "Weight Gain", "foods": "High-protein foods, eggs, milk, lentils, nuts, bananas, ghee, whole grains, fruits", "instructions": "Eat calorie-dense, nutrient-rich foods. Small frequent meals. Include iron and vitamin-rich foods. Stay hydrated."},
+    "Benign Paroxysmal Positional Vertigo": {"diet_name": "Balance-Support Diet", "diet_type": "General", "foods": "Ginger tea, almonds, vitamin D-rich foods, leafy greens, bananas", "instructions": "Stay hydrated. Limit salt, caffeine, and alcohol. Avoid sudden head movements."},
+    "Anemia": {"diet_name": "Iron-Boosting Diet", "diet_type": "General", "foods": "Spinach, lentils, red meat, beans, fortified cereals, citrus fruits, nuts, seeds", "instructions": "Pair iron-rich foods with vitamin C (citrus) for absorption. Avoid tea/coffee with meals. Include folate and B12 rich foods."},
+    "Hypotension": {"diet_name": "BP-Stabilizing Diet", "diet_type": "Low Salt", "foods": "Salty foods (in moderation), plenty of fluids, small frequent meals, electrolyte-rich drinks", "instructions": "Increase fluid intake. Add moderate salt to meals. Avoid large heavy meals. Include caffeine if not contraindicated."},
+    "Vestibular Neuritis": {"diet_name": "Vestibular Support Diet", "diet_type": "General", "foods": "Ginger, almonds, vitamin D-rich foods, bananas, leafy greens", "instructions": "Stay hydrated. Limit salt, caffeine, and alcohol. Avoid triggers. Small frequent meals."},
+    "Cardiac Arrhythmia": {"diet_name": "Heart-Healthy Diet", "diet_type": "Heart", "foods": "Magnesium-rich foods (bananas, spinach, nuts), potassium-rich foods, whole grains, fatty fish", "instructions": "Limit caffeine and alcohol. Avoid energy drinks. Stay hydrated. Limit sodium. Avoid large heavy meals."},
+}
+
 # Drug interaction database
 DRUG_INTERACTIONS = {
     ("Warfarin", "Aspirin"): {"severity": "major", "effect": "Increased risk of bleeding. Monitor INR closely."},
@@ -240,6 +274,8 @@ def build_prompt_from_prescription(p: dict) -> str:
     return "\n".join(parts)
 
 
+STOP_WORDS = {"a", "an", "the", "of", "in", "on", "at", "to", "for", "with", "and", "or", "is", "was", "it"}
+
 def local_fallback_diagnose(prompt_text: str) -> dict:
     """Rule-based fallback diagnosis when DxGPT API is unavailable."""
     prompt_lower = prompt_text.lower()
@@ -250,11 +286,11 @@ def local_fallback_diagnose(prompt_text: str) -> dict:
         score = 0
         if symptom_key in prompt_lower:
             score += 10
-        # Check for related keywords
         for keyword in symptom_key.split():
+            if keyword in STOP_WORDS:
+                continue
             if keyword in prompt_lower:
-                score += 5
-        # Check vital signs
+                score += 1
         if "fever" in symptom_key and any(kw in prompt_lower for kw in ["temp:", "temperature", "38", "39", "40"]):
             score += 5
         if "shortness of breath" in symptom_key and any(kw in prompt_lower for kw in ["spo2", "oxygen", "breathless", "dyspnea"]):
@@ -271,11 +307,27 @@ def local_fallback_diagnose(prompt_text: str) -> dict:
             "predicted_diseases": [],
             "suggested_tests": ["CBC", "Comprehensive Metabolic Panel", "Chest X-ray"],
             "ai_notes": "Symptoms did not match local diagnosis database. Suggest comprehensive workup.",
-            "source": "local_fallback"
+            "source": "local_fallback",
+            "suggested_diet": None
         }
 
-    # Pick best matching category
-    best_match = max(scores, key=scores.get)
+    # When tied, prefer the match whose exact key appears in the Chief Complaint
+    max_score = max(scores.values())
+    tied = [k for k, v in scores.items() if v == max_score]
+    if len(tied) > 1:
+        chief_complaint_section = ""
+        if "chief complaint:" in prompt_lower:
+            cc_start = prompt_lower.index("chief complaint:") + len("chief complaint:")
+            cc_end = prompt_lower.index("\n", cc_start) if "\n" in prompt_lower[cc_start:] else len(prompt_lower)
+            chief_complaint_section = prompt_lower[cc_start:cc_end]
+        cc_matches = [k for k in tied if k in chief_complaint_section] if chief_complaint_section else []
+        if cc_matches:
+            best_match = cc_matches[0]
+        else:
+            exact_matches = [k for k in tied if k in prompt_lower]
+            best_match = exact_matches[0] if exact_matches else tied[0]
+    else:
+        best_match = max(scores, key=scores.get)
     best_data = LOCAL_SYMPTOM_DB[best_match]
 
     # Build predicted_diseases
@@ -295,7 +347,8 @@ def local_fallback_diagnose(prompt_text: str) -> dict:
         "predicted_diseases": predicted,
         "suggested_tests": best_data["tests"],
         "ai_notes": f"Local fallback diagnosis based on symptom: '{best_match}'. Rule-based analysis, not AI-generated. Consult specialist for confirmation.",
-        "source": "local_fallback"
+        "source": "local_fallback",
+        "suggested_diet": LOCAL_DIET_DB.get(predicted[0]["disease"])
     }
 
 
@@ -377,15 +430,26 @@ def _extract_diagnoses(dxgpt_json: dict) -> list:
     try:
         if dxgpt_json.get("type") in ("result", "complete") and dxgpt_json.get("status") == "success":
             inner = dxgpt_json.get("data", {})
-            raw_list = inner.get("data", [])
+            if isinstance(inner, dict):
+                raw_list = inner.get("data", [])
         elif dxgpt_json.get("result") == "success":
             inner = dxgpt_json.get("data", {})
-            raw_list = inner.get("data", [])
+            if isinstance(inner, dict):
+                raw_list = inner.get("data", [])
         if not raw_list:
             result_wrapper = dxgpt_json.get("result", {})
             if isinstance(result_wrapper, dict):
                 inner = result_wrapper.get("data", {})
-                raw_list = inner.get("data", [])
+                if isinstance(inner, dict):
+                    raw_list = inner.get("data", [])
+        # Fallback: check for predicted_diseases array at any nesting level
+        if not raw_list:
+            for candidate in [dxgpt_json, dxgpt_json.get("data", {}), dxgpt_json.get("result", {})]:
+                if isinstance(candidate, dict):
+                    pd = candidate.get("predicted_diseases", [])
+                    if pd and isinstance(pd, list):
+                        raw_list = pd
+                        break
     except Exception:
         pass
     return raw_list
@@ -396,7 +460,7 @@ def parse_dxgpt_response(dxgpt_json: dict) -> dict:
     try:
         for d in _extract_diagnoses(dxgpt_json):
             diagnoses.append({
-                "disease": d.get("diagnosis", ""),
+                "disease": d.get("diagnosis") or d.get("disease", ""),
                 "description": d.get("description", ""),
                 "symptoms_in_common": d.get("symptoms_in_common", []),
                 "symptoms_not_in_common": d.get("symptoms_not_in_common", [])
@@ -450,12 +514,24 @@ def parse_dxgpt_response(dxgpt_json: dict) -> dict:
         merged["probability"] = prob
         merged_predictions.append(merged)
 
+    # Look up diet suggestion from LOCAL_DIET_DB based on primary diagnosis
+    suggested_diet = None
+    if primary in LOCAL_DIET_DB:
+        suggested_diet = LOCAL_DIET_DB[primary]
+    elif merged_predictions:
+        for pred in merged_predictions:
+            disease = pred.get("disease", pred.get("disease_name", ""))
+            if disease in LOCAL_DIET_DB:
+                suggested_diet = LOCAL_DIET_DB[disease]
+                break
+
     return {
         "primary_diagnosis": primary,
         "differential_diagnoses": differentials,
         "predicted_diseases": merged_predictions,
         "suggested_tests": suggested_tests[:10],
-        "ai_notes": ("; ".join(notes_parts) if notes_parts else "DxGPT analysis completed.")[:500]
+        "ai_notes": ("; ".join(notes_parts) if notes_parts else "DxGPT analysis completed.")[:500],
+        "suggested_diet": suggested_diet
     }
 
 
@@ -480,7 +556,8 @@ async def diagnose_prescription(prescription_id: str):
             "prescription_id": prescription_id,
             "ai_diagnosis": prescription.get("ai_diagnosis"),
             "ai_disease_predictions": prescription.get("ai_disease_predictions"),
-            "ai_suggested_tests": prescription.get("ai_suggested_tests")
+            "ai_suggested_tests": prescription.get("ai_suggested_tests"),
+            "ai_suggested_diet": prescription.get("ai_suggested_diet")
         }
 
     prompt = build_prompt_from_prescription(prescription)
@@ -503,6 +580,7 @@ async def diagnose_prescription(prescription_id: str):
     ai_disease_predictions = parsed.get("predicted_diseases", [])
     ai_suggested_tests = parsed.get("suggested_tests", [])
     ai_notes = parsed.get("ai_notes", "")
+    ai_suggested_diet = parsed.get("suggested_diet")
 
     try:
         supabase.table("doctor_prescriptions").update({
@@ -510,6 +588,7 @@ async def diagnose_prescription(prescription_id: str):
             "ai_disease_predictions": ai_disease_predictions,
             "ai_suggested_tests": ai_suggested_tests,
             "ai_notes": ai_notes,
+            "ai_suggested_diet": ai_suggested_diet,
             "ai_processed": True,
             "ai_processed_at": datetime.now(timezone.utc).isoformat()
         }).eq("id", prescription_id).execute()
@@ -522,7 +601,8 @@ async def diagnose_prescription(prescription_id: str):
         "ai_diagnosis": ai_diagnosis,
         "ai_disease_predictions": ai_disease_predictions,
         "ai_suggested_tests": ai_suggested_tests,
-        "ai_notes": ai_notes
+        "ai_notes": ai_notes,
+        "ai_suggested_diet": ai_suggested_diet
     }
 
 
@@ -608,4 +688,5 @@ async def diagnose_local(
         "predicted_diseases": result["predicted_diseases"],
         "suggested_tests": result["suggested_tests"],
         "ai_notes": result["ai_notes"],
+        "suggested_diet": result.get("suggested_diet"),
     }

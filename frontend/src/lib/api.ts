@@ -211,9 +211,11 @@ export async function findNearestRoadSensor(
 }
 
 export async function fetchRoadSensors() {
-  return fetchAPI<
-    { sensor_id: string; latitude: number; longitude: number; road_name?: string; intersection_type?: string }[]
-  >("/api/sensors/road");
+  const res = await fetchAPI<{
+    data: { sensor_id: string; latitude: number; longitude: number; road_name?: string; intersection_type?: string }[];
+    total: number;
+  }>("/api/sensors/road");
+  return res.data;
 }
 
 // --- Sensors (manual + CSV upload) ---
@@ -237,13 +239,17 @@ export async function uploadSensorsCSV(csvText: string) {
 }
 
 export async function fetchManualSensors() {
-  return fetchAPI<{
-    id: string;
-    latitude: number;
-    longitude: number;
-    degree?: number;
-    created_at?: string;
-  }[]>("/api/sensors/");
+  const res = await fetchAPI<{
+    data: {
+      id: string;
+      latitude: number;
+      longitude: number;
+      degree?: number;
+      created_at?: string;
+    }[];
+    total: number;
+  }>("/api/sensors/");
+  return res.data;
 }
 
 // --- Installed Sensors (separate table) ---

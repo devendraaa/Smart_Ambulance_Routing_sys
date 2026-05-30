@@ -144,6 +144,7 @@ interface AIDiagnosisResult {
   ai_disease_predictions: any;
   ai_suggested_tests: any;
   ai_notes?: string;
+  ai_suggested_diet?: { diet_name: string; diet_type: string; foods: string; instructions: string } | null;
   prescription_id: string;
   symptoms?: string;
   diagnosis?: string;

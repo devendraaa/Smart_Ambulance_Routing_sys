@@ -14,7 +14,7 @@ const navLinks = [
   { href: "/route", label: "Route", icon: "🗺️" },
   { href: "/hospitals", label: "Hospitals", icon: "🏥" },
   { href: "/blood-bank", label: "Blood Bank", icon: "🩸" },
-  { href: "/dispatcher", label: "Dispatch", icon: "📋" },
+
 ];
 
 const baseSensorLinks = [

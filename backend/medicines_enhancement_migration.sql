@@ -11,3 +11,4 @@ ALTER TABLE patient_medicines ADD COLUMN IF NOT EXISTS collected_at TIMESTAMPTZ;
 ALTER TABLE patient_medicines ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
 CREATE INDEX IF NOT EXISTS idx_medicines_appointment ON patient_medicines(appointment_id);
+ 

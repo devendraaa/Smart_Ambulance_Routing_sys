@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Pill, Clock, Calendar, CheckCircle2, AlertTriangle, Users, PackageCheck, Building2 } from "lucide-react";
+import { Pill, Clock, Calendar, CheckCircle2, AlertTriangle, Users, PackageCheck, Building2, ChevronDown } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { getPatientMedicines, updateMedicine, Medicine } from "@/lib/healthcare";
 
@@ -43,6 +43,16 @@ function groupByPatient(medicines: Medicine[]): PatientGroup[] {
     .sort((a, b) => a.patient_name.localeCompare(b.patient_name));
 }
 
+function groupByDate(medicines: Medicine[]): Map<string, Medicine[]> {
+  const map = new Map<string, Medicine[]>();
+  for (const med of medicines) {
+    const dateKey = med.created_at ? med.created_at.split('T')[0] : "Unknown";
+    if (!map.has(dateKey)) map.set(dateKey, []);
+    map.get(dateKey)!.push(med);
+  }
+  return map;
+}
+
 function extractHospitals(medicines: Medicine[]): string[] {
   const set = new Set<string>();
   for (const m of medicines) {
@@ -57,6 +67,7 @@ export default function MedicineTab() {
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<"all" | "active" | "completed">("active");
   const [selectedHospital, setSelectedHospital] = useState<string>("all");
+  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchMedicines();
@@ -113,6 +124,22 @@ export default function MedicineTab() {
   }, [medicines, filter, selectedHospital]);
 
   const patientGroups = useMemo(() => groupByPatient(filteredMedicines), [filteredMedicines]);
+
+  useEffect(() => {
+    if (!patientGroups.length) return;
+    const dates = new Set<string>();
+    patientGroups.forEach(g => {
+      const gd = groupByDate(g.medicines);
+      const sorted = Array.from(gd.keys()).sort((a, b) => b.localeCompare(a));
+      if (sorted[0]) dates.add(`${g.patient_name}-${sorted[0]}`);
+    });
+    setExpandedDates(prev => {
+      if (prev.size > 0) return prev;
+      const next = new Set(prev);
+      dates.forEach(d => next.add(d));
+      return next;
+    });
+  }, [patientGroups]);
 
   const totalStats = useMemo(() => {
     let patients = 0;
@@ -248,97 +275,111 @@ export default function MedicineTab() {
                 </div>
               </div>
 
-              {/* Medicine cards */}
-              <div className="p-4 sm:p-6">
+              {/* Medicine cards grouped by date */}
+              <div className="p-3 sm:p-4">
                 {group.medicines.length === 0 ? (
                   <p className="text-center py-6 text-gray-400 text-sm">No medicines</p>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                    {group.medicines.map((med) => (
-                      <motion.div
-                        key={med.id}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className={`p-3 sm:p-4 rounded-xl border-2 transition ${
-                          med.medicine_collected
-                            ? "border-emerald-300 bg-emerald-50"
-                            : med.is_active
-                            ? "border-emerald-200 bg-emerald-50/50"
-                            : "border-gray-200 bg-gray-50"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between mb-3 gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{med.medicine_name}</h3>
-                              {med.is_prn && <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded font-medium">PRN</span>}
-                            </div>
-                            {med.dosage && <p className="text-xs sm:text-sm text-gray-600 mt-0.5">{med.dosage} {med.route && `(${med.route})`}</p>}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-1 shrink-0">
-                            {med.medicine_collected && (
-                              <span className="px-1.5 py-0.5 rounded text-[10px] sm:text-xs bg-emerald-100 text-emerald-700 flex items-center gap-0.5">
-                                <CheckCircle2 className="w-2.5 h-2.5" /> Collected
-                              </span>
+                ) : (() => {
+                  const dateGroups = groupByDate(group.medicines);
+                  const sortedDates = Array.from(dateGroups.keys()).sort((a, b) => b.localeCompare(a));
+                  return (
+                    <div className="space-y-4">
+                      {sortedDates.map((dateKey) => {
+                        const meds = dateGroups.get(dateKey)!;
+                        const formattedDate = dateKey === "Unknown"
+                          ? "Unknown Date"
+                          : new Date(dateKey + "T00:00:00").toLocaleDateString('en-IN', {
+                              weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+                            });
+                        return (
+                          <div key={dateKey}>
+                            {(() => {
+                              const uniqueKey = `${group.patient_name}-${dateKey}`;
+                              return (
+                                <>
+                            <button
+                              onClick={() => {
+                                setExpandedDates(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(uniqueKey)) next.delete(uniqueKey);
+                                  else next.add(uniqueKey);
+                                  return next;
+                                });
+                              }}
+                              className="w-full flex items-center gap-1.5 mb-2 group"
+                            >
+                              <Calendar className="w-3.5 h-3.5 text-blue-500" />
+                              <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wider group-hover:text-blue-600 transition">{formattedDate}</h4>
+                              <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">{meds.length}</span>
+                              <ChevronDown className={`w-3.5 h-3.5 text-gray-400 ml-auto transition-transform ${expandedDates.has(uniqueKey) ? "rotate-180" : ""}`} />
+                            </button>
+                            {expandedDates.has(uniqueKey) && (
+                              <div className="space-y-1.5">
+                                {meds.map((med) => (
+                                  <motion.div
+                                    key={med.id}
+                                    initial={{ opacity: 0, y: -4 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className={`flex items-center gap-4 px-4 py-3 rounded-xl border-l-[5px] shadow-sm transition ${
+                                      med.medicine_collected
+                                        ? "border-emerald-500 bg-emerald-50/70"
+                                        : med.is_active
+                                        ? "border-blue-500 bg-white"
+                                        : "border-gray-400 bg-gray-50"
+                                    }`}
+                                  >
+                                    <div className="flex-1 min-w-0 flex items-center gap-3">
+                                      <span className="text-xl shrink-0">{med.is_prn ? "⚡" : "💊"}</span>
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-semibold text-gray-900 text-sm truncate">{med.medicine_name}</span>
+                                          {med.dosage && <span className="text-xs text-gray-500">{med.dosage}</span>}
+                                          {med.route && <span className="text-xs text-gray-400">({med.route})</span>}
+                                        </div>
+                                        <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                                          {med.frequency && <span>🕐 {med.frequency}</span>}
+                                          {med.timing && <span>{TIME_ICONS[med.timing] || "💊"} {med.timing}</span>}
+                                          {med.duration && <span>📅 {med.duration}</span>}
+                                          {med.quantity && <span>📦 {med.quantity}</span>}
+                                          {med.refills && med.refills !== "0" && <span>🔄 x{med.refills}</span>}
+                                        </div>
+                                        {med.instructions && (
+                                          <p className="text-xs text-gray-400 italic mt-1">{med.instructions}</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      {med.medicine_collected ? (
+                                        <span className="text-xs px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-lg font-medium flex items-center gap-1">
+                                          <CheckCircle2 className="w-3.5 h-3.5" /> Collected
+                                        </span>
+                                      ) : (
+                                        <button
+                                          onClick={() => handleToggleActive(med.id, med.is_active)}
+                                          disabled={loading}
+                                          className={`text-xs px-3 py-1.5 rounded-lg font-medium transition ${
+                                            med.is_active
+                                              ? "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"
+                                              : "bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200"
+                                          }`}
+                                        >
+                                          {med.is_active ? "Stop" : "Resume"}
+                                        </button>
+                                      )}
+                                    </div>
+                                  </motion.div>
+                                ))}
+                              </div>
                             )}
-                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium ${
-                              med.is_active
-                                ? "bg-emerald-100 text-emerald-700"
-                                : "bg-gray-200 text-gray-600"
-                            }`}>
-                              {med.is_active ? "Active" : "Stopped"}
-                            </span>
+                                </>
+                              );
+                            })()}
                           </div>
-                        </div>
-
-                        <div className="space-y-2 text-sm">
-                          {med.frequency && (
-                            <div className="flex items-center gap-2 text-gray-600">
-                              <Clock className="w-4 h-4" /> {med.frequency}
-                            </div>
-                          )}
-                          {med.timing && (
-                            <div className="flex items-center gap-2 text-gray-600">
-                              <span className="text-base">{TIME_ICONS[med.timing] || "💊"}</span> {med.timing}
-                            </div>
-                          )}
-                          {med.duration && (
-                            <div className="flex items-center gap-2 text-gray-600">
-                              <Calendar className="w-4 h-4" /> {med.duration}
-                            </div>
-                          )}
-                          {med.quantity && (
-                            <div className="flex items-center gap-2 text-gray-600">
-                              <span className="text-base">📦</span> {med.quantity}
-                            </div>
-                          )}
-                          {med.refills && med.refills !== "0" && (
-                            <div className="flex items-center gap-2 text-gray-600">
-                              <span className="text-base">🔄</span> Refills: {med.refills}
-                            </div>
-                          )}
-                          {med.instructions && (
-                            <div className="p-2 bg-white rounded-lg text-gray-600 text-xs">{med.instructions}</div>
-                          )}
-                        </div>
-
-                        {!med.medicine_collected && (
-                          <button
-                            onClick={() => handleToggleActive(med.id, med.is_active)}
-                            disabled={loading}
-                            className={`mt-3 w-full py-2 rounded-lg text-sm font-medium transition ${
-                              med.is_active
-                                ? "bg-red-100 text-red-700 hover:bg-red-200"
-                                : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                            }`}
-                          >
-                            {med.is_active ? "Stop Medicine" : "Resume Medicine"}
-                          </button>
-                        )}
-                      </motion.div>
-                    ))}
-                  </div>
-                )}
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             </motion.div>
           );

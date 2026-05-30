@@ -1135,8 +1135,9 @@ export default function DoctorEmergencyTab() {
                             if (aptError) throw aptError;
                             // Remove from active cases view
                             setCases(prev => prev.filter(c => c.task_id !== emergencyCase.task_id));
-                            // Redirect to treatment tab
-                            router.push(`/doctor?tab=treatment&patient_id=${aptData.id}`);
+                            // Update success message
+                            setAdmitMessages(prev => ({ ...prev, [emergencyCase.task_id]: "Patient admitted successfully" }));
+                            return;
                           } catch (err: any) {
                             setAdmitMessages(prev => ({
                               ...prev,

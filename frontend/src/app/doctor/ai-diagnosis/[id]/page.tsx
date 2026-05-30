@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import {
   Bot, Brain, FlaskConical, AlertTriangle, Loader2,
   ArrowLeft, Sparkles, ClipboardList, Activity,
-  CheckCircle2, XCircle, Thermometer, Heart, Wind
+  CheckCircle2, XCircle, Thermometer, Heart, Wind, Utensils
 } from "lucide-react";
 
 interface Prescription {
@@ -33,6 +33,7 @@ interface Prescription {
   ai_suggested_tests?: any;
   ai_notes?: string;
   ai_processed?: boolean;
+  ai_suggested_diet?: { diet_name: string; diet_type: string; foods: string; instructions: string } | null;
 }
 
 export default function AIDiagnosisPage() {
@@ -99,6 +100,7 @@ export default function AIDiagnosisPage() {
       suggestedTests: Array.isArray(prescription.ai_suggested_tests)
         ? prescription.ai_suggested_tests
         : [],
+      suggestedDiet: prescription.ai_suggested_diet || null,
     };
     localStorage.setItem("aiPreFillData", JSON.stringify(preFill));
     localStorage.setItem("aiPrescriptionId", prescription.id);
@@ -377,6 +379,32 @@ export default function AIDiagnosisPage() {
                   <h3 className="text-sm font-bold text-gray-800">AI Analysis Notes</h3>
                 </div>
                 <p className="text-sm text-gray-600 leading-relaxed">{prescription.ai_notes}</p>
+              </div>
+            )}
+
+            {/* Suggested Diet */}
+            {prescription.ai_suggested_diet && (
+              <div className="bg-white rounded-2xl shadow-lg border border-emerald-100 p-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <Utensils className="w-5 h-5 text-emerald-600" />
+                  <h3 className="text-sm font-bold text-gray-800">Suggested Diet</h3>
+                </div>
+                <div className="bg-emerald-50 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-gray-900">{prescription.ai_suggested_diet.diet_name}</span>
+                    <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full">{prescription.ai_suggested_diet.diet_type}</span>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Recommended Foods</p>
+                    <p className="text-sm text-gray-700">{prescription.ai_suggested_diet.foods}</p>
+                  </div>
+                  {prescription.ai_suggested_diet.instructions && (
+                    <div>
+                      <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Instructions</p>
+                      <p className="text-sm text-gray-600">{prescription.ai_suggested_diet.instructions}</p>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

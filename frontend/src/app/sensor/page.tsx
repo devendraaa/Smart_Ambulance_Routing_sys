@@ -33,9 +33,10 @@ export default function SensorPage() {
   const loadSensors = async () => {
     try {
       const data = await fetchManualSensors();
-      setSensors(data);
+      setSensors(data || []);
     } catch (err) {
       console.error("Failed to fetch sensors:", err);
+      setSensors([]);
     } finally {
       setLoading(false);
     }

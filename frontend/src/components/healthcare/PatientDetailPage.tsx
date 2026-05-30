@@ -2,11 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Calendar, User, Mail, Phone, MapPin, Building2, Pill, FileText, Utensils, ArrowLeft, X, Plus, Trash2, CheckCircle2, Activity, ClipboardList, Loader2, Printer, Edit3, Sparkles, Bot, Brain, FlaskConical, Thermometer, Heart, Wind } from "lucide-react";
+import { Calendar, User, Mail, Phone, MapPin, Building2, Utensils, ArrowLeft, X, Plus, Trash2, CheckCircle2, Activity, ClipboardList, Loader2, Printer, Edit3, Sparkles, Bot, Brain, FlaskConical, Thermometer, Heart, Wind } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import SymptomsAssessment from "./SymptomsAssessment";
 import PrescriptionForm from "./PrescriptionForm";
-import MedicineForm from "./MedicineForm";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -21,36 +20,6 @@ interface Appointment {
   case_type: string;
   hospital_name: string;
   status: string;
-  created_at: string;
-}
-
-interface PatientMedicine {
-  id: string;
-  patient_email: string;
-  patient_name?: string;
-  hospital_name?: string;
-  medicine_name: string;
-  dosage?: string;
-  frequency?: string;
-  timing?: string;
-  duration?: string;
-  instructions?: string;
-  route?: string;
-  is_prn?: boolean;
-  quantity?: string;
-  refills?: string;
-  is_active: boolean;
-  medicine_collected?: boolean;
-  collected_at?: string;
-  created_at: string;
-}
-
-interface PatientTest {
-  id: string;
-  patient_email: string;
-  test_type: string;
-  status: string;
-  notes?: string;
   created_at: string;
 }
 
@@ -86,7 +55,6 @@ interface Prescription {
   created_at: string;
 }
 
-const TEST_TYPES = ["MRI", "CT Scan", "Sonography", "Blood Test", "X-Ray", "ECG", "ECHO", "TMT", "Urine Test", "Stool Test", "Thyroid", "Sugar Test"];
 const DIET_TYPES = ["Weight Loss", "Weight Gain", "Diabetic", "Heart", "Low Salt", "High Protein", "Vegetarian", "Liquid Diet", "Soft Diet", "General"];
 
 function isToday(dateString: string): boolean {
@@ -99,19 +67,13 @@ export function PatientDetailContent({ appointmentId, onBack }: { appointmentId:
   const router = useRouter();
 
   const [appointment, setAppointment] = useState<Appointment | null>(null);
-  const [medicines, setMedicines] = useState<PatientMedicine[]>([]);
-  const [tests, setTests] = useState<PatientTest[]>([]);
   const [diets, setDiets] = useState<PatientDiet[]>([]);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"symptoms" | "ai-diagnosis" | "prescriptions" | "medicines" | "reports" | "diet">("symptoms");
+  const [activeTab, setActiveTab] = useState<"symptoms" | "ai-diagnosis" | "prescriptions" | "diet">("symptoms");
 
-  const [showAddMedicine, setShowAddMedicine] = useState(false);
-  const [showAddTest, setShowAddTest] = useState(false);
   const [showAddDiet, setShowAddDiet] = useState(false);
   const [editPrescriptionId, setEditPrescriptionId] = useState<string | null>(null);
-
-  const [newTest, setNewTest] = useState({ test_type: "Blood Test", notes: "" });
 
   const [newDiet, setNewDiet] = useState({
     diet_name: "",
@@ -135,9 +97,11 @@ export function PatientDetailContent({ appointmentId, onBack }: { appointmentId:
     ai_disease_predictions: any[];
     ai_suggested_tests: string[];
     ai_notes?: string;
+    ai_suggested_diet?: { diet_name: string; diet_type: string; foods: string; instructions: string } | null;
     prescription_id: string;
   } | null>(null);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [dismissedAiDiet, setDismissedAiDiet] = useState(false);
 
   useEffect(() => {
     if (appointment && !aiPreFillApplied.current) {
@@ -148,6 +112,10 @@ export function PatientDetailContent({ appointmentId, onBack }: { appointmentId:
           const patientEmail = localStorage.getItem("aiPrescriptionPatientEmail");
           if (patientEmail === appointment.patient_email) {
             setAiPreFill({ diagnosis: data.diagnosis || "", suggestedTests: Array.isArray(data.suggestedTests) ? data.suggestedTests : [] });
+            if (data.suggestedDiet) {
+              setAiDiagnosisData(prev => prev ? { ...prev, ai_suggested_diet: data.suggestedDiet } : null);
+              setDismissedAiDiet(false);
+            }
             setActiveTab("prescriptions");
             aiPreFillApplied.current = true;
             localStorage.removeItem("aiPreFillData");
@@ -195,16 +163,12 @@ export function PatientDetailContent({ appointmentId, onBack }: { appointmentId:
       
       if (aptData) setAppointment(aptData);
 
-      const [prescData, medsData, testsData, dietsData] = await Promise.all([
+      const [prescData, dietsData] = await Promise.all([
         supabase.from("doctor_prescriptions").select("*").eq("patient_email", aptData?.patient_email || "").order("created_at", { ascending: false }),
-        supabase.from("patient_medicines").select("*").eq("appointment_id", appointmentId).order("created_at", { ascending: false }),
-        supabase.from("patient_tests").select("*").eq("appointment_id", appointmentId).order("created_at", { ascending: false }),
         supabase.from("patient_diets").select("*").eq("appointment_id", appointmentId).order("created_at", { ascending: false })
       ]);
 
       setPrescriptions(prescData.data || []);
-      setMedicines(medsData.data || []);
-      setTests(testsData.data || []);
       setDiets(dietsData.data || []);
     } catch (err) {
       console.error("Error loading data:", err);
@@ -281,52 +245,6 @@ export function PatientDetailContent({ appointmentId, onBack }: { appointmentId:
     win.print();
   };
 
-  const handleSaveMedicine = async (formData: any) => {
-    if (!appointment) return;
-    const { error } = await supabase.from("patient_medicines").insert([{
-      patient_email: appointment.patient_email,
-      patient_name: appointment.patient_name,
-      appointment_id: appointment.id,
-      hospital_name: appointment.hospital_name,
-      medicine_name: formData.medicine_name,
-      dosage: formData.dosage,
-      frequency: formData.frequency,
-      timing: formData.timing,
-      duration: formData.duration,
-      instructions: formData.instructions,
-      route: formData.route,
-      is_prn: formData.is_prn,
-      quantity: formData.quantity,
-      refills: formData.refills,
-      is_active: true,
-    }]);
-    if (error) throw error;
-    loadData();
-  };
-
-  const handleAddTest = async () => {
-    if (!appointment) return;
-    try {
-      const { error } = await supabase.from("patient_tests").insert([{
-        patient_email: appointment.patient_email,
-        patient_name: appointment.patient_name,
-        appointment_id: appointment.id,
-        test_type: newTest.test_type,
-        notes: newTest.notes,
-        status: "ordered",
-        payment_status: "pending",
-        created_at: new Date().toISOString(),
-      }]);
-      if (error) throw error;
-      setShowAddTest(false);
-      setNewTest({ test_type: "Blood Test", notes: "" });
-      loadData();
-    } catch (err) {
-      console.error("Error adding test:", err);
-      alert("Failed to add test");
-    }
-  };
-
   const handleAddDiet = async () => {
     if (!newDiet.diet_name || !appointment) return;
     try {
@@ -385,30 +303,32 @@ export function PatientDetailContent({ appointmentId, onBack }: { appointmentId:
     }
   };
 
-  const deleteMedicine = async (medId: string) => {
-    if (!confirm("Delete this medicine?")) return;
-    await supabase.from("patient_medicines").delete().eq("id", medId);
-    loadData();
-  };
-
-  const toggleCollected = async (medId: string, currentlyCollected: boolean) => {
-    await supabase.from("patient_medicines").update({
-      medicine_collected: !currentlyCollected,
-      collected_at: !currentlyCollected ? new Date().toISOString() : null,
-    }).eq("id", medId);
-    loadData();
-  };
-
-  const deleteTest = async (testId: string) => {
-    if (!confirm("Delete this test?")) return;
-    await supabase.from("patient_tests").delete().eq("id", testId);
-    loadData();
-  };
-
   const deleteDiet = async (dietId: string) => {
     if (!confirm("Delete this diet plan?")) return;
     await supabase.from("patient_diets").delete().eq("id", dietId);
     loadData();
+  };
+
+  const handleAcceptAiDiet = async () => {
+    if (!appointment || !aiDiagnosisData?.ai_suggested_diet) return;
+    const diet = aiDiagnosisData.ai_suggested_diet;
+    try {
+      const { error } = await supabase.from("patient_diets").insert([{
+        patient_email: appointment.patient_email,
+        patient_name: appointment.patient_name,
+        appointment_id: appointment.id,
+        diet_name: diet.diet_name,
+        diet_type: diet.diet_type,
+        foods: diet.foods,
+        instructions: diet.instructions,
+        is_active: true,
+      }]);
+      if (error) throw error;
+      loadData();
+    } catch (err) {
+      console.error("Error saving AI diet:", err);
+      alert("Failed to save diet plan");
+    }
   };
 
   if (loading) {
@@ -521,20 +441,6 @@ export function PatientDetailContent({ appointmentId, onBack }: { appointmentId:
             <span className="bg-emerald-100 text-emerald-700 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px]">{prescriptions.length}</span>
           </button>
           <button
-            onClick={() => setActiveTab("medicines")}
-            className={`flex-1 px-1 sm:px-3 py-4 font-medium text-[11px] sm:text-sm flex items-center justify-center gap-1 sm:gap-2 transition whitespace-nowrap ${activeTab === "medicines" ? "bg-blue-50 text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-          >
-            <Pill className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" /> <span>Medicines</span>
-            <span className="bg-blue-100 text-blue-700 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px]">{medicines.length}</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("reports")}
-            className={`flex-1 px-1 sm:px-3 py-4 font-medium text-[11px] sm:text-sm flex items-center justify-center gap-1 sm:gap-2 transition whitespace-nowrap ${activeTab === "reports" ? "bg-purple-50 text-purple-600 border-b-2 border-purple-600" : "text-gray-500 hover:text-gray-700"}`}
-          >
-            <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" /> <span>Tests</span>
-            <span className="bg-purple-100 text-purple-700 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px]">{tests.length}</span>
-          </button>
-          <button
             onClick={() => setActiveTab("diet")}
             className={`flex-1 px-1 sm:px-3 py-4 font-medium text-[11px] sm:text-sm flex items-center justify-center gap-1 sm:gap-2 transition whitespace-nowrap ${activeTab === "diet" ? "bg-green-50 text-green-600 border-b-2 border-green-600" : "text-gray-500 hover:text-gray-700"}`}
           >
@@ -557,6 +463,7 @@ export function PatientDetailContent({ appointmentId, onBack }: { appointmentId:
                   onAiComplete={(result) => {
                     setIsAiProcessing(false);
                     setAiDiagnosisData(result);
+                    setDismissedAiDiet(result.ai_suggested_diet ? false : true);
                     setActiveTab("ai-diagnosis");
                     if (result.symptoms) setSavedSymptoms(result.symptoms);
                   }}
@@ -569,43 +476,7 @@ export function PatientDetailContent({ appointmentId, onBack }: { appointmentId:
                   }}
                 />
               )}
-              <div>
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Recent Symptoms</h4>
-                {prescriptions.length === 0 ? (
-                  <div className="text-center py-8 text-gray-400">
-                    <Activity className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                    <p className="text-sm">No symptoms recorded yet</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {prescriptions.slice(0, 5).map(p => {
-                      const hasVitals = p.bp_systolic != null || p.bp_diastolic != null || p.temperature != null || p.pulse != null || p.spo2 != null;
-                      return (
-                      <div key={p.id} className="p-3 bg-gray-50 rounded-xl border border-gray-200">
-                        <div className="flex items-start gap-2">
-                          <div className="w-6 h-6 rounded-full bg-rose-100 flex items-center justify-center shrink-0 mt-0.5">
-                            <Activity className="w-3 h-3 text-rose-500" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs text-gray-400">{new Date(p.created_at).toLocaleDateString("en-IN", { day: 'numeric', month: 'short' })}</p>
-                            {p.symptoms && <p className="text-sm text-gray-800 mt-1"><span className="font-medium text-rose-600">Symptoms:</span> {p.symptoms}</p>}
-                            {p.diagnosis && <p className="text-sm text-gray-800 mt-0.5"><span className="font-medium text-rose-600">Diagnosis:</span> {p.diagnosis}</p>}
-                            {hasVitals && (
-                              <div className="flex flex-wrap gap-1.5 mt-2">
-                                {p.bp_systolic != null && p.bp_diastolic != null && <span className="text-[10px] px-2 py-0.5 bg-red-50 text-red-700 rounded-full border border-red-200">BP {p.bp_systolic}/{p.bp_diastolic}</span>}
-                                {p.pulse != null && <span className="text-[10px] px-2 py-0.5 bg-orange-50 text-orange-700 rounded-full border border-orange-200">Pulse {p.pulse}</span>}
-                                {p.temperature != null && <span className="text-[10px] px-2 py-0.5 bg-yellow-50 text-yellow-700 rounded-full border border-yellow-200">Temp {p.temperature}°C</span>}
-                                {p.spo2 != null && <span className="text-[10px] px-2 py-0.5 bg-teal-50 text-teal-700 rounded-full border border-teal-200">SpO₂ {p.spo2}%</span>}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+
             </div>
           )}
 
@@ -760,155 +631,10 @@ export function PatientDetailContent({ appointmentId, onBack }: { appointmentId:
                   />
                 );
               })()}
-              {prescriptions.length === 0 ? (
+              {prescriptions.length === 0 && (
                 <div className="text-center py-8">
                   <ClipboardList className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                   <p className="text-gray-500 text-sm">No prescriptions yet</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {prescriptions.map(p => {
-                    let medsList: { name: string; dosage?: string; route?: string; instructions?: string; is_prn?: boolean }[] = [];
-                    try { const parsed = JSON.parse(p.medicines || "[]"); medsList = Array.isArray(parsed) ? parsed : []; } catch {}
-                    return (
-                      <div key={p.id} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-[11px] text-gray-400">{new Date(p.created_at).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                              p.status === "Active" ? "bg-green-100 text-green-700" :
-                              p.status === "Completed" ? "bg-blue-100 text-blue-700" :
-                              "bg-gray-100 text-gray-600"
-                            }`}>{p.status || "Active"}</span>
-                          </div>
-                          <div className="flex items-center gap-1 flex-wrap justify-end">
-                            {p.follow_up_date && <span className="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">Follow-up: {new Date(p.follow_up_date).toLocaleDateString("en-IN")}</span>}
-                            {canEdit && (
-                              <>
-                                <button onClick={() => setEditPrescriptionId(p.id)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Edit">
-                                  <Edit3 className="w-3.5 h-3.5" />
-                                </button>
-                                <button onClick={() => deletePrescription(p.id)} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Delete">
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </>
-                            )}
-                            <button onClick={() => printPrescription(p)} className="p-1 text-gray-500 hover:bg-gray-100 rounded" title="Print">
-                              <Printer className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                        {p.symptoms && <p className="text-sm text-gray-800"><span className="font-semibold text-rose-500">Symptoms:</span> {p.symptoms}</p>}
-                        {p.diagnosis && <p className="text-sm text-gray-800 mt-0.5"><span className="font-semibold text-emerald-600">Diagnosis:</span> {p.diagnosis}</p>}
-                        {(p.bp_systolic != null || p.bp_diastolic != null || p.temperature != null || p.pulse != null || p.spo2 != null) && (
-                          <div className="flex flex-wrap gap-1.5 mt-2">
-                            {p.bp_systolic != null && p.bp_diastolic != null && <span className="text-[10px] px-2 py-0.5 bg-red-50 text-red-700 rounded-full border border-red-200">BP {p.bp_systolic}/{p.bp_diastolic}</span>}
-                            {p.pulse != null && <span className="text-[10px] px-2 py-0.5 bg-orange-50 text-orange-700 rounded-full border border-orange-200">Pulse {p.pulse}</span>}
-                            {p.temperature != null && <span className="text-[10px] px-2 py-0.5 bg-yellow-50 text-yellow-700 rounded-full border border-yellow-200">Temp {p.temperature}°C</span>}
-                            {p.spo2 != null && <span className="text-[10px] px-2 py-0.5 bg-teal-50 text-teal-700 rounded-full border border-teal-200">SpO₂ {p.spo2}%</span>}
-                          </div>
-                        )}
-                        {medsList.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1">
-                            {medsList.map((m, i) => (
-                              <span key={i} className="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full border border-blue-200" title={m.instructions || ""}>
-                                {m.name}{m.dosage ? ` (${m.dosage})` : ""}{m.route && m.route !== "Oral" ? ` [${m.route}]` : ""}{m.is_prn ? " PRN" : ""}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        {p.prescription_notes && <p className="text-xs text-gray-500 mt-1.5 italic">Note: {p.prescription_notes}</p>}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === "medicines" && (
-            <div className="space-y-4">
-              {canEdit && (
-                <button onClick={() => setShowAddMedicine(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2 w-fit">
-                  <Plus className="w-4 h-4" /> Add Medicine
-                </button>
-              )}
-              <MedicineForm
-                open={showAddMedicine}
-                onClose={() => setShowAddMedicine(false)}
-                onSave={handleSaveMedicine}
-                existingMedicineNames={medicines.map(m => m.medicine_name)}
-              />
-              {medicines.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">No medicines prescribed</div>
-              ) : (
-                <div className="space-y-3">
-                  {medicines.map(med => (
-                    <div key={med.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                      <div className="flex justify-between items-start gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-medium text-gray-900">{med.medicine_name}</span>
-                            {med.is_prn && <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-[10px] font-medium">PRN</span>}
-                            <span className={`px-2 py-0.5 rounded text-xs ${med.is_active ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-600"}`}>{med.is_active ? "Active" : "Inactive"}</span>
-                            {med.medicine_collected ? (
-                              <button onClick={() => toggleCollected(med.id, true)} className="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-700 flex items-center gap-0.5 hover:bg-emerald-200">
-                                <CheckCircle2 className="w-3 h-3" /> Collected
-                              </button>
-                            ) : canEdit && (
-                              <button onClick={() => toggleCollected(med.id, false)} className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600 flex items-center gap-0.5 hover:bg-gray-200">
-                                Mark Collected
-                              </button>
-                            )}
-                          </div>
-                          <div className="text-sm text-gray-600 mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
-                            {med.dosage && <span>💊 {med.dosage}</span>}
-                            {med.route && <span>💉 {med.route}</span>}
-                            {med.frequency && <span>📅 {med.frequency}</span>}
-                            {med.timing && <span>⏰ {med.timing}</span>}
-                            {med.duration && <span>📆 {med.duration}</span>}
-                            {med.quantity && <span>📦 {med.quantity}</span>}
-                            {med.refills && med.refills !== "0" && <span>🔄 Refill: {med.refills}</span>}
-                          </div>
-                          {med.instructions && <div className="text-xs text-gray-500 mt-1">Note: {med.instructions}</div>}
-                        </div>
-                        {canEdit && (
-                          <button onClick={() => deleteMedicine(med.id)} className="p-2 text-red-600 hover:bg-red-50 rounded shrink-0">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === "reports" && (
-            <div className="space-y-4">
-              {canEdit && (
-                <button onClick={() => setShowAddTest(true)} className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium flex items-center gap-2 w-fit">
-                  <Plus className="w-4 h-4" /> Add Test
-                </button>
-              )}
-              {tests.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">No tests ordered</div>
-              ) : (
-                <div className="space-y-3">
-                  {tests.map(test => (
-                    <div key={test.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200 flex justify-between items-start">
-                      <div>
-                        <span className="font-medium text-gray-900">{test.test_type}</span>
-                        <span className={`ml-2 px-2 py-0.5 rounded text-xs ${
-                          test.status === "completed" ? "bg-green-100 text-green-700" :
-                          test.status === "confirmed" ? "bg-blue-100 text-blue-700" : "bg-yellow-100 text-yellow-700"
-                        }`}>{test.status}</span>
-                        {test.notes && <div className="text-xs text-gray-500 mt-1">Note: {test.notes}</div>}
-                      </div>
-                      {canEdit && <button onClick={() => deleteTest(test.id)} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>}
-                    </div>
-                  ))}
                 </div>
               )}
             </div>
@@ -916,6 +642,47 @@ export function PatientDetailContent({ appointmentId, onBack }: { appointmentId:
 
           {activeTab === "diet" && (
             <div className="space-y-4">
+              {/* AI Suggested Diet */}
+              {aiDiagnosisData?.ai_suggested_diet && !dismissedAiDiet && (
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-emerald-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                      <Bot className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-emerald-800">AI Suggested Diet</h4>
+                      <p className="text-[10px] text-emerald-600">Based on diagnosis</p>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-emerald-100 space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-gray-900">{aiDiagnosisData.ai_suggested_diet.diet_name}</span>
+                      <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">{aiDiagnosisData.ai_suggested_diet.diet_type}</span>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Foods</p>
+                      <p className="text-sm text-gray-700">{aiDiagnosisData.ai_suggested_diet.foods}</p>
+                    </div>
+                    {aiDiagnosisData.ai_suggested_diet.instructions && (
+                      <div>
+                        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Instructions</p>
+                        <p className="text-sm text-gray-600">{aiDiagnosisData.ai_suggested_diet.instructions}</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2 mt-3">
+                    {canEdit && (
+                      <button onClick={handleAcceptAiDiet} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-sm flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4" /> Accept & Save
+                      </button>
+                    )}
+                    <button onClick={() => setDismissedAiDiet(true)} className="px-4 py-2 border-2 border-gray-200 text-gray-600 hover:bg-gray-50 rounded-lg font-medium text-sm">
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {canEdit && (
                 <button onClick={() => setShowAddDiet(true)} className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium flex items-center gap-2 w-fit">
                   <Plus className="w-4 h-4" /> Add Diet Plan
@@ -945,33 +712,6 @@ export function PatientDetailContent({ appointmentId, onBack }: { appointmentId:
           )}
         </div>
       </div>
-
-      {/* Add Test Modal */}
-      {showAddTest && (
-        <div className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 pt-16 sm:pt-20 z-[9999] overflow-y-auto">
-          <div className="bg-white rounded-2xl w-full max-w-md my-4 mx-1 sm:mx-0 p-4 sm:p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-base sm:text-lg font-semibold">Add Test</h3>
-              <button onClick={() => setShowAddTest(false)} className="p-1 hover:bg-gray-100 rounded">
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Test Type</label>
-                <select value={newTest.test_type} onChange={(e) => setNewTest({ ...newTest, test_type: e.target.value })} className="w-full rounded-lg border-2 border-gray-200 px-3 sm:px-4 py-2.5 text-sm focus:border-purple-500 focus:outline-none bg-white">
-                  {TEST_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Notes</label>
-                <textarea value={newTest.notes} onChange={(e) => setNewTest({ ...newTest, notes: e.target.value })} rows={2} className="w-full rounded-lg border-2 border-gray-200 px-3 sm:px-4 py-2.5 text-sm focus:border-purple-500 focus:outline-none resize-none" />
-              </div>
-              <button onClick={handleAddTest} className="w-full px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium text-sm">Add Test</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Add Diet Modal */}
       {showAddDiet && (
@@ -1036,18 +776,6 @@ export function PatientDetailContent({ appointmentId, onBack }: { appointmentId:
                   {prescriptions.length > 0 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
                 </div>
                 <span className="text-gray-700">Prescriptions: <strong>{prescriptions.length}</strong></span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${medicines.length > 0 ? "bg-emerald-100 text-emerald-600" : "bg-gray-200 text-gray-400"}`}>
-                  {medicines.length > 0 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
-                </div>
-                <span className="text-gray-700">Medicines: <strong>{medicines.length}</strong></span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${tests.length > 0 ? "bg-emerald-100 text-emerald-600" : "bg-gray-200 text-gray-400"}`}>
-                  {tests.length > 0 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
-                </div>
-                <span className="text-gray-700">Tests Ordered: <strong>{tests.length}</strong></span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <div className={`w-5 h-5 rounded-full flex items-center justify-center ${diets.length > 0 ? "bg-emerald-100 text-emerald-600" : "bg-gray-200 text-gray-400"}`}>

@@ -97,6 +97,10 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
   const [patientFiltered, setPatientFiltered] = useState<PatientGroup[]>([]);
   const [patientHospitals, setPatientHospitals] = useState<string[]>([]);
   const [patientSelectedHospital, setPatientSelectedHospital] = useState<string>("all");
+  const [showHistory, setShowHistory] = useState(false);
+
+  const upcomingStatuses = ["pending", "payment_pending", "ordered", "confirmed"];
+  const historyStatuses = ["completed", "cancelled"];
 
   useEffect(() => {
     loadData();
@@ -108,15 +112,25 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
 
   useEffect(() => {
     if (isDoctorView) return;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     let filtered = patientGrouped;
-    if (patientSelectedHospital !== "all") {
-      filtered = filtered.map(g => ({
-        ...g,
-        tests: g.tests.filter(t => t.hospital_name === patientSelectedHospital)
-      })).filter(g => g.tests.length > 0);
-    }
+    filtered = filtered.map(g => ({
+      ...g,
+      tests: g.tests.filter(t => {
+        if (patientSelectedHospital !== "all" && t.hospital_name !== patientSelectedHospital) return false;
+        const testDate = t.appointment_date ? new Date(t.appointment_date) : null;
+        const isPast = testDate && testDate < today;
+        const isScheduled = !!t.appointment_date;
+        const isHistoryStatus = historyStatuses.includes(t.status);
+        if (showHistory) {
+          return isHistoryStatus || !isScheduled || isPast;
+        }
+        return isScheduled && !isPast;
+      })
+    })).filter(g => g.tests.length > 0);
     setPatientFiltered(filtered);
-  }, [patientGrouped, patientSelectedHospital, isDoctorView]);
+  }, [patientGrouped, patientSelectedHospital, showHistory, isDoctorView]);
 
   const loadHospitals = async () => {
     try {
@@ -725,122 +739,156 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
           )
         ) : (
           /* --- Patient View: Patient-centered grouping with hospital filter --- */
-          patientFiltered.length === 0 ? (
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-12 text-center">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <TestTube className="w-8 h-8 text-gray-400" />
+          <div className="space-y-4">
+            {/* Upcoming / History Toggle */}
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-2xl shadow-sm border border-gray-200 p-1.5 flex items-center gap-1 max-w-xs"
+            >
+              <button
+                onClick={() => setShowHistory(false)}
+                className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                  !showHistory
+                    ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md"
+                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <Calendar className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+                Upcoming
+              </button>
+              <button
+                onClick={() => setShowHistory(true)}
+                className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                  showHistory
+                    ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md"
+                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <FileText className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+                History
+              </button>
+            </motion.div>
+
+            {patientFiltered.length === 0 ? (
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-12 text-center">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <TestTube className="w-8 h-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-700 mb-2">No {showHistory ? "History" : "Upcoming"} Tests</h3>
+                <p className="text-gray-500">
+                  {showHistory
+                    ? "No completed or cancelled test records found"
+                    : patientSelectedHospital === "all"
+                      ? "No upcoming tests scheduled"
+                      : `No upcoming tests for ${patientSelectedHospital}`}
+                </p>
               </div>
-              <h3 className="text-lg font-semibold text-gray-700 mb-2">No Test Records Found</h3>
-              <p className="text-gray-500">
-                {patientSelectedHospital === "all" 
-                  ? "No tests have been ordered yet" 
-                  : `No tests for ${patientSelectedHospital}`}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {patientFiltered.map((group) => {
-                const patientHospital = group.tests[0]?.hospital_name;
+            ) : (
+              <div className="space-y-4">
+                {patientFiltered.map((group) => {
+                  const patientHospital = group.tests[0]?.hospital_name;
 
-                return (
-                  <motion.div
-                    key={group.patient_name}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden"
-                  >
-                    {/* Patient header */}
-                    <div className="px-4 sm:px-6 py-3 sm:py-4 border-b bg-gradient-to-r from-violet-50 to-pink-50 border-gray-100">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
-                          <User className="w-5 h-5 text-purple-600" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{group.patient_name}</h3>
-                          <p className="text-[10px] sm:text-xs text-gray-500 truncate">
+                  return (
+                    <motion.div
+                      key={group.patient_name}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden"
+                    >
+                      {/* Patient header */}
+                      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b bg-gradient-to-r from-violet-50 to-pink-50 border-gray-100">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
+                            <User className="w-5 h-5 text-purple-600" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{group.patient_name}</h3>
+                            <p className="text-[10px] sm:text-xs text-gray-500 truncate">
+                              {group.tests.length} tests
+                              {patientHospital && <span> · {patientHospital}</span>}
+                            </p>
+                          </div>
+                          <span className="px-2 sm:px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-[10px] sm:text-xs font-medium whitespace-nowrap shrink-0">
                             {group.tests.length} tests
-                            {patientHospital && <span> · {patientHospital}</span>}
-                          </p>
+                          </span>
                         </div>
-                        <span className="px-2 sm:px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-[10px] sm:text-xs font-medium whitespace-nowrap shrink-0">
-                          {group.tests.length} tests
-                        </span>
                       </div>
-                    </div>
 
-                    {/* Test cards */}
-                    <div className="p-4 sm:p-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                        {group.tests.map((test) => (
-                          <motion.div
-                            key={test.id}
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="p-3 sm:p-4 rounded-xl border-2 border-gray-200 bg-white hover:shadow-md transition"
-                          >
-                            <div className="flex items-start justify-between mb-3 gap-2">
-                              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                                <span className="text-lg sm:text-2xl">{testTypeIcons[test.test_type] || "🧪"}</span>
-                                <span className="font-medium text-gray-900 text-sm sm:text-base truncate">{test.test_type}</span>
+                      {/* Test cards */}
+                      <div className="p-4 sm:p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                          {group.tests.map((test) => (
+                            <motion.div
+                              key={test.id}
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              className="p-3 sm:p-4 rounded-xl border-2 border-gray-200 bg-white hover:shadow-md transition"
+                            >
+                              <div className="flex items-start justify-between mb-3 gap-2">
+                                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                                  <span className="text-lg sm:text-2xl">{testTypeIcons[test.test_type] || "🧪"}</span>
+                                  <span className="font-medium text-gray-900 text-sm sm:text-base truncate">{test.test_type}</span>
+                                </div>
+                                {getStatusBadge(test.status)}
                               </div>
-                              {getStatusBadge(test.status)}
-                            </div>
 
-                            {test.notes && (
-                              <div className="text-xs text-gray-600 bg-yellow-50 p-2 rounded mb-3">
-                                Note: {test.notes}
-                              </div>
-                            )}
-
-                            {test.report_url && (
-                              <div className="mb-3">
-                                <a 
-                                  href={test.report_url.startsWith("http") ? test.report_url : `${API_URL}${test.report_url}`}
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="text-xs text-blue-600 hover:underline flex items-center gap-1"
-                                >
-                                  <FileText className="w-3 h-3" /> View Report
-                                </a>
-                              </div>
-                            )}
-
-                            {/* Schedule Info */}
-                            {test.appointment_date && (
-                              <div className="flex items-center gap-2 text-xs bg-green-50 px-2 py-1 rounded mb-3">
-                                <Calendar className="w-3 h-3 text-green-600" />
-                                <span className="text-green-700 font-medium">
-                                  {new Date(test.appointment_date).toLocaleDateString('en-IN')}
-                                  {test.timing && ` at ${test.timing}`}
-                                </span>
-                                {test.price && <span className="text-green-600">₹{test.price}</span>}
-                              </div>
-                            )}
-
-                            <div className="flex flex-wrap gap-2">
-                              {test.price && test.payment_status !== 'paid' && test.appointment_date && (
-                                <button
-                                  onClick={() => handlePayment(test)}
-                                  className="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition flex items-center gap-1"
-                                >
-                                  💳 Pay ₹{test.price}
-                                </button>
+                              {test.notes && (
+                                <div className="text-xs text-gray-600 bg-yellow-50 p-2 rounded mb-3">
+                                  Note: {test.notes}
+                                </div>
                               )}
-                              {test.payment_status === 'paid' && (
-                                <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
-                                  ✓ Paid
-                                </span>
+
+                              {test.report_url && (
+                                <div className="mb-3">
+                                  <a 
+                                    href={test.report_url.startsWith("http") ? test.report_url : `${API_URL}${test.report_url}`}
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                                  >
+                                    <FileText className="w-3 h-3" /> View Report
+                                  </a>
+                                </div>
                               )}
-                            </div>
-                          </motion.div>
-                        ))}
+
+                              {/* Schedule Info */}
+                              {test.appointment_date && (
+                                <div className="flex items-center gap-2 text-xs bg-green-50 px-2 py-1 rounded mb-3">
+                                  <Calendar className="w-3 h-3 text-green-600" />
+                                  <span className="text-green-700 font-medium">
+                                    {new Date(test.appointment_date).toLocaleDateString('en-IN')}
+                                    {test.timing && ` at ${test.timing}`}
+                                  </span>
+                                  {test.price && <span className="text-green-600">₹{test.price}</span>}
+                                </div>
+                              )}
+
+                              <div className="flex flex-wrap gap-2">
+                                {test.price && test.payment_status !== 'paid' && test.appointment_date && (
+                                  <button
+                                    onClick={() => handlePayment(test)}
+                                    className="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition flex items-center gap-1"
+                                  >
+                                    💳 Pay ₹{test.price}
+                                  </button>
+                                )}
+                                {test.payment_status === 'paid' && (
+                                  <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+                                    ✓ Paid
+                                  </span>
+                                )}
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          )
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
