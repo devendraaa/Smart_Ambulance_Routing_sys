@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
+import { useLanguage } from "@/lib/LanguageContext";
 import { TestTube, Building2, User, Calendar, RefreshCw, ChevronDown, ChevronUp, Search, FileText, Loader2, Upload, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { fetchHospitalsList } from "@/lib/api";
@@ -69,6 +70,7 @@ const TEST_TYPES = [
 ];
 
 export default function TestTab({ isDoctorView = false }: { isDoctorView?: boolean }) {
+  const { t } = useLanguage();
   const [hospitalGroups, setHospitalGroups] = useState<HospitalGroup[]>([]);
   const [filteredGroups, setFilteredGroups] = useState<HospitalGroup[]>([]);
   const [hospitals, setHospitals] = useState<string[]>([]);
@@ -362,9 +364,17 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
 
   const getStatusBadge = (status: string) => {
     const config = statusConfig[status] || statusConfig.pending;
+    const labelMap: Record<string, string> = {
+      pending: t("test.status.pending"),
+      payment_pending: t("test.status.paymentPending"),
+      confirmed: t("test.status.confirmed"),
+      completed: t("test.status.completed"),
+      cancelled: t("test.status.cancelled"),
+      ordered: t("test.status.ordered"),
+    };
     return (
       <span className={`px-2 py-0.5 rounded-full text-xs ${config.bg} ${config.color}`}>
-        {config.label}
+        {labelMap[status] || config.label}
       </span>
     );
   };
@@ -382,7 +392,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
   const saveSchedule = async () => {
     if (!selectedTest) return;
     if (!scheduleForm.appointment_date) {
-      alert("Please select a date");
+      alert(t("test.alertSelectDate"));
       return;
     }
 
@@ -403,7 +413,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
       loadData();
     } catch (err) {
       console.error("Error saving schedule:", err);
-      alert("Failed to save schedule");
+      alert(t("test.alertScheduleFailed"));
     }
   };
 
@@ -433,7 +443,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
   const handlePayment = async (test: PatientTest) => {
     if (!test.price) return;
     
-    const confirmed = confirm(`Pay ₹${test.price} for ${test.test_type}?`);
+    const confirmed = confirm(t("test.alertPayConfirm").replace("{amount}", String(test.price)).replace("{testType}", test.test_type));
     if (!confirmed) return;
     
     try {
@@ -444,11 +454,11 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
       
       if (error) throw error;
       
-      alert("Payment successful!");
+      alert(t("test.alertPaymentSuccess"));
       loadData();
     } catch (err) {
       console.error("Payment error:", err);
-      alert("Payment failed");
+      alert(t("test.alertPaymentFailed"));
     }
   };
 
@@ -469,19 +479,19 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                 <TestTube className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Test Records</h2>
-                <p className="text-gray-500 text-sm">{isDoctorView ? "Patient tests by hospital" : "Your test records"}</p>
+                <h2 className="text-xl font-bold text-gray-900">{t("test.header")}</h2>
+                <p className="text-gray-500 text-sm">{isDoctorView ? t("test.headerDoctorSubtitle") : t("test.headerPatientSubtitle")}</p>
               </div>
             </div>
 
             <div className="flex gap-4">
               <div className="px-4 py-2 bg-purple-100 rounded-xl">
                 <span className="text-purple-700 font-semibold">{stats.totalPatients}</span>
-                <span className="text-purple-500 text-sm ml-1">Patients</span>
+                <span className="text-purple-500 text-sm ml-1">{t("test.patients")}</span>
               </div>
               <div className="px-4 py-2 bg-pink-100 rounded-xl">
                 <span className="text-pink-700 font-semibold">{stats.totalTests}</span>
-                <span className="text-pink-500 text-sm ml-1">Tests</span>
+                <span className="text-pink-500 text-sm ml-1">{t("test.tests")}</span>
               </div>
             </div>
           </div>
@@ -496,7 +506,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                   onChange={(e) => setSelectedHospital(e.target.value)}
                   className="w-full pl-10 pr-8 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none"
                 >
-                  <option value="all">All Hospitals ({hospitals.length})</option>
+                  <option value="all">{t("test.allHospitals").replace("{count}", String(hospitals.length))}</option>
                   {hospitals.map((h) => (
                     <option key={h} value={h}>{h}</option>
                   ))}
@@ -507,7 +517,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                   onChange={(e) => setPatientSelectedHospital(e.target.value)}
                   className="w-full pl-10 pr-8 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none"
                 >
-                  <option value="all">All Hospitals ({patientHospitals.length})</option>
+                  <option value="all">{t("test.allHospitals").replace("{count}", String(patientHospitals.length))}</option>
                   {patientHospitals.map((h) => (
                     <option key={h} value={h}>{h}</option>
                   ))}
@@ -522,7 +532,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                 onChange={(e) => setSelectedTestType(e.target.value)}
                 className="w-full pl-10 pr-8 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none"
               >
-                <option value="all">All Test Types</option>
+                <option value="all">{t("test.allTestTypes")}</option>
                 {TEST_TYPES.map((type) => (
                   <option key={type} value={type}>{type}</option>
                 ))}
@@ -533,7 +543,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search patient or test..."
+                placeholder={t("test.searchPlaceholder")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none"
@@ -546,7 +556,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
               className="px-4 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2"
             >
               <Loader2 className={`w-5 h-5 ${refreshing ? "animate-spin" : ""}`} />
-              {refreshing ? "Refreshing..." : "Refresh"}
+              {refreshing ? t("test.refreshing") : t("test.refresh")}
             </button>
           </div>
         </motion.div>
@@ -556,7 +566,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
           <div className="flex items-center justify-center py-20">
             <div className="flex flex-col items-center gap-4">
               <div className="w-10 h-10 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
-              <p className="text-gray-500">Loading...</p>
+              <p className="text-gray-500">{t("test.loading")}</p>
             </div>
           </div>
         ) : isDoctorView ? (
@@ -566,11 +576,11 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <TestTube className="w-8 h-8 text-gray-400" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-700 mb-2">No Test Records Found</h3>
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">{t("test.noRecords")}</h3>
               <p className="text-gray-500">
                 {selectedHospital === "all" 
-                  ? "No tests have been ordered yet" 
-                  : `No tests for ${selectedHospital}`}
+                  ? t("test.noRecordsDoctor") 
+                  : t("test.noRecordsForHospital").replace("{hospital}", selectedHospital)}
               </p>
             </div>
           ) : (
@@ -591,7 +601,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                       <Building2 className="w-5 h-5 text-purple-600 shrink-0" />
                       <span className="font-semibold text-gray-900 text-sm sm:text-base truncate">{hospitalGroup.hospital_name}</span>
                       <span className="px-1.5 sm:px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-[10px] sm:text-xs whitespace-nowrap shrink-0">
-                        {hospitalGroup.patients.length} pat
+                        {t("test.patientsAbbr").replace("{count}", String(hospitalGroup.patients.length))}
                       </span>
                     </div>
                     {expandedHospitals.has(hospitalGroup.hospital_name) ? (
@@ -623,7 +633,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                                 </div>
                                 <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                                   <span className="px-1.5 sm:px-2 py-1 bg-purple-100 text-purple-700 rounded text-[10px] sm:text-xs whitespace-nowrap">
-                                    {patient.tests.length} tests
+                                    {t("test.testsCount").replace("{count}", String(patient.tests.length))}
                                   </span>
                                   {expandedPatients.has(patientKey) ? (
                                     <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 shrink-0" />
@@ -650,12 +660,12 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                                       </div>
                                       <div className="text-[10px] sm:text-xs text-gray-500 flex items-center gap-1 shrink-0">
                                         <Calendar className="w-3 h-3" />
-                                        {test.created_at ? new Date(test.created_at).toLocaleDateString('en-IN') : 'N/A'}
+                                        {test.created_at ? new Date(test.created_at).toLocaleDateString('en-IN') : t("test.na")}
                                       </div>
                                     </div>
                                     {test.notes && (
                                       <div className="mt-2 text-xs text-gray-600 bg-yellow-50 p-2 rounded">
-                                        Note: {test.notes}
+                                        {t("test.note").replace("{notes}", test.notes)}
                                       </div>
                                     )}
                                     {test.report_url && (
@@ -666,7 +676,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                                           rel="noopener noreferrer"
                                           className="text-xs text-blue-600 hover:underline flex items-center gap-1"
                                         >
-                                          <FileText className="w-3 h-3" /> View Report
+                                          <FileText className="w-3 h-3" /> {t("test.viewReport")}
                                         </a>
                                       </div>
                                     )}
@@ -679,7 +689,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                                           className="px-2 sm:px-3 py-1 sm:py-1.5 bg-emerald-600 text-white text-[10px] sm:text-xs rounded-lg hover:bg-emerald-700 transition flex items-center gap-1"
                                         >
                                           <FileText className="w-3 h-3" />
-                                          <span className="hidden sm:inline">{test.report_url ? "Update Report" : "Upload Report"}</span>
+                                          <span className="hidden sm:inline">{test.report_url ? t("test.updateReport") : t("test.uploadReport")}</span>
                                         </button>
                                       )}
                                       {/* Doctor: Schedule Button */}
@@ -689,7 +699,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                                           className="px-2 sm:px-3 py-1 sm:py-1.5 bg-purple-600 text-white text-[10px] sm:text-xs rounded-lg hover:bg-purple-700 transition flex items-center gap-1"
                                         >
                                           <Calendar className="w-3 h-3" />
-                                          <span className="hidden sm:inline">{test.appointment_date ? "Edit Schedule" : "Schedule Test"}</span>
+                                          <span className="hidden sm:inline">{test.appointment_date ? t("test.editSchedule") : t("test.scheduleTest")}</span>
                                         </button>
                                       )}
                                       
@@ -699,7 +709,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                                           <Calendar className="w-3 h-3 text-green-600" />
                                           <span className="text-green-700 font-medium">
                                             {new Date(test.appointment_date).toLocaleDateString('en-IN')}
-                                            {test.timing && ` at ${test.timing}`}
+                                            {test.timing && ` ${t("test.atTime")} ${test.timing}`}
                                           </span>
                                           {test.price && (
                                             <span className="text-green-600">₹{test.price}</span>
@@ -720,7 +730,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                                       {/* Payment Status */}
                                       {!isDoctorView && test.payment_status === 'paid' && (
                                         <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
-                                          ✓ Paid
+                                          ✓ {t("test.paid")}
                                         </span>
                                       )}
                                     </div>
@@ -755,7 +765,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                 }`}
               >
                 <Calendar className="w-4 h-4 inline mr-1.5 -mt-0.5" />
-                Upcoming
+                {t("test.upcoming")}
               </button>
               <button
                 onClick={() => setShowHistory(true)}
@@ -766,7 +776,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                 }`}
               >
                 <FileText className="w-4 h-4 inline mr-1.5 -mt-0.5" />
-                History
+                {t("test.history")}
               </button>
             </motion.div>
 
@@ -775,13 +785,13 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <TestTube className="w-8 h-8 text-gray-400" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">No {showHistory ? "History" : "Upcoming"} Tests</h3>
+                <h3 className="text-lg font-semibold text-gray-700 mb-2">{showHistory ? t("test.noHistoryTestsTitle") : t("test.noUpcomingTestsTitle")}</h3>
                 <p className="text-gray-500">
                   {showHistory
-                    ? "No completed or cancelled test records found"
+                    ? t("test.noHistoryTestsDesc")
                     : patientSelectedHospital === "all"
-                      ? "No upcoming tests scheduled"
-                      : `No upcoming tests for ${patientSelectedHospital}`}
+                      ? t("test.noUpcomingTestsDesc")
+                      : t("test.noUpcomingTestsForHospital").replace("{hospital}", patientSelectedHospital)}
                 </p>
               </div>
             ) : (
@@ -805,12 +815,12 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                           <div className="min-w-0 flex-1">
                             <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{group.patient_name}</h3>
                             <p className="text-[10px] sm:text-xs text-gray-500 truncate">
-                              {group.tests.length} tests
+                              {t("test.testsCount").replace("{count}", String(group.tests.length))}
                               {patientHospital && <span> · {patientHospital}</span>}
                             </p>
                           </div>
                           <span className="px-2 sm:px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-[10px] sm:text-xs font-medium whitespace-nowrap shrink-0">
-                            {group.tests.length} tests
+                            {t("test.testsCount").replace("{count}", String(group.tests.length))}
                           </span>
                         </div>
                       </div>
@@ -835,7 +845,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
 
                               {test.notes && (
                                 <div className="text-xs text-gray-600 bg-yellow-50 p-2 rounded mb-3">
-                                  Note: {test.notes}
+                                  {t("test.note").replace("{notes}", test.notes)}
                                 </div>
                               )}
 
@@ -847,7 +857,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                                     rel="noopener noreferrer"
                                     className="text-xs text-blue-600 hover:underline flex items-center gap-1"
                                   >
-                                    <FileText className="w-3 h-3" /> View Report
+                                    <FileText className="w-3 h-3" /> {t("test.viewReport")}
                                   </a>
                                 </div>
                               )}
@@ -858,7 +868,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                                   <Calendar className="w-3 h-3 text-green-600" />
                                   <span className="text-green-700 font-medium">
                                     {new Date(test.appointment_date).toLocaleDateString('en-IN')}
-                                    {test.timing && ` at ${test.timing}`}
+                                    {test.timing && ` ${t("test.atTime")} ${test.timing}`}
                                   </span>
                                   {test.price && <span className="text-green-600">₹{test.price}</span>}
                                 </div>
@@ -875,7 +885,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                                 )}
                                 {test.payment_status === 'paid' && (
                                   <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
-                                    ✓ Paid
+                                    ✓ {t("test.paid")}
                                   </span>
                                 )}
                               </div>
@@ -897,7 +907,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
         <div className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 pt-16 sm:pt-20 z-[9999] overflow-y-auto">
           <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-md my-4">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Schedule Test</h3>
+              <h3 className="text-lg font-semibold">{t("test.scheduleHeading")}</h3>
               <button onClick={() => setShowScheduleModal(false)} className="text-gray-500 hover:text-gray-700">
                 ✕
               </button>
@@ -905,18 +915,18 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Patient</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t("test.patient")}</label>
                 <p className="text-gray-900">{selectedTest.patient_name}</p>
                 <p className="text-sm text-gray-500">{selectedTest.patient_email}</p>
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Test Type</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t("test.testType")}</label>
                 <p className="text-gray-900">{selectedTest.test_type}</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Appointment Date *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t("test.appointmentDate")}</label>
                 <input
                   type="date"
                   value={scheduleForm.appointment_date}
@@ -927,7 +937,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Timing</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t("test.timing")}</label>
                 <select
                   value={scheduleForm.timing}
                   onChange={(e) => setScheduleForm({ ...scheduleForm, timing: e.target.value })}
@@ -940,12 +950,12 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t("test.price")}</label>
                 <input
                   type="number"
                   value={scheduleForm.price}
                   onChange={(e) => setScheduleForm({ ...scheduleForm, price: e.target.value })}
-                  placeholder="Enter price"
+                  placeholder={t("test.enterPrice")}
                   className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none"
                 />
               </div>
@@ -954,7 +964,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                 onClick={saveSchedule}
                 className="w-full py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition"
               >
-                Save Schedule
+                {t("test.saveSchedule")}
               </button>
             </div>
           </div>
@@ -966,7 +976,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
         <div className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 pt-16 sm:pt-20 z-[9999] overflow-y-auto">
           <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-md shadow-2xl my-4">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Upload Test Report</h3>
+              <h3 className="text-lg font-semibold text-gray-900">{t("test.uploadTestReport")}</h3>
               <button onClick={() => setShowUploadModal(false)} className="p-1 hover:bg-gray-100 rounded-lg transition">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
@@ -974,13 +984,13 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
 
             <div className="space-y-4">
               <div className="bg-gray-50 rounded-lg p-3">
-                <p className="text-sm text-gray-500">Patient</p>
+                <p className="text-sm text-gray-500">{t("test.patient")}</p>
                 <p className="font-medium text-gray-900">{uploadTest.patient_name || uploadTest.patient_email}</p>
-                <p className="text-xs text-gray-400 mt-1">Test: {uploadTest.test_type}</p>
+                <p className="text-xs text-gray-400 mt-1">{t("test.testLabel").replace("{type}", uploadTest.test_type)}</p>
                 {uploadTest.status === "completed" && uploadTest.report_url && (
                   <div className="mt-2 flex items-center gap-1 text-xs text-emerald-600">
                     <FileText className="w-3 h-3" />
-                    Report already uploaded
+                    {t("test.reportAlreadyUploaded")}
                   </div>
                 )}
               </div>
@@ -988,7 +998,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Upload className="w-4 h-4 inline mr-1" />
-                  Select Report File
+                  {t("test.selectReportFile")}
                 </label>
                 <div
                   onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("border-emerald-500", "bg-emerald-50"); }}
@@ -1011,8 +1021,8 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                   ) : (
                     <div>
                       <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                      <p className="text-sm text-gray-600">Drop file here or click to browse</p>
-                      <p className="text-xs text-gray-400 mt-1">PDF, PNG, JPG up to 10MB</p>
+                      <p className="text-sm text-gray-600">{t("test.dropFileHint")}</p>
+                      <p className="text-xs text-gray-400 mt-1">{t("test.fileFormats")}</p>
                     </div>
                   )}
                   <input
@@ -1036,7 +1046,7 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                   onClick={() => setShowUploadModal(false)}
                   className="flex-1 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
                 >
-                  Cancel
+                  {t("test.cancel")}
                 </button>
                 <button
                   onClick={handleFileUpload}
@@ -1046,12 +1056,12 @@ export default function TestTab({ isDoctorView = false }: { isDoctorView?: boole
                   {uploading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Uploading...
+                      {t("test.uploading")}
                     </>
                   ) : (
                     <>
                       <Upload className="w-4 h-4" />
-                      Upload Report
+                      {t("test.uploadReportBtn")}
                     </>
                   )}
                 </button>

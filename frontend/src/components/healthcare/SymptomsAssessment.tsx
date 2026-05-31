@@ -325,6 +325,7 @@ export default function SymptomsAssessment({ patientEmail, patientName, hospital
           prescription_notes: "",
           medicines: "[]",
           follow_up_date: null,
+          appointment_id: appointmentId || null,
           bp_systolic: bpSysNum,
           bp_diastolic: bpDiaNum,
           temperature: temperature ? parseFloat(temperature) : null,

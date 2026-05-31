@@ -564,6 +564,7 @@ class DoctorPrescriptionCreate(BaseModel):
     prescription_notes: Optional[str] = None
     medicines: Optional[str] = None  # JSON string
     follow_up_date: Optional[str] = None
+    appointment_id: Optional[str] = None
     bp_systolic: Optional[int] = None
     bp_diastolic: Optional[int] = None
     temperature: Optional[float] = None
@@ -646,7 +647,7 @@ async def create_doctor_prescription(data: DoctorPrescriptionCreate):
         raise HTTPException(503, "Database not configured")
 
     try:
-        result = sb.table("doctor_prescriptions").insert({
+        insert_data = {
             "patient_email": data.patient_email,
             "patient_name": data.patient_name,
             "patient_phone": data.patient_phone,
@@ -680,7 +681,10 @@ async def create_doctor_prescription(data: DoctorPrescriptionCreate):
             "alcohol_history": data.alcohol_history,
             "past_medications": data.past_medications,
             "status": "Active",
-        }).execute()
+        }
+        if data.appointment_id:
+            insert_data["appointment_id"] = data.appointment_id
+        result = sb.table("doctor_prescriptions").insert(insert_data).execute()
         return {"id": result.data[0]["id"], "message": "Prescription created successfully"}
     except Exception as e:
         raise HTTPException(500, f"Failed to create prescription: {str(e)}")

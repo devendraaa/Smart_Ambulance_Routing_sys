@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { fetchBloodBanks } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { Droplet, MapPin, Clock, Phone, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { useLanguage } from "@/lib/LanguageContext";
 
 function formatTime(min: number): string {
   if (min < 1) return `${Math.round(min * 60)} sec`;
@@ -31,6 +32,7 @@ export default function BloodBankPage() {
   const [allBloodTypes, setAllBloodTypes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [originSet, setOriginSet] = useState(false);
+  const { t } = useLanguage();
 
   useEffect(() => {
     const originLat = localStorage.getItem("lastOriginLat");
@@ -47,7 +49,7 @@ export default function BloodBankPage() {
   }, []);
 
   if (!mounted) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return <div className="min-h-screen flex items-center justify-center">{t("bloodbank.loading")}</div>;
   }
 
   if (loading) {
@@ -86,17 +88,17 @@ export default function BloodBankPage() {
       >
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Blood Bank Availabilityyyy</h1>
+            <h1 className="text-3xl font-bold text-gray-900">{t("bloodbank.heading")}</h1>
             <p className="text-gray-500 mt-1">
-              {banks.length} blood banks in Mumbai
+              {banks.length} {t("bloodbank.count")}
               {originSet && (
-                <span className="ml-2 text-emerald-600">• With distance & ETA</span>
+                <span className="ml-2 text-emerald-600">{t("bloodbank.distEta")}</span>
               )}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Droplet className="w-5 h-5 text-red-500" />
-            <span className="text-sm text-gray-500">Real-time inventory</span>
+            <span className="text-sm text-gray-500">{t("bloodbank.realtime")}</span>
           </div>
         </div>
 
@@ -107,7 +109,7 @@ export default function BloodBankPage() {
           transition={{ delay: 0.1 }}
           className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6"
         >
-          <h3 className="text-sm font-semibold text-gray-700 mb-4">Quick Availability by Blood Type</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-4">{t("bloodbank.quickHeading")}</h3>
           <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
             {allBloodTypes.map((bt, i) => {
               const totalLiters = banks.reduce(
@@ -229,7 +231,7 @@ export default function BloodBankPage() {
             className="text-center py-12"
           >
             <div className="text-6xl mb-4">🩸</div>
-            <p className="text-gray-500 text-lg">No blood bank data available.</p>
+            <p className="text-gray-500 text-lg">{t("bloodbank.empty")}</p>
           </motion.div>
         )}
       </AnimatePresence>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MapPin, Upload, CheckCircle2, AlertCircle, Trash2, FileSpreadsheet } from "lucide-react";
+import { useLanguage } from "@/lib/LanguageContext";
 import { addSensor, uploadSensorsCSV, fetchManualSensors } from "@/lib/api";
 
 type ManualSensor = {
@@ -14,6 +15,7 @@ type ManualSensor = {
 };
 
 export default function SensorPage() {
+  const { t } = useLanguage();
   const [sensors, setSensors] = useState<ManualSensor[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -55,7 +57,7 @@ export default function SensorPage() {
     const degreeVal = degree.trim() ? parseFloat(degree) : undefined;
 
     if (isNaN(latitude) || isNaN(longitude)) {
-      setFormMsg({ type: "error", text: "Please enter valid latitude and longitude" });
+      setFormMsg({ type: "error", text: t("sensor.invalidCoords") });
       return;
     }
 
@@ -68,13 +70,13 @@ export default function SensorPage() {
       if (degreeVal !== undefined) payload.degree = degreeVal;
 
       await addSensor(payload);
-      setFormMsg({ type: "success", text: "Sensor added successfully!" });
+      setFormMsg({ type: "success", text: t("sensor.addSuccess") });
       setLat("");
       setLon("");
       setDegree("");
       loadSensors();
     } catch (err) {
-      setFormMsg({ type: "error", text: "Failed to add sensor. Please try again." });
+      setFormMsg({ type: "error", text: t("sensor.addError") });
     } finally {
       setFormLoading(false);
     }
@@ -82,7 +84,7 @@ export default function SensorPage() {
 
   const handleCSVUpload = async () => {
     if (!csvFile) {
-      setCsvMsg({ type: "error", text: "Please select a CSV file first" });
+      setCsvMsg({ type: "error", text: t("sensor.selectCsv") });
       return;
     }
 
@@ -97,7 +99,7 @@ export default function SensorPage() {
       if (fileInputRef.current) fileInputRef.current.value = "";
       loadSensors();
     } catch (err: any) {
-      setCsvMsg({ type: "error", text: err.message || "Failed to upload CSV" });
+      setCsvMsg({ type: "error", text: err.message || t("sensor.uploadFailed") });
     } finally {
       setCsvLoading(false);
     }
@@ -107,7 +109,7 @@ export default function SensorPage() {
     const file = e.target.files?.[0];
     if (file) {
       if (!file.name.endsWith(".csv")) {
-        setCsvMsg({ type: "error", text: "Please upload a CSV file" });
+        setCsvMsg({ type: "error", text: t("sensor.uploadCsvError") });
         return;
       }
       setCsvFile(file);
@@ -127,8 +129,8 @@ export default function SensorPage() {
         animate={{ opacity: 1, y: 0 }}
         className="mb-8"
       >
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Sensor Management</h1>
-        <p className="text-gray-500">Add sensors manually or upload CSV file</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">{t("sensor.heading")}</h1>
+        <p className="text-gray-500">{t("sensor.desc")}</p>
       </motion.div>
 
       {/* Manual Input Form */}
@@ -143,8 +145,8 @@ export default function SensorPage() {
             <MapPin className="w-5 h-5 text-blue-600" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900">Add Single Sensor</h3>
-            <p className="text-sm text-gray-500">Enter sensor coordinates manually</p>
+            <h3 className="font-semibold text-gray-900">{t("sensor.addSingle")}</h3>
+            <p className="text-sm text-gray-500">{t("sensor.addSingleDesc")}</p>
           </div>
         </div>
 
@@ -152,42 +154,42 @@ export default function SensorPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Latitude <span className="text-red-500">*</span>
+                {t("sensor.latitude")}
               </label>
               <input
                 type="number"
                 step="any"
                 value={lat}
                 onChange={(e) => setLat(e.target.value)}
-                placeholder="e.g. 19.0760"
+                placeholder={t("sensor.latitudePlaceholder")}
                 className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition"
                 required
               />
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Longitude <span className="text-red-500">*</span>
+                {t("sensor.longitude")}
               </label>
               <input
                 type="number"
                 step="any"
                 value={lon}
                 onChange={(e) => setLon(e.target.value)}
-                placeholder="e.g. 72.8777"
+                placeholder={t("sensor.longitudePlaceholder")}
                 className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition"
                 required
               />
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Degree <span className="text-gray-400">(optional)</span>
+                {t("sensor.degree")}
               </label>
               <input
                 type="number"
                 step="any"
                 value={degree}
                 onChange={(e) => setDegree(e.target.value)}
-                placeholder="e.g. 45"
+                placeholder={t("sensor.degreePlaceholder")}
                 className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition"
               />
             </div>
@@ -225,12 +227,12 @@ export default function SensorPage() {
             {formLoading ? (
               <>
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Adding Sensor...
+                {t("sensor.addingBtn")}
               </>
             ) : (
               <>
                 <MapPin className="w-5 h-5" />
-                Add Sensor
+                {t("sensor.addBtn")}
               </>
             )}
           </motion.button>
@@ -249,8 +251,8 @@ export default function SensorPage() {
             <FileSpreadsheet className="w-5 h-5 text-purple-600" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900">Upload CSV File</h3>
-            <p className="text-sm text-gray-500">Bulk upload sensors from CSV (lat, long, degree)</p>
+            <h3 className="font-semibold text-gray-900">{t("sensor.uploadCsv")}</h3>
+            <p className="text-sm text-gray-500">{t("sensor.uploadDesc")}</p>
           </div>
         </div>
 
@@ -267,10 +269,10 @@ export default function SensorPage() {
             <label htmlFor="csv-upload" className="cursor-pointer">
               <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
               <p className="text-sm text-gray-600">
-                {csvFile ? csvFile.name : "Click to upload or drag and drop"}
+                {csvFile ? csvFile.name : t("sensor.uploadPrompt")}
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                CSV format: latitude, longitude, degree (degree is optional)
+                {t("sensor.csvFormat")}
               </p>
             </label>
           </div>
@@ -307,12 +309,12 @@ export default function SensorPage() {
             {csvLoading ? (
               <>
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Uploading...
+                {t("sensor.uploadingBtn")}
               </>
             ) : (
               <>
                 <Upload className="w-5 h-5" />
-                Upload CSV
+                {t("sensor.uploadBtn")}
               </>
             )}
           </motion.button>
@@ -328,7 +330,7 @@ export default function SensorPage() {
       >
         <div className="p-6 border-b border-gray-100">
           <h3 className="font-semibold text-gray-900">
-            Added Sensors
+            {t("sensor.listHeading")}
             <span className="ml-2 text-sm font-normal text-gray-500">
               ({sensors.length} sensors)
             </span>
@@ -338,7 +340,7 @@ export default function SensorPage() {
         {loading ? (
           <div className="p-8 text-center">
             <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-gray-500">Loading sensors...</p>
+            <p className="text-gray-500">{t("sensor.loading")}</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-50 max-h-96 overflow-y-auto">
@@ -359,7 +361,7 @@ export default function SensorPage() {
                       {s.latitude.toFixed(5)}, {s.longitude.toFixed(5)}
                     </div>
                     {s.degree !== undefined && (
-                      <div className="text-xs text-gray-500">Degree: {s.degree}°</div>
+                      <div className="text-xs text-gray-500">{t("sensor.degreeLabel")}: {s.degree}°</div>
                     )}
                   </div>
                 </div>
@@ -371,8 +373,8 @@ export default function SensorPage() {
             {sensors.length === 0 && (
               <div className="p-8 text-center text-gray-400">
                 <MapPin className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                <p>No sensors added yet.</p>
-                <p className="text-xs mt-1">Use the form above to add sensors.</p>
+                <p>{t("sensor.empty")}</p>
+                <p className="text-xs mt-1">{t("sensor.emptyHint")}</p>
               </div>
             )}
           </div>

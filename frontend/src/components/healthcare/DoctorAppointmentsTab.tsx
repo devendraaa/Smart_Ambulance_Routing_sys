@@ -127,6 +127,18 @@ interface Prescription {
   ai_suggested_diet?: { diet_name: string; diet_type: string; foods: string; instructions: string } | null;
 }
 
+function formatAIPredictionsToNotes(predictions: any[]): string {
+  if (predictions.length > 0) {
+    console.log("formatAIPredictionsToNotes first pred:", predictions[0]);
+    if (predictions[0].description) {
+      console.log("-> returning description:", predictions[0].description);
+      return predictions[0].description;
+    }
+    console.log("-> no description found, keys:", Object.keys(predictions[0]));
+  }
+  return "";
+}
+
 function PatientDetailPanel({
   appointment,
   onClose
@@ -146,7 +158,7 @@ function PatientDetailPanel({
   const [completing, setCompleting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [visitNote, setVisitNote] = useState("");
-  const [aiPreFillData, setAiPreFillData] = useState<{ diagnosis: string; suggestedTests: string[]; suggestedDiet?: any } | null>(null);
+  const [aiPreFillData, setAiPreFillData] = useState<{ diagnosis: string; suggestedTests: string[]; suggestedDiet?: any; aiNotes?: string } | null>(null);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [aiDiagnosisData, setAiDiagnosisData] = useState<{
     ai_diagnosis: string;
@@ -649,6 +661,7 @@ function PatientDetailPanel({
                                 setAiPreFillData({
                                   diagnosis: aiData.ai_diagnosis || "",
                                   suggestedTests: aiData.ai_suggested_tests || [],
+                                  aiNotes: formatAIPredictionsToNotes(aiData.ai_disease_predictions || []),
                                 });
                                 setAiDiagnosisData(null);
                                 setActiveTab("prescriptions");
@@ -820,6 +833,7 @@ function PatientDetailPanel({
                                 setAiPreFillData({
                                   diagnosis: aiPrescription.ai_diagnosis || "",
                                   suggestedTests: suggestedTests,
+                                  aiNotes: formatAIPredictionsToNotes(aiPrescription.ai_disease_predictions || []),
                                 });
                               }}
                               className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition"

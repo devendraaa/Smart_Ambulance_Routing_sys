@@ -10,3 +10,4 @@ ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS allergies TEXT;
 ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS smoking_history VARCHAR(50);
 ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS alcohol_history VARCHAR(50);
 ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS past_medications TEXT;
+ALTER TABLE doctor_prescriptions ADD COLUMN IF NOT EXISTS appointment_id UUID REFERENCES patient_appointments(id) ON DELETE SET NULL;

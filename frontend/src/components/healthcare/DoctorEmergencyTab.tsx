@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
+import { useLanguage } from "@/lib/LanguageContext";
 import { useRouter } from "next/navigation";
 import { fetchHospitalsList, getTaskStatus, reverseGeocode, fetchBloodBanks, admitPatient } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
@@ -90,6 +91,7 @@ function calculateTriageLevel(c: EmergencyCase): "red" | "yellow" | "green" {
 }
 
 export default function DoctorEmergencyTab() {
+  const { t } = useLanguage();
   const router = useRouter();
   const [hospitals, setHospitals] = useState<HospitalInfo[]>([]);
   const [selectedHospital, setSelectedHospital] = useState("");
@@ -428,8 +430,8 @@ export default function DoctorEmergencyTab() {
           <AlertTriangle className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Emergency Cases</h2>
-          <p className="text-sm text-gray-500">View today's patient details from ambulance routes</p>
+          <h2 className="text-xl font-bold text-gray-900">{t("emergency.heading")}</h2>
+          <p className="text-sm text-gray-500">{t("emergency.subtitle")}</p>
         </div>
       </div>
 
@@ -439,7 +441,7 @@ export default function DoctorEmergencyTab() {
           <div className="flex-1">
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">
               <Hospital className="w-3.5 h-3.5 inline mr-1" />
-              Select Hospital
+              {t("emergency.selectHospital")}
             </label>
             {loadingHospitals ? (
               <div className="h-10 bg-gray-200 rounded-xl animate-pulse" />
@@ -449,7 +451,7 @@ export default function DoctorEmergencyTab() {
                 onChange={(e) => setSelectedHospital(e.target.value)}
                 className="w-full rounded-xl border-2 border-gray-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
               >
-                <option value="">Select a hospital</option>
+                <option value="">{t("emergency.selectHospitalPlaceholder")}</option>
                 {hospitals.map((h) => (
                   <option key={h.id} value={h.name}>
                     {h.today_cases && h.today_cases > 0 ? `[${h.today_cases}] ${h.name}` : h.name}
@@ -460,7 +462,7 @@ export default function DoctorEmergencyTab() {
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <p className="text-xs text-gray-500">Date</p>
+              <p className="text-xs text-gray-500">{t("emergency.date")}</p>
               <p className="text-sm font-semibold text-gray-800">{new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</p>
             </div>
             <button
@@ -469,7 +471,7 @@ export default function DoctorEmergencyTab() {
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition border border-blue-200"
             >
               <Loader2 className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
-              {refreshing ? "Refreshing..." : "Refresh"}
+              {refreshing ? t("emergency.refreshing") : t("emergency.refresh")}
             </button>
             <button
               onClick={() => setShowHistory(true)}
@@ -477,7 +479,7 @@ export default function DoctorEmergencyTab() {
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-purple-600 bg-purple-50 rounded-xl hover:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed transition border border-purple-200"
             >
               <Calendar className="w-3.5 h-3.5" />
-              History
+              {t("emergency.history")}
             </button>
           </div>
         </div>
@@ -499,8 +501,8 @@ export default function DoctorEmergencyTab() {
             {statusFilter === "new" && newCaseCount > 0 && (
               <span className="absolute inset-0 animate-siren pointer-events-none" />
             )}
-            <span className="hidden sm:inline">New Case</span>
-            <span className="sm:hidden">New</span>
+            <span className="hidden sm:inline">{t("emergency.newCase")}</span>
+            <span className="sm:hidden">{t("emergency.newCaseShort")}</span>
             <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 ${
               statusFilter === "new" ? "bg-white/25 text-white" : "bg-gray-200 text-gray-600"
             }`}>
@@ -518,8 +520,8 @@ export default function DoctorEmergencyTab() {
                 : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
             }`}
           >
-            <span className="hidden sm:inline">Pending Case</span>
-            <span className="sm:hidden">Pending</span>
+            <span className="hidden sm:inline">{t("emergency.pendingCase")}</span>
+            <span className="sm:hidden">{t("emergency.pendingCaseShort")}</span>
             <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
               statusFilter === "pending" ? "bg-white/25 text-white" : "bg-gray-200 text-gray-600"
             }`}>{pendingCaseCount}</span>
@@ -532,8 +534,8 @@ export default function DoctorEmergencyTab() {
                 : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
             }`}
           >
-            <span className="hidden sm:inline">Solved</span>
-            <span className="sm:hidden">Solved</span>
+            <span className="hidden sm:inline">{t("emergency.solved")}</span>
+            <span className="sm:hidden">{t("emergency.solved")}</span>
             <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
               statusFilter === "solved" ? "bg-white/25 text-white" : "bg-gray-200 text-gray-600"
             }`}>{solvedCaseCount}</span>
@@ -545,32 +547,32 @@ export default function DoctorEmergencyTab() {
       {!selectedHospital ? (
         <div className="text-center py-12 bg-gray-50 rounded-2xl border border-gray-100">
           <Hospital className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">Select a hospital to view emergency cases</p>
+          <p className="text-gray-500">{t("emergency.noHospital")}</p>
         </div>
       ) : loading ? (
         <div className="text-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
-          <p className="text-sm text-gray-500">Loading today's cases...</p>
+          <p className="text-sm text-gray-500">{t("emergency.loadingCases")}</p>
         </div>
       ) : cases.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-2xl border border-gray-100">
           <AlertTriangle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">No emergency cases found today</p>
-          <p className="text-sm text-gray-400 mt-1">For {selectedHospital}</p>
+          <p className="text-gray-500">{t("emergency.noCases")}</p>
+          <p className="text-sm text-gray-400 mt-1">{t("emergency.noCasesFor")} {selectedHospital}</p>
         </div>
       ) : filteredCases.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-2xl border border-gray-100">
           <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
             <AlertTriangle className="w-7 h-7 text-gray-400" />
           </div>
-          <p className="text-gray-500 font-medium">No {statusFilter === "new" ? "new" : statusFilter === "pending" ? "pending" : "solved"} cases</p>
-          <p className="text-sm text-gray-400 mt-1">For {selectedHospital}</p>
+          <p className="text-gray-500 font-medium">{t("emergency.noFilterCases").replace("{status}", statusFilter === "new" ? t("emergency.newCaseShort").toLowerCase() : statusFilter === "pending" ? t("emergency.pendingCaseShort").toLowerCase() : t("emergency.solved").toLowerCase())}</p>
+          <p className="text-sm text-gray-400 mt-1">{t("emergency.forHospital")} {selectedHospital}</p>
         </div>
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500">
-              Showing <span className="font-semibold text-gray-700">{filteredCases.length}</span> {statusFilter === "new" ? "new" : statusFilter === "pending" ? "pending" : "solved"} case(s)
+              {t("emergency.showing")} <span className="font-semibold text-gray-700">{filteredCases.length}</span> {t("emergency.caseCount")}
             </p>
           </div>
 
@@ -621,7 +623,7 @@ export default function DoctorEmergencyTab() {
                   className="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 bg-red-500 text-white rounded-full text-[10px] font-bold shadow-lg shadow-red-300/50 z-10"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-white animate-live-dot" />
-                  LIVE
+                  {t("emergency.live")}
                 </motion.div>
               )}
 
@@ -657,7 +659,7 @@ export default function DoctorEmergencyTab() {
                     )}
                     <div className="flex items-center gap-2">
                     <h3 className="font-bold text-lg text-gray-900">
-                      {emergencyCase.patient_name || "Unknown Patient"}
+                      {emergencyCase.patient_name || t("emergency.unknownPatient")}
                     </h3>
                     {emergencyCase.patient_case && (
                       <motion.span
@@ -753,7 +755,7 @@ export default function DoctorEmergencyTab() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <span className={`text-sm font-bold ${hasPatientArrived(emergencyCase.created_at, emergencyCase.duration_min || 0, now) ? "text-green-700" : "text-amber-700"}`}>
-                        {hasPatientArrived(emergencyCase.created_at, emergencyCase.duration_min || 0, now) ? "Arrived" : "In Route"}
+                        {hasPatientArrived(emergencyCase.created_at, emergencyCase.duration_min || 0, now) ? t("emergency.arrived") : t("emergency.inRoute")}
                       </span>
                       {!hasPatientArrived(emergencyCase.created_at, emergencyCase.duration_min || 0, now) && emergencyCase.duration_min && (
                         <motion.span
@@ -769,7 +771,7 @@ export default function DoctorEmergencyTab() {
                     </div>
                     {emergencyCase.distance_km && (
                       <p className="text-xs text-gray-500 mt-0.5">
-                        {emergencyCase.distance_km.toFixed(1)} km away
+                        {emergencyCase.distance_km.toFixed(1)} {t("emergency.kmAway")}
                       </p>
                     )}
                   </div>
@@ -781,9 +783,9 @@ export default function DoctorEmergencyTab() {
                     <MapPin className="w-5 h-5 text-blue-600" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Pickup Location</p>
+                    <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">{t("emergency.pickupLocation")}</p>
                     <p className="text-sm font-medium text-gray-800 leading-snug break-words">
-                      {emergencyCase.origin_address || "Loading..."}
+                      {emergencyCase.origin_address || t("emergency.loading")}
                     </p>
                   </div>
                 </div>
@@ -793,7 +795,7 @@ export default function DoctorEmergencyTab() {
               <div className="mt-4 rounded-xl border-2 border-gray-200 overflow-hidden shadow-sm">
                 <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-50 to-emerald-50 border-b border-gray-200">
                   <Activity className="w-4 h-4 text-cyan-600" />
-                  <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Physiological Vitals</span>
+                  <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">{t("emergency.vitals")}</span>
                   {isAnyVitalAbnormal(emergencyCase) && (
                     <motion.span
                       initial={{ scale: 0.8, opacity: 0 }}
@@ -801,7 +803,7 @@ export default function DoctorEmergencyTab() {
                       className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-500 text-white rounded-full text-xs font-bold animate-pulse ml-auto"
                     >
                       <AlertCircle className="w-3 h-3" />
-                      ABNORMAL
+                      {t("emergency.abnormal")}
                     </motion.span>
                   )}
                 </div>
@@ -814,7 +816,7 @@ export default function DoctorEmergencyTab() {
                       >
                         <div className="flex items-center gap-1.5 mb-1">
                           <Activity className={`w-4 h-4 ${isBpHigh(emergencyCase.patient_bp_systolic, emergencyCase.patient_bp_diastolic) ? "text-red-600" : "text-cyan-600"}`} />
-                          <span className={`text-xs font-semibold ${isBpHigh(emergencyCase.patient_bp_systolic, emergencyCase.patient_bp_diastolic) ? "text-red-600" : "text-cyan-600"}`}>BP</span>
+                          <span className={`text-xs font-semibold ${isBpHigh(emergencyCase.patient_bp_systolic, emergencyCase.patient_bp_diastolic) ? "text-red-600" : "text-cyan-600"}`}>{t("emergency.vitalBp")}</span>
                         </div>
                         <p className={`text-xl font-semibold ${isBpHigh(emergencyCase.patient_bp_systolic, emergencyCase.patient_bp_diastolic) ? "text-red-800" : "text-cyan-800"}`}>
                           {emergencyCase.patient_bp_systolic}/{emergencyCase.patient_bp_diastolic}
@@ -828,7 +830,7 @@ export default function DoctorEmergencyTab() {
                       >
                         <div className="flex items-center gap-1.5 mb-1">
                           <Thermometer className={`w-4 h-4 ${isTemperatureHigh(emergencyCase.patient_temperature) ? "text-red-600" : "text-orange-600"}`} />
-                          <span className={`text-xs font-semibold ${isTemperatureHigh(emergencyCase.patient_temperature) ? "text-red-600" : "text-orange-600"}`}>Temp</span>
+                          <span className={`text-xs font-semibold ${isTemperatureHigh(emergencyCase.patient_temperature) ? "text-red-600" : "text-orange-600"}`}>{t("emergency.vitalTemp")}</span>
                         </div>
                         <p className={`text-xl font-semibold ${isTemperatureHigh(emergencyCase.patient_temperature) ? "text-red-800" : "text-orange-800"}`}>
                           {emergencyCase.patient_temperature}°
@@ -842,7 +844,7 @@ export default function DoctorEmergencyTab() {
                       >
                         <div className="flex items-center gap-1.5 mb-1">
                           <Heart className={`w-4 h-4 ${isPulseHigh(emergencyCase.patient_pulse) || isPulseLow(emergencyCase.patient_pulse) ? "text-red-600" : "text-rose-600"}`} />
-                          <span className={`text-xs font-semibold ${isPulseHigh(emergencyCase.patient_pulse) || isPulseLow(emergencyCase.patient_pulse) ? "text-red-600" : "text-rose-600"}`}>Pulse</span>
+                          <span className={`text-xs font-semibold ${isPulseHigh(emergencyCase.patient_pulse) || isPulseLow(emergencyCase.patient_pulse) ? "text-red-600" : "text-rose-600"}`}>{t("emergency.vitalPulse")}</span>
                         </div>
                         <p className={`text-xl font-semibold ${isPulseHigh(emergencyCase.patient_pulse) || isPulseLow(emergencyCase.patient_pulse) ? "text-red-800" : "text-rose-800"}`}>
                           {emergencyCase.patient_pulse}
@@ -856,7 +858,7 @@ export default function DoctorEmergencyTab() {
                       >
                         <div className="flex items-center gap-1.5 mb-1">
                           <Wind className={`w-4 h-4 ${isSpo2Low(emergencyCase.patient_spo2) ? "text-red-600" : "text-purple-600"}`} />
-                          <span className={`text-xs font-semibold ${isSpo2Low(emergencyCase.patient_spo2) ? "text-red-600" : "text-purple-600"}`}>SpO2</span>
+                          <span className={`text-xs font-semibold ${isSpo2Low(emergencyCase.patient_spo2) ? "text-red-600" : "text-purple-600"}`}>{t("emergency.vitalSpo2")}</span>
                         </div>
                         <p className={`text-xl font-semibold ${isSpo2Low(emergencyCase.patient_spo2) ? "text-red-800" : "text-purple-800"}`}>
                           {emergencyCase.patient_spo2}%
@@ -866,7 +868,7 @@ export default function DoctorEmergencyTab() {
                     {!emergencyCase.patient_bp_systolic && !emergencyCase.patient_bp_diastolic &&
                      !emergencyCase.patient_temperature && !emergencyCase.patient_pulse && !emergencyCase.patient_spo2 && (
                       <div className="col-span-4 text-center py-4">
-                        <p className="text-sm text-gray-400">No vitals recorded</p>
+                        <p className="text-sm text-gray-400">{t("emergency.noVitals")}</p>
                       </div>
                     )}
                   </div>
@@ -880,8 +882,8 @@ export default function DoctorEmergencyTab() {
                         className="text-center py-3"
                       >
                         <CheckCircle className="w-10 h-10 text-green-500 mx-auto mb-2" />
-                        <p className="text-lg font-bold text-green-700">Arrived</p>
-                        <p className="text-sm text-green-600">at {calculateArrivalTime(emergencyCase.created_at, emergencyCase.duration_min)}</p>
+                        <p className="text-lg font-bold text-green-700">{t("emergency.arrived")}</p>
+                        <p className="text-sm text-green-600">{t("emergency.arrivedAt")} {calculateArrivalTime(emergencyCase.created_at, emergencyCase.duration_min)}</p>
                       </motion.div>
                     ) : emergencyCase.duration_min ? (
                       (() => {
@@ -896,7 +898,7 @@ export default function DoctorEmergencyTab() {
                             <div className="flex items-center justify-center gap-2 mb-2">
                               <div className={`w-3 h-3 rounded-full animate-pulse ${urgent ? "bg-red-500" : "bg-emerald-500"}`} />
                               <span className={`text-xs font-bold uppercase tracking-wider ${urgent ? "text-red-600" : "text-emerald-600"}`}>
-                                Arriving in
+                                {t("emergency.arrivingIn")}
                               </span>
                             </div>
                             <motion.span
@@ -910,7 +912,7 @@ export default function DoctorEmergencyTab() {
                               {formatCountdown(emergencyCase.created_at, emergencyCase.duration_min, now)}
                             </motion.span>
                             <p className={`text-xs mt-2 ${urgent ? "text-red-600" : "text-emerald-600"}`}>
-                              ETA {emergencyCase.duration_min.toFixed(0)} min · Est. {calculateArrivalTime(emergencyCase.created_at, emergencyCase.duration_min)}
+                              {t("emergency.eta")} {emergencyCase.duration_min.toFixed(0)} {t("emergency.min")} · {t("emergency.est")}. {calculateArrivalTime(emergencyCase.created_at, emergencyCase.duration_min)}
                             </p>
                           </motion.div>
                         );
@@ -918,7 +920,7 @@ export default function DoctorEmergencyTab() {
                     ) : (
                       <div className="text-center py-3">
                         <Clock className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                        <p className="text-sm font-medium text-gray-500">Pending</p>
+                        <p className="text-sm font-medium text-gray-500">{t("emergency.pending")}</p>
                       </div>
                     )}
                   </div>
@@ -935,7 +937,7 @@ export default function DoctorEmergencyTab() {
                       "bg-gray-100 text-gray-700 border border-gray-200"
                     }`}>
                       <AlertTriangle className="w-3.5 h-3.5 mr-1.5" />
-                      {emergencyCase.patient_case} Case
+                      {emergencyCase.patient_case} {t("emergency.caseLabel")}
                     </span>
                   </div>
                 )}
@@ -945,13 +947,13 @@ export default function DoctorEmergencyTab() {
                   <div className="mt-3 pt-3 border-t border-slate-200">
                     <div className="flex items-center gap-1.5 mb-2">
                       <Truck className="w-3.5 h-3.5 text-slate-600" />
-                      <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Ambulance Details</p>
+                      <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide">{t("emergency.ambulanceDetails")}</p>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {emergencyCase.ambulance_number && (
                         <div className="bg-slate-100 rounded-lg p-2">
                           <p className="text-xs text-slate-500 flex items-center gap-1">
-                            <Truck className="w-3 h-3" /> Vehicle
+                            <Truck className="w-3 h-3" /> {t("emergency.vehicle")}
                           </p>
                           <p className="text-sm font-bold text-slate-800">{emergencyCase.ambulance_number}</p>
                         </div>
@@ -959,7 +961,7 @@ export default function DoctorEmergencyTab() {
                       {emergencyCase.driver_name && (
                         <div className="bg-slate-100 rounded-lg p-2">
                           <p className="text-xs text-slate-500 flex items-center gap-1">
-                            <User className="w-3 h-3" /> Driver
+                            <User className="w-3 h-3" /> {t("emergency.driver")}
                           </p>
                           <p className="text-sm font-bold text-slate-800">{emergencyCase.driver_name}</p>
                         </div>
@@ -967,7 +969,7 @@ export default function DoctorEmergencyTab() {
                       {emergencyCase.driver_mobile && (
                         <div className="bg-slate-100 rounded-lg p-2">
                           <p className="text-xs text-slate-500 flex items-center gap-1">
-                            <Phone className="w-3 h-3" /> Contact
+                            <Phone className="w-3 h-3" /> {t("emergency.contact")}
                           </p>
                           <p className="text-sm font-bold text-slate-800">{emergencyCase.driver_mobile}</p>
                         </div>
@@ -984,9 +986,9 @@ export default function DoctorEmergencyTab() {
                 >
                   <div className="flex items-center gap-2">
                     <HeartPulse className="w-4 h-4 text-amber-600" />
-                    <span className="text-xs font-bold text-amber-700 uppercase tracking-wide">Triage & Assign</span>
+                    <span className="text-xs font-bold text-amber-700 uppercase tracking-wide">{t("emergency.triageAndAssign")}</span>
                     {(emergencyCase.consultant_name || triageLevels[emergencyCase.task_id]) && (
-                      <span className="px-2 py-0.5 bg-amber-500 text-white rounded-full text-xs">Done</span>
+                      <span className="px-2 py-0.5 bg-amber-500 text-white rounded-full text-xs">{t("emergency.done")}</span>
                     )}
                   </div>
                   {expandedCards.has(emergencyCase.task_id) ? (
@@ -1008,9 +1010,9 @@ export default function DoctorEmergencyTab() {
                       {(() => {
                         const level = calculateTriageLevel(emergencyCase);
                         const colorMap = {
-                          red: { bg: "bg-red-50 border-red-300", dot: "bg-red-500", text: "text-red-700", icon: AlertTriangle, label: "Immediate (Red)" },
-                          yellow: { bg: "bg-amber-50 border-amber-300", dot: "bg-amber-500", text: "text-amber-700", icon: Activity, label: "Urgent (Yellow)" },
-                          green: { bg: "bg-emerald-50 border-emerald-300", dot: "bg-emerald-500", text: "text-emerald-700", icon: CheckCircle, label: "Non-Urgent (Green)" },
+                          red: { bg: "bg-red-50 border-red-300", dot: "bg-red-500", text: "text-red-700", icon: AlertTriangle, label: t("emergency.triageImmediate") },
+                          yellow: { bg: "bg-amber-50 border-amber-300", dot: "bg-amber-500", text: "text-amber-700", icon: Activity, label: t("emergency.triageUrgent") },
+                          green: { bg: "bg-emerald-50 border-emerald-300", dot: "bg-emerald-500", text: "text-emerald-700", icon: CheckCircle, label: t("emergency.triageNonUrgent") },
                         };
                         const cc = colorMap[level];
                         const Icon = cc.icon;
@@ -1021,7 +1023,7 @@ export default function DoctorEmergencyTab() {
                                 <span className={`w-4 h-4 rounded-full ${cc.dot}`} />
                                 <div>
                                   <p className={`text-sm font-bold ${cc.text}`}>{cc.label}</p>
-                                  <p className="text-xs text-gray-500 mt-0.5">Auto-assigned based on vitals & case type</p>
+                                  <p className="text-xs text-gray-500 mt-0.5">{t("emergency.triageAutoDesc")}</p>
                                 </div>
                               </div>
                               <Icon className={`w-6 h-6 ${cc.text}`} />
@@ -1034,7 +1036,7 @@ export default function DoctorEmergencyTab() {
                       <div>
                         <label className="block text-xs font-semibold text-amber-600 mb-1.5">
                           <User className="w-3.5 h-3.5 inline mr-1" />
-                          Assign Consultant
+                          {t("emergency.assignConsultant")}
                         </label>
                         <div className="flex gap-2">
                           <select
@@ -1046,7 +1048,7 @@ export default function DoctorEmergencyTab() {
                             }}
                             className="flex-1 rounded-lg border-2 border-amber-200 bg-amber-50 px-3 py-2 text-sm focus:outline-none focus:border-amber-400 focus:bg-white transition"
                           >
-                            <option value="">Select consultant...</option>
+                            <option value="">{t("emergency.selectConsultant")}</option>
                             <option value="Dr. Sharma (Cardio)">Dr. Sharma (Cardio)</option>
                             <option value="Dr. Verma (Neuro)">Dr. Verma (Neuro)</option>
                             <option value="Dr. Patel (Ortho)">Dr. Patel (Ortho)</option>
@@ -1061,7 +1063,7 @@ export default function DoctorEmergencyTab() {
                       <div>
                         <label className="block text-xs font-semibold text-amber-600 mb-1.5">
                           <Bed className="w-3.5 h-3.5 inline mr-1" />
-                          Assign Ward
+                          {t("emergency.assignWard")}
                         </label>
                         <select
                           value={emergencyCase.bed_number || ""}
@@ -1072,20 +1074,20 @@ export default function DoctorEmergencyTab() {
                           }}
                           className="w-full rounded-lg border-2 border-amber-200 bg-amber-50 px-3 py-2 text-sm focus:outline-none focus:border-amber-400 focus:bg-white transition"
                         >
-                          <option value="">Select ward...</option>
-                          <option value="ICU-01">ICU - Bed 01</option>
-                          <option value="ICU-02">ICU - Bed 02</option>
-                          <option value="ICU-03">ICU - Bed 03</option>
-                          <option value="ICU-04">ICU - Bed 04</option>
-                          <option value="Emergency-01">Emergency - Bed 01</option>
-                          <option value="Emergency-02">Emergency - Bed 02</option>
-                          <option value="Emergency-03">Emergency - Bed 03</option>
-                          <option value="Emergency-04">Emergency - Bed 04</option>
-                          <option value="General-01">General Ward - Bed 01</option>
-                          <option value="General-02">General Ward - Bed 02</option>
-                          <option value="General-03">General Ward - Bed 03</option>
-                          <option value="CCU-01">CCU - Bed 01</option>
-                          <option value="CCU-02">CCU - Bed 02</option>
+                          <option value="">{t("emergency.selectWard")}</option>
+                          <option value="ICU-01">{t("emergency.wardIcu")} 01</option>
+                          <option value="ICU-02">{t("emergency.wardIcu")} 02</option>
+                          <option value="ICU-03">{t("emergency.wardIcu")} 03</option>
+                          <option value="ICU-04">{t("emergency.wardIcu")} 04</option>
+                          <option value="Emergency-01">{t("emergency.wardEmergency")} 01</option>
+                          <option value="Emergency-02">{t("emergency.wardEmergency")} 02</option>
+                          <option value="Emergency-03">{t("emergency.wardEmergency")} 03</option>
+                          <option value="Emergency-04">{t("emergency.wardEmergency")} 04</option>
+                          <option value="General-01">{t("emergency.wardGeneral")} 01</option>
+                          <option value="General-02">{t("emergency.wardGeneral")} 02</option>
+                          <option value="General-03">{t("emergency.wardGeneral")} 03</option>
+                          <option value="CCU-01">{t("emergency.wardCcu")} 01</option>
+                          <option value="CCU-02">{t("emergency.wardCcu")} 02</option>
                         </select>
                       </div>
 
@@ -1093,12 +1095,12 @@ export default function DoctorEmergencyTab() {
                       <div>
                         <label className="block text-xs font-semibold text-amber-600 mb-1.5">
                           <ClipboardList className="w-3.5 h-3.5 inline mr-1" />
-                          Triage Notes
+                          {t("emergency.triageNotes")}
                         </label>
                         <textarea
                           value={treatmentForm.treatment_details}
                           onChange={(e) => setTreatmentForm({ ...treatmentForm, treatment_details: e.target.value })}
-                          placeholder="Clinical notes, immediate actions needed..."
+                          placeholder={t("emergency.triageNotesPlaceholder")}
                           rows={2}
                           className="w-full rounded-lg border-2 border-amber-200 bg-amber-50/50 px-3 py-2 text-sm focus:outline-none focus:border-amber-400 focus:bg-white transition"
                         />
@@ -1136,12 +1138,12 @@ export default function DoctorEmergencyTab() {
                             // Remove from active cases view
                             setCases(prev => prev.filter(c => c.task_id !== emergencyCase.task_id));
                             // Update success message
-                            setAdmitMessages(prev => ({ ...prev, [emergencyCase.task_id]: "Patient admitted successfully" }));
+                            setAdmitMessages(prev => ({ ...prev, [emergencyCase.task_id]: t("emergency.admitSuccess") }));
                             return;
                           } catch (err: any) {
                             setAdmitMessages(prev => ({
                               ...prev,
-                              [emergencyCase.task_id]: `Failed to admit: ${err.message}`,
+                              [emergencyCase.task_id]: `${t("emergency.admitFailed")}: ${err.message}`,
                             }));
                           } finally {
                             setAdmittingTaskId(null);
@@ -1155,11 +1157,11 @@ export default function DoctorEmergencyTab() {
                         }`}
                       >
                         {admittingTaskId === emergencyCase.task_id ? (
-                          <><Loader2 className="w-4 h-4 animate-spin" /> Admitting...</>
+                          <><Loader2 className="w-4 h-4 animate-spin" /> {t("emergency.admitting")}</>
                         ) : admitMessages[emergencyCase.task_id]?.includes("successfully") ? (
                           <><CheckCircle className="w-4 h-4" /> {admitMessages[emergencyCase.task_id]}</>
                         ) : (
-                          <><CheckCircle className="w-4 h-4" /> Admit Patient</>
+                          <><CheckCircle className="w-4 h-4" /> {t("emergency.admitPatient")}</>
                         )}
                       </button>
                       {admitMessages[emergencyCase.task_id] && !admitMessages[emergencyCase.task_id].includes("successfully") && (
@@ -1190,7 +1192,7 @@ export default function DoctorEmergencyTab() {
                   <Calendar className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-900">Emergency History</h3>
+                  <h3 className="font-bold text-gray-900">{t("emergency.historyHeading")}</h3>
                   <p className="text-xs text-gray-500">{selectedHospital}</p>
                 </div>
               </div>
@@ -1205,13 +1207,13 @@ export default function DoctorEmergencyTab() {
               {loadingHistory ? (
                 <div className="text-center py-12">
                   <Loader2 className="w-8 h-8 animate-spin text-purple-600 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">Loading history...</p>
+                  <p className="text-sm text-gray-500">{t("emergency.historyLoading")}</p>
                 </div>
               ) : historyCases.length === 0 ? (
                 <div className="text-center py-12">
                   <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500">No previous emergency cases found</p>
-                  <p className="text-sm text-gray-400 mt-1">For {selectedHospital}</p>
+                  <p className="text-gray-500">{t("emergency.noHistory")}</p>
+                  <p className="text-sm text-gray-400 mt-1">{t("emergency.forHospital")} {selectedHospital}</p>
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -1234,7 +1236,7 @@ export default function DoctorEmergencyTab() {
                             })}
                           </h4>
                           <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
-                            {dateCases.length} case{dateCases.length > 1 ? "s" : ""}
+                            {dateCases.length} {dateCases.length > 1 ? t("emergency.historyCases") : t("emergency.historyCase")}
                           </span>
                         </div>
                         <div className="space-y-2">
@@ -1249,7 +1251,7 @@ export default function DoctorEmergencyTab() {
                                   </div>
                                   <div className="min-w-0">
                                     <p className="text-sm font-semibold text-gray-900 truncate">
-                                      {c.patient_name || "Unknown Patient"}
+                                      {c.patient_name || t("emergency.unknownPatient")}
                                     </p>
                                     <div className="flex items-center gap-2 mt-0.5">
                                       {c.patient_age && <span className="text-xs text-gray-500">{c.patient_age}y</span>}
@@ -1277,25 +1279,25 @@ export default function DoctorEmergencyTab() {
                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
                                       {c.patient_bp_systolic || c.patient_bp_diastolic ? (
                                         <div className="bg-cyan-50 rounded-lg p-2 border border-cyan-200">
-                                          <p className="text-[10px] font-semibold text-cyan-600">BP</p>
+                                          <p className="text-[10px] font-semibold text-cyan-600">{t("emergency.historyBp")}</p>
                                           <p className="text-sm font-bold text-cyan-800">{c.patient_bp_systolic}/{c.patient_bp_diastolic}</p>
                                         </div>
                                       ) : null}
                                       {c.patient_temperature ? (
                                         <div className="bg-orange-50 rounded-lg p-2 border border-orange-200">
-                                          <p className="text-[10px] font-semibold text-orange-600">Temp</p>
+                                          <p className="text-[10px] font-semibold text-orange-600">{t("emergency.historyTemp")}</p>
                                           <p className="text-sm font-bold text-orange-800">{c.patient_temperature}°</p>
                                         </div>
                                       ) : null}
                                       {c.patient_pulse ? (
                                         <div className="bg-rose-50 rounded-lg p-2 border border-rose-200">
-                                          <p className="text-[10px] font-semibold text-rose-600">Pulse</p>
+                                          <p className="text-[10px] font-semibold text-rose-600">{t("emergency.historyPulse")}</p>
                                           <p className="text-sm font-bold text-rose-800">{c.patient_pulse}</p>
                                         </div>
                                       ) : null}
                                       {c.patient_spo2 ? (
                                         <div className="bg-purple-50 rounded-lg p-2 border border-purple-200">
-                                          <p className="text-[10px] font-semibold text-purple-600">SpO2</p>
+                                          <p className="text-[10px] font-semibold text-purple-600">{t("emergency.historySpo2")}</p>
                                           <p className="text-sm font-bold text-purple-800">{c.patient_spo2}%</p>
                                         </div>
                                       ) : null}
@@ -1306,14 +1308,14 @@ export default function DoctorEmergencyTab() {
                                     <div className="flex flex-wrap gap-2 mt-3">
                                       {c.distance_km ? (
                                         <div className="bg-blue-50 rounded-lg px-2.5 py-1.5 border border-blue-200">
-                                          <p className="text-[10px] text-blue-600">Distance</p>
-                                          <p className="text-xs font-bold text-blue-800">{c.distance_km.toFixed(1)} km</p>
+                                          <p className="text-[10px] text-blue-600">{t("emergency.historyDistance")}</p>
+                                          <p className="text-xs font-bold text-blue-800">{c.distance_km.toFixed(1)} {t("emergency.historyKm")}</p>
                                         </div>
                                       ) : null}
                                       {c.duration_min ? (
                                         <div className="bg-emerald-50 rounded-lg px-2.5 py-1.5 border border-emerald-200">
-                                          <p className="text-[10px] text-emerald-600">Duration</p>
-                                          <p className="text-xs font-bold text-emerald-800">{c.duration_min.toFixed(0)} min</p>
+                                          <p className="text-[10px] text-emerald-600">{t("emergency.historyDuration")}</p>
+                                          <p className="text-xs font-bold text-emerald-800">{c.duration_min.toFixed(0)} {t("emergency.historyMin")}</p>
                                         </div>
                                       ) : null}
                                     </div>
@@ -1323,7 +1325,7 @@ export default function DoctorEmergencyTab() {
                                     <div className="mt-3 pt-2 border-t border-gray-200">
                                       <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                                         <Truck className="w-3 h-3 inline mr-1" />
-                                        Ambulance
+                                        {t("emergency.historyAmbulance")}
                                       </p>
                                       <div className="flex flex-wrap gap-2">
                                         {c.ambulance_number ? (
@@ -1343,7 +1345,7 @@ export default function DoctorEmergencyTab() {
                                     <div className="mt-2 pt-2 border-t border-gray-200">
                                       <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                                         <Phone className="w-3 h-3 inline mr-1" />
-                                        Contact
+                                        {t("emergency.historyContact")}
                                       </p>
                                       <p className="text-xs text-gray-700">{c.patient_mobile}</p>
                                     </div>

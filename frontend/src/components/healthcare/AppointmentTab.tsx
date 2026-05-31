@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLanguage } from "@/lib/LanguageContext";
 import { Calendar, MapPin, Phone, AlertTriangle, Droplet, Heart, UserPlus, CheckCircle2, Clock, FileText, Stethoscope, MapPinOff, Navigation, X, PartyPopper, ExternalLink, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { fetchHospitalsList, fetchHospitalInfo, HospitalInfo } from "@/lib/api";
@@ -107,6 +108,7 @@ function generateHospitalSlots(): HospitalSlot[] {
 }
 
 export default function AppointmentTab() {
+  const { t } = useLanguage();
   const router = useRouter();
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
@@ -178,7 +180,7 @@ export default function AppointmentTab() {
       setHospitals(topHospitals);
     } catch (err) {
       console.error('Error fetching hospitals:', err);
-      setLocationError("Could not load hospitals");
+      setLocationError(t("appointment.error.loadHospitals"));
     } finally {
       setHospitalsLoading(false);
     }
@@ -221,9 +223,9 @@ export default function AppointmentTab() {
     const target = new Date(dateStr);
     target.setHours(0, 0, 0, 0);
     const diff = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    if (diff === 0) return { text: "Today", color: "bg-emerald-100 text-emerald-700" };
-    if (diff === 1) return { text: "Tomorrow", color: "bg-amber-100 text-amber-700" };
-    return { text: `${diff} days left`, color: "bg-blue-100 text-blue-700" };
+    if (diff === 0) return { text: t("appointment.today"), color: "bg-emerald-100 text-emerald-700" };
+    if (diff === 1) return { text: t("appointment.tomorrow"), color: "bg-amber-100 text-amber-700" };
+    return { text: t("appointment.daysLeft").replace("{days}", String(diff)), color: "bg-blue-100 text-blue-700" };
   };
 
   const selectMember = (member: FamilyMember) => {
@@ -250,7 +252,7 @@ export default function AppointmentTab() {
     setLocationError("");
 
     if (!navigator.geolocation) {
-      setLocationError("Geolocation not supported by your browser");
+      setLocationError(t("appointment.error.noGeolocation"));
       setGettingLocation(false);
       return;
     }
@@ -263,7 +265,7 @@ export default function AppointmentTab() {
         setGettingLocation(false);
       },
       (err) => {
-        setLocationError("Could not get your location. Using default location.");
+        setLocationError(t("appointment.error.locationFailed"));
         setGettingLocation(false);
         fetchNearbyHospitals();
       },
@@ -343,21 +345,21 @@ export default function AppointmentTab() {
     setError("");
     setSuccess("");
 
-    if (!name.trim()) { setError("Patient name is required"); return; }
-    if (!age.trim() || parseInt(age) < 1 || parseInt(age) > 150) { setError("Enter a valid age (1-150)"); return; }
-    if (!patientPhone.trim()) { setError("Patient phone number is required"); return; }
-    if (!/^\d{10}$/.test(patientPhone.trim())) { setError("Enter a valid 10-digit phone number"); return; }
-    if (!address.trim()) { setError("Address is required"); return; }
-    if (!religion.trim()) { setError("Religion is required"); return; }
-    if (!appointmentDate) { setError("Appointment date is required"); return; }
-    if (!caseType) { setError("Please select a case type"); return; }
-    if (!selectedHospital) { setError("Please select a hospital"); return; }
+    if (!name.trim()) { setError(t("appointment.error.nameRequired")); return; }
+    if (!age.trim() || parseInt(age) < 1 || parseInt(age) > 150) { setError(t("appointment.error.invalidAge")); return; }
+    if (!patientPhone.trim()) { setError(t("appointment.error.phoneRequired")); return; }
+    if (!/^\d{10}$/.test(patientPhone.trim())) { setError(t("appointment.error.invalidPhone")); return; }
+    if (!address.trim()) { setError(t("appointment.error.addressRequired")); return; }
+    if (!religion.trim()) { setError(t("appointment.error.religionRequired")); return; }
+    if (!appointmentDate) { setError(t("appointment.error.dateRequired")); return; }
+    if (!caseType) { setError(t("appointment.error.caseTypeRequired")); return; }
+    if (!selectedHospital) { setError(t("appointment.error.hospitalRequired")); return; }
 
     setLoading(true);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setError("Please login to continue"); return; }
+      if (!user) { setError(t("appointment.error.loginRequired")); return; }
 
       const hospital = hospitals.find(h => h.id.toString() === selectedHospital);
 
@@ -417,7 +419,7 @@ export default function AppointmentTab() {
       fetchAppointments();
     } catch (err: any) {
       console.error('Booking error:', err);
-      setError(err?.message || err?.error?.message || JSON.stringify(err) || "Failed to book appointment");
+      setError(err?.message || err?.error?.message || JSON.stringify(err) || t("appointment.error.bookingFailed"));
     } finally {
       setLoading(false);
     }
@@ -435,11 +437,11 @@ export default function AppointmentTab() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'scheduled':
-        return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">Scheduled</span>;
+        return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">{t("appointment.upcoming.scheduled")}</span>;
       case 'completed':
-        return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Completed</span>;
+        return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">{t("appointment.upcoming.completed")}</span>;
       case 'cancelled':
-        return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">Cancelled</span>;
+        return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">{t("appointment.upcoming.cancelled")}</span>;
       default:
         return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">{status}</span>;
     }
@@ -462,9 +464,9 @@ export default function AppointmentTab() {
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center mb-0.5">
               <Clock className="w-4 h-4 text-amber-600" />
             </div>
-            <span className="text-[11px] font-semibold text-gray-800 leading-tight text-center">Patient<br />Appoint</span>
+            <span className="text-[11px] font-semibold text-gray-800 leading-tight text-center">{t("appointment.quick.patientAppoint").split(" ")[0]}<br />{t("appointment.quick.patientAppoint").split(" ").slice(1).join(" ")}</span>
             <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${upcomingAppointments.length > 0 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>
-              {upcomingAppointments.length > 0 ? `${upcomingAppointments.length} upcoming` : 'None'}
+              {upcomingAppointments.length > 0 ? `${upcomingAppointments.length} ${t("appointment.quick.upcoming")}` : t("appointment.quick.none")}
             </span>
           </button>
 
@@ -476,9 +478,9 @@ export default function AppointmentTab() {
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-100 to-indigo-100 flex items-center justify-center mb-0.5">
               <Users className="w-4 h-4 text-purple-600" />
             </div>
-            <span className="text-[11px] font-semibold text-gray-800 leading-tight text-center">Family<br />Members</span>
+            <span className="text-[11px] font-semibold text-gray-800 leading-tight text-center">{t("appointment.quick.familyMembers").split(" ")[0]}<br />{t("appointment.quick.familyMembers").split(" ").slice(1).join(" ")}</span>
             <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${familyMembers.length > 0 ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
-              {familyMembers.length > 0 ? `${familyMembers.length} members` : 'Add'}
+              {familyMembers.length > 0 ? `${familyMembers.length} ${t("appointment.quick.members")}` : t("appointment.quick.add")}
             </span>
           </button>
 
@@ -490,9 +492,9 @@ export default function AppointmentTab() {
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center mb-0.5">
               <Calendar className="w-4 h-4 text-blue-600" />
             </div>
-            <span className="text-[11px] font-semibold text-gray-800 leading-tight text-center">All<br />Appointments</span>
+            <span className="text-[11px] font-semibold text-gray-800 leading-tight text-center">{t("appointment.quick.allAppointments").split(" ")[0]}<br />{t("appointment.quick.allAppointments").split(" ").slice(1).join(" ")}</span>
             <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${appointments.length > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
-              {appointments.length > 0 ? `${appointments.length} total` : 'None'}
+              {appointments.length > 0 ? `${appointments.length} ${t("appointment.quick.total")}` : t("appointment.quick.none")}
             </span>
           </button>
         </div>
@@ -514,11 +516,11 @@ export default function AppointmentTab() {
                   <Clock className="w-4.5 h-4.5 text-amber-600" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-semibold text-gray-900">Upcoming Appointments</h2>
+                  <h2 className="text-sm font-semibold text-gray-900">{t("appointment.upcoming.heading")}</h2>
                   <p className="text-[11px] text-gray-500">
                     {upcomingAppointments.length > 0
-                      ? `Showing ${upcomingAppointments.length} future appointment${upcomingAppointments.length !== 1 ? 's' : ''}`
-                      : 'No upcoming appointments'}
+                      ? t("appointment.upcoming.showing").replace("{count}", String(upcomingAppointments.length))
+                      : t("appointment.upcoming.none")}
                   </p>
                 </div>
               </div>
@@ -527,8 +529,8 @@ export default function AppointmentTab() {
                   <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
                     <Calendar className="w-7 h-7 text-gray-300" />
                   </div>
-                  <p className="font-medium text-gray-600">No Upcoming Appointments</p>
-                  <p className="text-sm mt-1">Book a new appointment using the form below</p>
+                  <p className="font-medium text-gray-600">{t("appointment.upcoming.noHeading")}</p>
+                  <p className="text-sm mt-1">{t("appointment.upcoming.noDesc")}</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -567,7 +569,7 @@ export default function AppointmentTab() {
                               )}
                               <span className="flex items-center gap-1.5">
                                 <Heart className="w-3.5 h-3.5 text-rose-400" />
-                                Age: {apt.age}
+                                {t("appointment.upcoming.age")} {apt.age}
                               </span>
                             </div>
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
@@ -589,10 +591,10 @@ export default function AppointmentTab() {
                           </div>
                           <div className="flex flex-col items-end gap-2 shrink-0">
                             <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                              Scheduled
+                              {t("appointment.upcoming.scheduled")}
                             </span>
                             <div className="flex items-center gap-1 text-xs text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity font-medium">
-                              View Details <ExternalLink className="w-3 h-3" />
+                              {t("appointment.upcoming.viewDetails")} <ExternalLink className="w-3 h-3" />
                             </div>
                           </div>
                         </div>
@@ -617,8 +619,8 @@ export default function AppointmentTab() {
             <Calendar className="w-5 h-5 text-emerald-600" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Book New Appointment</h2>
-            <p className="text-sm text-gray-500">Schedule a visit with our medical team</p>
+            <h2 className="text-lg font-semibold text-gray-900">{t("appointment.book.heading")}</h2>
+            <p className="text-sm text-gray-500">{t("appointment.book.subtitle")}</p>
           </div>
         </div>
 
@@ -637,9 +639,9 @@ export default function AppointmentTab() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5"><UserPlus className="w-4 h-4 inline mr-1" />Full Name *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5"><UserPlus className="w-4 h-4 inline mr-1" />{t("appointment.book.fullName")}</label>
               <div className="relative">
-                <input ref={nameInputRef} type="text" value={name} onChange={(e) => handleNameChange(e.target.value)} onFocus={() => setShowMemberDropdown(true)} placeholder="Enter patient full name or select from family" className="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 focus:border-emerald-500 focus:outline-none transition" required />
+                <input ref={nameInputRef} type="text" value={name} onChange={(e) => handleNameChange(e.target.value)} onFocus={() => setShowMemberDropdown(true)} placeholder={t("appointment.book.namePlaceholder")} className="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 focus:border-emerald-500 focus:outline-none transition" required />
                 {familyMembers.length > 0 && showMemberDropdown && filteredMembers.length > 0 && (
                   <div ref={dropdownRef} className="absolute z-50 top-full mt-1 left-0 right-0 bg-white rounded-xl border-2 border-emerald-200 shadow-lg max-h-56 overflow-y-auto">
                     {filteredMembers.map((member) => (
@@ -658,26 +660,26 @@ export default function AppointmentTab() {
                 )}
                 {familyMembers.length > 0 && showMemberDropdown && filteredMembers.length === 0 && name.trim() && (
                   <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-white rounded-xl border-2 border-gray-200 shadow-lg p-4 text-center text-sm text-gray-400">
-                    No matching family members found
+                    {t("appointment.book.noFamilyMatch")}
                   </div>
                 )}
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5"><Heart className="w-4 h-4 inline mr-1" />Age *</label>
-              <input type="number" min="1" max="150" value={age} onChange={(e) => setAge(e.target.value)} placeholder="Enter age" className="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 focus:border-emerald-500 focus:outline-none transition" required />
+              <label className="block text-sm font-medium text-gray-700 mb-1.5"><Heart className="w-4 h-4 inline mr-1" />{t("appointment.book.age")}</label>
+              <input type="number" min="1" max="150" value={age} onChange={(e) => setAge(e.target.value)} placeholder={t("appointment.book.agePlaceholder")} className="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 focus:border-emerald-500 focus:outline-none transition" required />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5"><Phone className="w-4 h-4 inline mr-1" />Phone Number *</label>
-              <input type="tel" value={patientPhone} onChange={(e) => setPatientPhone(e.target.value)} placeholder="Enter 10-digit mobile number" maxLength={10} className="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 focus:border-emerald-500 focus:outline-none transition" required />
+              <label className="block text-sm font-medium text-gray-700 mb-1.5"><Phone className="w-4 h-4 inline mr-1" />{t("appointment.book.phone")}</label>
+              <input type="tel" value={patientPhone} onChange={(e) => setPatientPhone(e.target.value)} placeholder={t("appointment.book.phonePlaceholder")} maxLength={10} className="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 focus:border-emerald-500 focus:outline-none transition" required />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5"><Droplet className="w-4 h-4 inline mr-1" />Religion *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5"><Droplet className="w-4 h-4 inline mr-1" />{t("appointment.book.religion")}</label>
               <select value={religion} onChange={(e) => setReligion(e.target.value)} className="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 focus:border-emerald-500 focus:outline-none transition bg-white" required>
-                <option value="">Select religion</option>
+                <option value="">{t("appointment.book.selectReligion")}</option>
                 {RELIGIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
             </div>
@@ -686,12 +688,12 @@ export default function AppointmentTab() {
           {/* Hospital Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              <Stethoscope className="w-4 h-4 inline mr-1" />Select Hospital *
+              <Stethoscope className="w-4 h-4 inline mr-1" />{t("appointment.book.selectHospital")}
             </label>
             {hospitalsLoading ? (
               <div className="flex items-center justify-center py-3 text-gray-500">
                 <div className="w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mr-2" />
-                Loading hospitals...
+                {t("appointment.book.loadingHospitals")}
               </div>
             ) : (
               <div className="space-y-3">
@@ -701,10 +703,10 @@ export default function AppointmentTab() {
                   className="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 focus:border-emerald-500 focus:outline-none transition bg-white"
                   required
                 >
-                  <option value="">Select a hospital</option>
+                  <option value="">{t("appointment.book.selectHospitalPlaceholder")}</option>
                   {hospitals.map((hospital) => (
                     <option key={hospital.id} value={hospital.id}>
-                      {hospital.name} - {hospital.distance_km ? `${hospital.distance_km.toFixed(1)} km` : 'N/A'} away ({hospital.available_beds} beds available)
+                      {hospital.name} - {hospital.distance_km ? `${hospital.distance_km.toFixed(1)} ${t("appointment.book.km")}` : t("appointment.book.na")} ({hospital.available_beds} {t("appointment.book.bedsAvailable")})
                     </option>
                   ))}
                 </select>
@@ -713,7 +715,7 @@ export default function AppointmentTab() {
                 {selectedHospital && hospitals.find(h => h.id.toString() === selectedHospital)?.availableSlots && (
                   <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
                     <p className="text-xs font-medium text-emerald-700 mb-2 flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5" /> Available Slots (OPD: 8:00 AM - 12:00 PM)
+                      <Clock className="w-3.5 h-3.5" /> {t("appointment.book.availableSlots")}
                     </p>
                     <div className="space-y-2">
                       <select
@@ -721,10 +723,10 @@ export default function AppointmentTab() {
                         onChange={(e) => setSelectedSlotDate(e.target.value)}
                         className="w-full rounded-lg border border-emerald-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none bg-white"
                       >
-                        <option value="">Select date</option>
+                        <option value="">{t("appointment.book.selectDate")}</option>
                         {hospitals.find(h => h.id.toString() === selectedHospital)?.availableSlots?.map((slot) => (
                           <option key={slot.date} value={slot.date}>
-                            {new Date(slot.date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })} - {slot.slots.length} slots available
+                            {new Date(slot.date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })} - {slot.slots.length} {t("appointment.book.slotsAvailable")}
                           </option>
                         ))}
                       </select>
@@ -754,37 +756,37 @@ export default function AppointmentTab() {
             <button type="button" onClick={getCurrentLocation} disabled={gettingLocation}
               className="mt-2 flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 font-medium">
               {gettingLocation ? (
-                <><div className="w-3 h-3 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />Getting location...</>
+                <><div className="w-3 h-3 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />{t("appointment.book.gettingLocation")}</>
               ) : (
-                <><Navigation className="w-3 h-3" />Find hospitals near me</>
+                <><Navigation className="w-3 h-3" />{t("appointment.book.findNearby")}</>
               )}
             </button>
           </div>
 
           <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5"><MapPin className="w-4 h-4 inline mr-1" />Address *</label>
-              <textarea value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Enter full address" rows={2} className="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 focus:border-emerald-500 focus:outline-none transition resize-none" required />
+              <label className="block text-sm font-medium text-gray-700 mb-1.5"><MapPin className="w-4 h-4 inline mr-1" />{t("appointment.book.address")}</label>
+              <textarea value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t("appointment.book.addressPlaceholder")} rows={2} className="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 focus:border-emerald-500 focus:outline-none transition resize-none" required />
             </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 <Calendar className="w-4 h-4 inline mr-1" />
-                {selectedSlotDate ? "Selected Slot" : "Appointment Date"} *
+                {selectedSlotDate ? t("appointment.book.selectedSlot") : t("appointment.book.appointmentDate")}
               </label>
               {selectedSlotDate ? (
                 <div className="w-full rounded-xl border-2 border-emerald-500 bg-emerald-50 px-4 py-2.5 text-emerald-700 font-medium">
                   {new Date(selectedSlotDate).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                  {appointmentDate.includes(' ') && ` at ${appointmentDate.split(' ').slice(1).join(' ')}`}
+                  {appointmentDate.includes(' ') && ` ${t("appointment.book.atTime")} ${appointmentDate.split(' ').slice(1).join(' ')}`}
                 </div>
               ) : (
                 <input type="date" value={appointmentDate.split(' ')[0]} onChange={(e) => setAppointmentDate(e.target.value)} min={new Date().toISOString().split('T')[0]} className="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 focus:border-emerald-500 focus:outline-none transition" required />
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5"><Stethoscope className="w-4 h-4 inline mr-1" />Case Type *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5"><Stethoscope className="w-4 h-4 inline mr-1" />{t("appointment.book.caseType")}</label>
               <select value={caseType} onChange={(e) => setCaseType(e.target.value)} className="w-full rounded-xl border-2 border-gray-200 px-4 py-2.5 focus:border-emerald-500 focus:outline-none transition bg-white" required>
-                <option value="">Select case type</option>
+                <option value="">{t("appointment.book.selectCaseType")}</option>
                 {CASE_TYPES.map((ct) => <option key={ct.value} value={ct.value}>{ct.label}</option>)}
               </select>
             </div>
@@ -796,40 +798,40 @@ export default function AppointmentTab() {
               {loadingDoctorInfo ? (
                 <div className="flex items-center gap-2 text-emerald-600">
                   <div className="w-4 h-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
-                  Finding available doctor...
+                  {t("appointment.book.findingDoctor")}
                 </div>
               ) : doctorInfo ? (
                 <div>
                   <p className="text-xs font-medium text-emerald-700 mb-2 flex items-center gap-1">
-                    <Stethoscope className="w-3.5 h-3.5" /> Assigned Doctor & Ward Details
+                    <Stethoscope className="w-3.5 h-3.5" /> {t("appointment.book.assignedDoctor")}
                   </p>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div className="bg-white/80 rounded-lg p-2">
-                      <p className="text-xs text-gray-500">Doctor</p>
+                      <p className="text-xs text-gray-500">{t("appointment.book.doctor")}</p>
                       <p className="text-sm font-medium text-gray-800">Dr. {doctorInfo.doctor_name}</p>
                     </div>
                     <div className="bg-white/80 rounded-lg p-2">
-                      <p className="text-xs text-gray-500">Ward No</p>
+                      <p className="text-xs text-gray-500">{t("appointment.book.wardNo")}</p>
                       <p className="text-sm font-medium text-gray-800">{doctorInfo.ward_no}</p>
                     </div>
                     <div className="bg-white/80 rounded-lg p-2">
-                      <p className="text-xs text-gray-500">Floor</p>
+                      <p className="text-xs text-gray-500">{t("appointment.book.floor")}</p>
                       <p className="text-sm font-medium text-gray-800">{doctorInfo.floor_no}</p>
                     </div>
                     <div className="bg-white/80 rounded-lg p-2">
-                      <p className="text-xs text-gray-500">Bed No</p>
-                      <p className="text-sm font-medium text-gray-800">{doctorInfo.bed_no || "TBD"}</p>
+                      <p className="text-xs text-gray-500">{t("appointment.book.bedNo")}</p>
+                      <p className="text-sm font-medium text-gray-800">{doctorInfo.bed_no || t("appointment.book.tbd")}</p>
                     </div>
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-amber-600">No doctor info available for this hospital & case type. Please contact hospital.</p>
+                <p className="text-sm text-amber-600">{t("appointment.book.noDoctorInfo")}</p>
               )}
             </div>
           )}
 
           <motion.button type="submit" disabled={loading || !selectedHospital} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-6 py-3 font-semibold text-white shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center gap-2 disabled:opacity-50">
-            {loading ? <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />Booking...</> : <><Calendar className="w-5 h-5" />Book Appointment</>}
+            {loading ? <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />{t("appointment.book.booking")}</> : <><Calendar className="w-5 h-5" />{t("appointment.book.bookBtn")}</>}
           </motion.button>
         </form>
       </motion.div>
@@ -855,8 +857,8 @@ export default function AppointmentTab() {
                 <PartyPopper className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
               <div>
-                <h2 className="text-base sm:text-lg font-bold text-white">Appointment Confirmed!</h2>
-                <p className="text-emerald-100 text-[10px] sm:text-xs">Booking placed successfully</p>
+                <h2 className="text-base sm:text-lg font-bold text-white">{t("appointment.confirm.heading")}</h2>
+                <p className="text-emerald-100 text-[10px] sm:text-xs">{t("appointment.confirm.subtitle")}</p>
               </div>
             </div>
 
@@ -869,7 +871,7 @@ export default function AppointmentTab() {
                     <Calendar className="w-4 h-4 text-emerald-600" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] text-emerald-600 font-medium">Date & Time</p>
+                    <p className="text-[10px] text-emerald-600 font-medium">{t("appointment.confirm.dateTime")}</p>
                     <p className="text-sm font-bold text-gray-900 truncate">
                       {new Date(bookedAppointment.appointment_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
@@ -886,22 +888,22 @@ export default function AppointmentTab() {
               {/* Patient Info Row */}
               <div className="flex gap-2">
                 <div className="flex-1 bg-gray-50 rounded-lg p-2.5">
-                  <p className="text-[10px] text-gray-500">Patient</p>
+                  <p className="text-[10px] text-gray-500">{t("appointment.confirm.patient")}</p>
                   <p className="text-xs font-semibold text-gray-800 truncate">{bookedAppointment.patient_name}</p>
                 </div>
                 <div className="w-16 bg-gray-50 rounded-lg p-2.5">
-                  <p className="text-[10px] text-gray-500">Age</p>
+                  <p className="text-[10px] text-gray-500">{t("appointment.confirm.age")}</p>
                   <p className="text-xs font-semibold text-gray-800">{bookedAppointment.age}</p>
                 </div>
               </div>
 
               <div className="flex gap-2">
                 <div className="flex-1 bg-gray-50 rounded-lg p-2.5">
-                  <p className="text-[10px] text-gray-500">Case</p>
+                  <p className="text-[10px] text-gray-500">{t("appointment.confirm.case")}</p>
                   <p className="text-xs font-semibold text-gray-800 truncate">{bookedAppointment.case_type}</p>
                 </div>
                 <div className="w-20 bg-emerald-50 rounded-lg p-2.5 flex items-center justify-center">
-                  <span className="text-[10px] font-medium text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Scheduled</span>
+                  <span className="text-[10px] font-medium text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">{t("appointment.confirm.scheduled")}</span>
                 </div>
               </div>
 
@@ -910,7 +912,7 @@ export default function AppointmentTab() {
                 <div className="bg-blue-50 rounded-lg p-2.5 border border-blue-100 flex items-center gap-2">
                   <Stethoscope className="w-4 h-4 text-blue-600 flex-shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-[10px] text-blue-600">Hospital</p>
+                    <p className="text-[10px] text-blue-600">{t("appointment.confirm.hospital")}</p>
                     <p className="text-xs font-semibold text-gray-800 truncate">{bookedAppointment.hospital_name}</p>
                   </div>
                 </div>
@@ -919,7 +921,7 @@ export default function AppointmentTab() {
               {/* Reminder */}
               <div className="bg-amber-50 rounded-lg p-2 border border-amber-100 flex items-start gap-2">
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
-                <p className="text-[10px] text-amber-800">Carry ID proof & arrive 15 min early</p>
+                <p className="text-[10px] text-amber-800">{t("appointment.confirm.reminder")}</p>
               </div>
             </div>
 
@@ -929,7 +931,7 @@ export default function AppointmentTab() {
                 onClick={() => setShowAppointmentPopup(false)}
                 className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-medium text-sm shadow-md"
               >
-                Got It!
+                {t("appointment.confirm.gotIt")}
               </button>
             </div>
           </motion.div>

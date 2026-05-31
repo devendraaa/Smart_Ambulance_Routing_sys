@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { fetchHospitalsList } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, MapPin, Bed, Stethoscope, Clock, Phone, ChevronDown, ChevronUp } from "lucide-react";
+import { useLanguage } from "@/lib/LanguageContext";
 
 type Hospital = {
   id: number;
@@ -44,6 +45,7 @@ export default function HospitalsPage() {
   const [originSet, setOriginSet] = useState(false);
   const [sortBy, setSortBy] = useState<"name" | "distance" | "beds">("distance");
   const [sortAsc, setSortAsc] = useState(true);
+  const { t } = useLanguage();
 
   useEffect(() => {
     const originLat = localStorage.getItem("lastOriginLat");
@@ -112,11 +114,11 @@ export default function HospitalsPage() {
       >
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Government Hospitals</h1>
+            <h1 className="text-3xl font-bold text-gray-900">{t("hospital.heading")}</h1>
             <p className="text-gray-500 mt-1">
-              {filtered.length} hospitals found
+              {filtered.length} {t("hospital.count")}
               {originSet && (
-                <span className="ml-2 text-emerald-600">• Distance & ETA from your location</span>
+                <span className="ml-2 text-emerald-600">{t("hospital.distEta")}</span>
               )}
             </p>
           </div>
@@ -126,7 +128,7 @@ export default function HospitalsPage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name or specialist..."
+              placeholder={t("hospital.searchPlaceholder")}
               className="w-full sm:w-72 pl-10 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 transition input-focus"
             />
           </div>
@@ -134,11 +136,11 @@ export default function HospitalsPage() {
 
         {/* Sort Buttons */}
         <div className="flex gap-2 flex-wrap">
-          <span className="text-sm text-gray-500 flex items-center mr-2">Sort by:</span>
+          <span className="text-sm text-gray-500 flex items-center mr-2">{t("hospital.sortBy")}</span>
           {[
-            { key: "distance" as const, label: "Distance" },
-            { key: "name" as const, label: "Name" },
-            { key: "beds" as const, label: "Available Beds" },
+            { key: "distance" as const, label: t("hospital.sortDistance") },
+            { key: "name" as const, label: t("hospital.sortName") },
+            { key: "beds" as const, label: t("hospital.sortBeds") },
           ].map((btn) => (
             <button
               key={btn.key}
@@ -194,7 +196,7 @@ export default function HospitalsPage() {
                       <h3 className="font-bold text-lg leading-tight">{h.name}</h3>
                       <p className="text-blue-100 text-xs mt-0.5 flex items-center gap-1">
                         <MapPin className="w-3 h-3" />
-                        {h.distance_km != null ? `${h.distance_km} km` : "Distance N/A"}
+                        {h.distance_km != null ? `${h.distance_km} km` : t("hospital.distanceNA")}
                       </p>
                     </div>
                   </div>
@@ -220,10 +222,10 @@ export default function HospitalsPage() {
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {[
-                    { label: "Total", value: h.total_beds, icon: "🛏️" },
-                    { label: "Available", value: h.available_beds, icon: "✓", color: bedColor },
-                    { label: "Emergency", value: h.emergency_beds, icon: "🚨" },
-                    { label: "Vacant Docs", value: h.total_doctors_vacant, icon: "👨⚕️" },
+                    { label: t("hospital.total"), value: h.total_beds, icon: "🛏️" },
+                    { label: t("hospital.available"), value: h.available_beds, icon: "✓", color: bedColor },
+                    { label: t("hospital.emergency"), value: h.emergency_beds, icon: "🚨" },
+                    { label: t("hospital.vacantDocs"), value: h.total_doctors_vacant, icon: "👨⚕️" },
                   ].map((stat) => (
                     <div
                       key={stat.label}
@@ -265,12 +267,12 @@ export default function HospitalsPage() {
             className="text-center py-12"
           >
             <div className="text-6xl mb-4">🔍</div>
-            <p className="text-gray-500 text-lg">No hospitals match your search.</p>
+            <p className="text-gray-500 text-lg">{t("hospital.empty")}</p>
             <button
               onClick={() => setSearch("")}
               className="mt-4 text-blue-600 hover:underline text-sm"
             >
-              Clear search
+              {t("hospital.clearSearch")}
             </button>
           </motion.div>
         )}

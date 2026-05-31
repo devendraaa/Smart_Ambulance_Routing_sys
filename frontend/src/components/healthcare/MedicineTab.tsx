@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
+import { useLanguage } from "@/lib/LanguageContext";
 import { Pill, Clock, Calendar, CheckCircle2, AlertTriangle, Users, PackageCheck, Building2, ChevronDown } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { getPatientMedicines, updateMedicine, Medicine } from "@/lib/healthcare";
@@ -62,6 +63,7 @@ function extractHospitals(medicines: Medicine[]): string[] {
 }
 
 export default function MedicineTab() {
+  const { t } = useLanguage();
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -167,17 +169,24 @@ export default function MedicineTab() {
               <Pill className="w-5 h-5 text-pink-600" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Your Medicines</h2>
-              <p className="text-sm text-gray-500">Track prescribed medications</p>
+              <h2 className="text-lg font-semibold text-gray-900">{t("medicine.header")}</h2>
+              <p className="text-sm text-gray-500">{t("medicine.subtitle")}</p>
             </div>
           </div>
           <div className="flex gap-2">
-            {(["active", "all", "completed"] as const).map(f => (
+            {(["active", "all", "completed"] as const).map(f => {
+              const filterLabels: Record<string, string> = {
+                active: t("medicine.filterActive"),
+                all: t("medicine.filterAll"),
+                completed: t("medicine.filterCompleted"),
+              };
+              return (
               <button key={f} onClick={() => setFilter(f)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition capitalize ${filter === f ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
-                {f}
+                {filterLabels[f]}
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -190,7 +199,7 @@ export default function MedicineTab() {
               onChange={(e) => setSelectedHospital(e.target.value)}
               className="w-full sm:w-64 pl-9 pr-8 py-2 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:outline-none"
             >
-              <option value="all">All Hospitals ({hospitals.length})</option>
+              <option value="all">{t("medicine.allHospitals").replace("{count}", String(hospitals.length))}</option>
               {hospitals.map((h) => (
                 <option key={h} value={h}>{h}</option>
               ))}
@@ -208,15 +217,15 @@ export default function MedicineTab() {
           <div className="flex flex-wrap gap-3">
             <div className="px-3 py-1.5 bg-blue-100 rounded-lg flex items-center gap-1.5">
               <Users className="w-4 h-4 text-blue-600" />
-              <span className="text-sm text-blue-700">{totalStats.patients} patients</span>
+              <span className="text-sm text-blue-700">{t("medicine.patientsCount").replace("{count}", String(totalStats.patients))}</span>
             </div>
             <div className="px-3 py-1.5 bg-pink-100 rounded-lg flex items-center gap-1.5">
               <Pill className="w-4 h-4 text-pink-600" />
-              <span className="text-sm text-pink-700">{totalStats.total} medicines</span>
+              <span className="text-sm text-pink-700">{t("medicine.medicinesCount").replace("{count}", String(totalStats.total))}</span>
             </div>
             <div className="px-3 py-1.5 bg-emerald-100 rounded-lg flex items-center gap-1.5">
               <PackageCheck className="w-4 h-4 text-emerald-600" />
-              <span className="text-sm text-emerald-700">{totalStats.collected} collected</span>
+              <span className="text-sm text-emerald-700">{t("medicine.collectedCount").replace("{count}", String(totalStats.collected))}</span>
             </div>
           </div>
         )}
@@ -228,10 +237,10 @@ export default function MedicineTab() {
           <Pill className="w-12 h-12 mx-auto mb-3 text-gray-300" />
           <p className="text-gray-500">
             {filter === "active"
-              ? "No active medicines. Prescriptions will appear here."
+              ? t("medicine.emptyActive")
               : filter === "completed"
-              ? "No completed medicines."
-              : "No medicines found."}
+              ? t("medicine.emptyCompleted")
+              : t("medicine.emptyAll")}
           </p>
         </div>
       ) : (
@@ -257,18 +266,18 @@ export default function MedicineTab() {
                   <div className="min-w-0 flex-1">
                     <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{group.patient_name}</h3>
                     <p className="text-[10px] sm:text-xs text-gray-500 truncate">
-                      {group.medicines.length} meds · {activeCount} active
+                      {t("medicine.medsAndActive").replace("{count}", String(group.medicines.length)).replace("{active}", String(activeCount))}
                       {patientHospital && <span> · {patientHospital}</span>}
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     {allCollected ? (
                       <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] sm:text-xs font-medium flex items-center gap-0.5 whitespace-nowrap">
-                        <CheckCircle2 className="w-3 h-3" /> <span className="hidden sm:inline">All</span> Collected
+                        <CheckCircle2 className="w-3 h-3" /> <span className="hidden sm:inline">{t("medicine.all")}</span> {t("medicine.collected")}
                       </span>
                     ) : collectedCount > 0 ? (
                       <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-[10px] sm:text-xs font-medium whitespace-nowrap">
-                        {collectedCount}/{group.medicines.length} col
+                        {t("medicine.collectedAbbr").replace("{count}", String(collectedCount)).replace("{total}", String(group.medicines.length))}
                       </span>
                     ) : null}
                   </div>
@@ -278,7 +287,7 @@ export default function MedicineTab() {
               {/* Medicine cards grouped by date */}
               <div className="p-3 sm:p-4">
                 {group.medicines.length === 0 ? (
-                  <p className="text-center py-6 text-gray-400 text-sm">No medicines</p>
+                  <p className="text-center py-6 text-gray-400 text-sm">{t("medicine.noMedicines")}</p>
                 ) : (() => {
                   const dateGroups = groupByDate(group.medicines);
                   const sortedDates = Array.from(dateGroups.keys()).sort((a, b) => b.localeCompare(a));
@@ -287,7 +296,7 @@ export default function MedicineTab() {
                       {sortedDates.map((dateKey) => {
                         const meds = dateGroups.get(dateKey)!;
                         const formattedDate = dateKey === "Unknown"
-                          ? "Unknown Date"
+                          ? t("medicine.unknownDate")
                           : new Date(dateKey + "T00:00:00").toLocaleDateString('en-IN', {
                               weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
                             });
@@ -351,7 +360,7 @@ export default function MedicineTab() {
                                     <div className="flex items-center gap-2 shrink-0">
                                       {med.medicine_collected ? (
                                         <span className="text-xs px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-lg font-medium flex items-center gap-1">
-                                          <CheckCircle2 className="w-3.5 h-3.5" /> Collected
+                                          <CheckCircle2 className="w-3.5 h-3.5" /> {t("medicine.collected")}
                                         </span>
                                       ) : (
                                         <button
@@ -363,7 +372,7 @@ export default function MedicineTab() {
                                               : "bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200"
                                           }`}
                                         >
-                                          {med.is_active ? "Stop" : "Resume"}
+                                          {med.is_active ? t("medicine.stop") : t("medicine.resume")}
                                         </button>
                                       )}
                                     </div>
@@ -399,22 +408,27 @@ export default function MedicineTab() {
               <Clock className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Daily Schedule</h2>
-              <p className="text-sm text-gray-500">When to take your medicines</p>
+              <h2 className="text-lg font-semibold text-gray-900">{t("medicine.dailySchedule")}</h2>
+              <p className="text-sm text-gray-500">{t("medicine.dailyScheduleSubtitle")}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {["Morning (8 AM)", "Afternoon (12 PM)", "Evening (6 PM)", "Night (10 PM)"].map((time) => {
+            {[
+              { key: "Morning (8 AM)", label: t("medicine.timeMorning") },
+              { key: "Afternoon (12 PM)", label: t("medicine.timeAfternoon") },
+              { key: "Evening (6 PM)", label: t("medicine.timeEvening") },
+              { key: "Night (10 PM)", label: t("medicine.timeNight") },
+            ].map(({ key: time, label }) => {
               const meds = medicines.filter(m => m.is_active && m.timing === time);
               return (
                 <div key={time} className="p-4 rounded-xl bg-gray-50 border border-gray-200">
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-xl">{TIME_ICONS[time] || "💊"}</span>
-                    <span className="font-medium text-gray-700 text-sm">{time}</span>
+                    <span className="font-medium text-gray-700 text-sm">{label}</span>
                   </div>
                   {meds.length === 0 ? (
-                    <p className="text-sm text-gray-400 text-center py-4">No medicines</p>
+                    <p className="text-sm text-gray-400 text-center py-4">{t("medicine.noMedicines")}</p>
                   ) : (
                     <div className="space-y-2">
                       {meds.map(med => (
@@ -422,7 +436,7 @@ export default function MedicineTab() {
                           <p className="font-medium text-gray-900 text-sm">{med.medicine_name}</p>
                           <div className="flex items-center justify-between mt-0.5">
                             <p className="text-xs text-gray-500">{med.dosage}</p>
-                            <span className="text-xs text-gray-400">{med.patient_name || "You"}</span>
+                            <span className="text-xs text-gray-400">{med.patient_name || t("medicine.you")}</span>
                           </div>
                         </div>
                       ))}

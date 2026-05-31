@@ -18,7 +18,7 @@ import DispatchDashboard from "@/components/dispatch/DispatchDashboard";
 function TabContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("patient-info");
+  const [activeTab, setActiveTab] = useState("emergency");
 
   useEffect(() => {
     const tab = searchParams.get("tab");

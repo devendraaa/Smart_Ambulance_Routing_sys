@@ -5,8 +5,11 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, User, AlertCircle, Mail, Menu, Truck, Phone } from "lucide-react";
 import { signIn } from "@/lib/auth";
+import { useLanguage } from "@/lib/LanguageContext";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 export default function LoginPage() {
+  const { t } = useLanguage();
   const [identifier, setIdentifier] = useState(""); // email or username
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -37,7 +40,7 @@ export default function LoginPage() {
       // Validate driver fields
       if (userType === "driver") {
         if (!driverName.trim() || !driverMobile.trim() || !ambulanceNumber.trim()) {
-          setError("Please fill in all driver details");
+          setError(t("driver.fillDetails"));
           setLoading(false);
           return;
         }
@@ -61,7 +64,7 @@ export default function LoginPage() {
         router.push("/");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid credentials");
+      setError(err instanceof Error ? err.message : t("auth.invalidCredentials"));
     } finally {
       setLoading(false);
     }
@@ -74,7 +77,11 @@ export default function LoginPage() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
       >
-        <div className="bg-white rounded-3xl shadow-xl p-6 sm:p-8">
+        <div className="bg-white rounded-3xl shadow-xl p-6 sm:p-8 relative">
+          {/* Language Switcher */}
+          <div className="absolute top-4 right-4">
+            <LanguageSwitcher />
+          </div>
           {/* Logo */}
           <div className="text-center mb-8">
             <motion.div
@@ -85,8 +92,8 @@ export default function LoginPage() {
             >
               <span className="text-4xl">🚑</span>
             </motion.div>
-            <h1 className="text-2xl font-bold text-gray-900">Smart Ambulance</h1>
-            <p className="text-sm text-gray-500 mt-1">Emergency Response System</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t("brand.name")}</h1>
+            <p className="text-sm text-gray-500 mt-1">{t("brand.emergency")}</p>
           </div>
 
           {/* Login Form */}
@@ -94,7 +101,7 @@ export default function LoginPage() {
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 <Menu className="w-4 h-4 inline mr-2" />
-                Login As
+                {t("auth.loginAs")}
               </label>
               <select
                 value={userType}
@@ -110,13 +117,13 @@ export default function LoginPage() {
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 <Mail className="w-4 h-4 inline mr-2" />
-                Email
+                {t("auth.email")}
               </label>
               <input
                 type="text"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="Enter email"
+                placeholder={t("auth.emailPlaceholder")}
                 className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition"
                 required
               />
@@ -125,13 +132,13 @@ export default function LoginPage() {
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 <Lock className="w-4 h-4 inline mr-2" />
-                Password
+                {t("auth.password")}
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
+                placeholder={t("auth.passwordPlaceholder")}
                 className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition"
                 required
               />
@@ -159,20 +166,20 @@ export default function LoginPage() {
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <Truck className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm font-semibold text-blue-800">Driver Details</span>
-                    <span className="text-xs text-red-500 ml-auto">* Required</span>
+                    <span className="text-sm font-semibold text-blue-800">{t("driver.details")}</span>
+                    <span className="text-xs text-red-500 ml-auto">{t("driver.required")}</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="flex flex-col">
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         <User className="w-4 h-4 inline mr-1.5" />
-                        Driver Name <span className="text-red-500">*</span>
+                        {t("driver.name")} <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
                         value={driverName}
                         onChange={(e) => setDriverName(e.target.value)}
-                        placeholder="Your name"
+                        placeholder={t("driver.namePlaceholder")}
                         required
                         className="w-full rounded-xl border-2 border-blue-200 px-4 py-3 text-sm focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition"
                       />
@@ -180,13 +187,13 @@ export default function LoginPage() {
                     <div className="flex flex-col">
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         <Phone className="w-4 h-4 inline mr-1.5" />
-                        Mobile Number <span className="text-red-500">*</span>
+                        {t("driver.mobile")} <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="tel"
                         value={driverMobile}
                         onChange={(e) => setDriverMobile(e.target.value)}
-                        placeholder="+91 98765 43210"
+                        placeholder={t("driver.mobilePlaceholder")}
                         required
                         className="w-full rounded-xl border-2 border-blue-200 px-4 py-3 text-sm focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition"
                       />
@@ -194,13 +201,13 @@ export default function LoginPage() {
                     <div className="flex flex-col">
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         <Truck className="w-4 h-4 inline mr-1.5" />
-                        Vehicle Number <span className="text-red-500">*</span>
+                        {t("driver.vehicle")} <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
                         value={ambulanceNumber}
                         onChange={(e) => setAmbulanceNumber(e.target.value)}
-                        placeholder="MH-01-AB-1234"
+                        placeholder={t("driver.vehiclePlaceholder")}
                         required
                         className="w-full rounded-xl border-2 border-blue-200 px-4 py-3 text-sm focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition"
                       />
@@ -218,24 +225,24 @@ export default function LoginPage() {
               {loading ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Logging in...
+                  {t("auth.loggingIn")}
                 </>
               ) : (
                 <>
                   <Lock className="w-5 h-5" />
-                  Login
+                  {t("auth.login")}
                 </>
               )}
             </button>
           </form>
 
           <div className="mt-6 text-center text-sm text-gray-500">
-            Don't have an account?{" "}
+            {t("auth.noAccount")}{" "}
             <a
               href="/signup"
               className="text-blue-600 hover:text-blue-700 font-medium"
             >
-              Sign up here
+              {t("auth.signupLink")}
             </a>
           </div>
         </div>

@@ -256,6 +256,7 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
     if (aiPreFill) {
       if (aiPreFill.symptoms) setSymptoms(aiPreFill.symptoms);
       if (aiPreFill.diagnosis) setDiagnosis(aiPreFill.diagnosis);
+      if (aiPreFill.aiNotes) setNotes(aiPreFill.aiNotes);
     }
   }, [aiPreFill]);
 
@@ -358,6 +359,7 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
             prescription_notes: savedNotes,
             medicines: medicinesJson,
             follow_up_date: savedFollowUp || null,
+            appointment_id: appointmentId || null,
           }),
         });
         if (!res.ok) {
@@ -379,6 +381,7 @@ export default function PrescriptionForm({ patientEmail, patientName, hospitalNa
             prescription_notes: savedNotes,
             medicines: medicinesJson,
             follow_up_date: savedFollowUp || null,
+            appointment_id: appointmentId || null,
             status: "Active",
           }),
         });

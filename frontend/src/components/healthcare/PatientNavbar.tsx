@@ -6,17 +6,20 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { logout, getUsername } from "@/lib/auth";
 import { Heart, Menu, X, ChevronDown } from "lucide-react";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { useLanguage } from "@/lib/LanguageContext";
 
 const PATIENT_TABS = [
-  { id: "appointment", label: "Appointment", href: "/patient?tab=appointment" },
-  { id: "report", label: "Patient Report", href: "/patient?tab=report" },
-  { id: "test", label: "Patient Test", href: "/patient?tab=test" },
-  { id: "medicine", label: "Medicine", href: "/patient?tab=medicine" },
-  { id: "ai", label: "AI Doctor", href: "/patient?tab=ai" },
-  { id: "virtual", label: "Virtual Doctor", href: "/patient?tab=virtual" },
+  { id: "appointment", labelKey: "patient.appointment", href: "/patient?tab=appointment" },
+  { id: "report", labelKey: "patient.report", href: "/patient?tab=report" },
+  { id: "test", labelKey: "patient.test", href: "/patient?tab=test" },
+  { id: "medicine", labelKey: "patient.medicine", href: "/patient?tab=medicine" },
+  { id: "ai", labelKey: "patient.aiDoctor", href: "/patient?tab=ai" },
+  { id: "virtual", labelKey: "patient.virtualDoctor", href: "/patient?tab=virtual" },
 ];
 
 export default function PatientNavbar() {
+  const { t } = useLanguage();
   const [username, setUsername] = useState<string | null>(null);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -60,10 +63,10 @@ export default function PatientNavbar() {
             </motion.div>
             <div className="flex flex-col">
               <span className="font-bold text-base text-gray-800">
-                Healthcare Portal
+                {t("patient.brand")}
               </span>
               <span className="text-[10px] text-gray-500 -mt-1">
-                Patient Dashboard
+                {t("patient.subtitle")}
               </span>
             </div>
           </Link>
@@ -80,13 +83,14 @@ export default function PatientNavbar() {
                     : "text-gray-600 hover:text-emerald-600 hover:bg-emerald-50"
                 }`}
               >
-                {tab.label}
+                {t(tab.labelKey)}
               </button>
             ))}
           </div>
 
           {/* Auth Section */}
           <div className="flex items-center gap-3">
+            <LanguageSwitcher theme="emerald" />
             <div className="relative">
               <motion.button
                 whileHover={{ scale: 1.02 }}
@@ -112,14 +116,14 @@ export default function PatientNavbar() {
                     className="absolute top-full right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50"
                   >
                     <div className="px-4 py-2 border-b border-gray-100">
-                      <p className="text-xs text-gray-500">Signed in as</p>
+                      <p className="text-xs text-gray-500">{t("auth.signedInAs")}</p>
                       <p className="text-sm font-medium text-gray-800 truncate">{username}</p>
                     </div>
                     <button
                       onClick={handleLogout}
                       className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
                     >
-                      Logout
+                      {t("auth.logout")}
                     </button>
                   </motion.div>
                 )}
@@ -160,7 +164,7 @@ export default function PatientNavbar() {
                         : "text-gray-600 bg-gray-50 hover:bg-emerald-50"
                     }`}
                   >
-                    {tab.label}
+                    {t(tab.labelKey)}
                   </button>
                 ))}
               </div>

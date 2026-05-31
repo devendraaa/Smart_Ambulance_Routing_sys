@@ -5,47 +5,48 @@ export const dynamic = "force-dynamic";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { ArrowRight, MapPin, Hospital, Heart, Droplets, Activity } from "lucide-react";
-
-const features = [
-  {
-    icon: MapPin,
-    title: "Smart Routing",
-    description: "AI-powered route optimization using real-time OpenStreetMap data and OSRM routing algorithms.",
-    color: "blue",
-  },
-  {
-    icon: Hospital,
-    title: "Hospital Finder",
-    description: "Find nearby government hospitals with real-time bed availability and emergency room status.",
-    color: "emerald",
-  },
-  {
-    icon: Heart,
-    title: "Patient Management",
-    description: "Quick patient registration with emergency details, medical history, and blood type tracking.",
-    color: "red",
-  },
-  {
-    icon: Droplets,
-    title: "Blood Bank Tracker",
-    description: "Monitor blood availability across Mumbai with real-time inventory updates by blood type.",
-    color: "purple",
-  },
-  {
-    icon: Activity,
-    title: "Sensor Network",
-    description: "IoT sensor integration at road intersections for real-time traffic and emergency vehicle detection.",
-    color: "amber",
-  },
-  {
-    icon: Activity,
-    title: "Real-Time Monitoring",
-    description: "Track ambulance location, ETA, and route progress with live map updates and turn-by-turn directions.",
-    color: "cyan",
-  },
-];
+import { useLanguage } from "@/lib/LanguageContext";
 
 export default function Home() {
+  const { t } = useLanguage();
+  const features = [
+    {
+      icon: MapPin,
+      title: t("landing.features.smartRouting"),
+      description: t("landing.features.smartRoutingDesc"),
+      color: "blue",
+    },
+    {
+      icon: Hospital,
+      title: t("landing.features.hospitalFinder"),
+      description: t("landing.features.hospitalFinderDesc"),
+      color: "emerald",
+    },
+    {
+      icon: Heart,
+      title: t("landing.features.patientManagement"),
+      description: t("landing.features.patientManagementDesc"),
+      color: "red",
+    },
+    {
+      icon: Droplets,
+      title: t("landing.features.bloodBankTracker"),
+      description: t("landing.features.bloodBankTrackerDesc"),
+      color: "purple",
+    },
+    {
+      icon: Activity,
+      title: t("landing.features.sensorNetwork"),
+      description: t("landing.features.sensorNetworkDesc"),
+      color: "amber",
+    },
+    {
+      icon: Activity,
+      title: t("landing.features.realTimeMonitoring"),
+      description: t("landing.features.realTimeMonitoringDesc"),
+      color: "cyan",
+    },
+  ];
   return (
     <div className="min-h-[calc(100vh-8rem)]">
       {/* Hero Section */}
@@ -72,12 +73,11 @@ export default function Home() {
               🚑
             </motion.div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-4">
-              Smart Ambulance
-              <span className="block text-blue-200">Route System</span>
+              {t("brand.name")}
+              <span className="block text-blue-200">{t("brand.suffix")}</span>
             </h1>
             <p className="text-lg sm:text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-              AI-powered emergency response system that optimizes ambulance routes
-              using real-time traffic data, hospital availability, and IoT sensor networks.
+              {t("landing.hero.title")}
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/route">
@@ -86,7 +86,7 @@ export default function Home() {
                   whileTap={{ scale: 0.95 }}
                   className="w-full sm:w-auto px-8 py-3.5 bg-white text-blue-700 font-semibold rounded-xl shadow-lg hover:shadow-xl transition-shadow"
                 >
-                  Plan Route →
+                  {t("landing.hero.planRoute")} →
                 </motion.button>
               </Link>
               <Link href="/hospitals">
@@ -95,7 +95,7 @@ export default function Home() {
                   whileTap={{ scale: 0.95 }}
                   className="w-full sm:w-auto px-8 py-3.5 bg-blue-500/30 text-white font-semibold rounded-xl border border-white/30 hover:bg-blue-500/50 transition-colors"
                 >
-                  View Hospitals
+                  {t("landing.hero.viewHospitals")}
                 </motion.button>
               </Link>
             </div>
@@ -123,10 +123,10 @@ export default function Home() {
           className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6"
         >
           {[
-            { label: "Mumbai Coverage", value: "100%", icon: "🌐" },
-            { label: "Govt. Hospitals", value: "50+", icon: "🏥" },
-            { label: "IoT Sensors", value: "1000+", icon: "📡" },
-            { label: "Avg. Response", value: "< 8min", icon: "⚡" },
+            { label: t("landing.stats.mumbaiCoverage"), value: "100%", icon: "🌐" },
+            { label: t("landing.stats.govtHospitals"), value: "50+", icon: "🏥" },
+            { label: t("landing.stats.iotSensors"), value: "1000+", icon: "📡" },
+            { label: t("landing.stats.avgResponse"), value: "< 8min", icon: "⚡" },
           ].map((stat, i) => (
             <motion.div
               key={i}
@@ -154,12 +154,11 @@ export default function Home() {
           className="text-center mb-12"
         >
           <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-            Everything You Need for
-            <span className="text-blue-600"> Emergency Response</span>
+            {t("landing.features.heading")}
+            <span className="text-blue-600"> {t("landing.features.headingHighlight")}</span>
           </h2>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Comprehensive tools for ambulance dispatch, route optimization,
-            and emergency resource management.
+            {t("landing.features.desc")}
           </p>
         </motion.div>
 
@@ -211,16 +210,16 @@ export default function Home() {
         >
           <div className="max-w-3xl">
             <h2 className="text-2xl sm:text-3xl font-bold mb-4">
-              Ready to Respond?
+              {t("landing.actions.heading")}
             </h2>
             <p className="text-blue-100 mb-8 text-lg">
-              Get started by planning an optimal ambulance route or registering patient details for emergency dispatch.
+              {t("landing.actions.desc")}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {[
-                { href: "/route", label: "Plan Route", icon: "🗺️" },
-                { href: "/patient", label: "Patient Details", icon: "👤" },
-                { href: "/blood-bank", label: "Blood Banks", icon: "🩸" },
+                { href: "/route", label: t("landing.actions.planRoute"), icon: "🗺️" },
+                { href: "/patient", label: t("landing.actions.patientDetails"), icon: "👤" },
+                { href: "/blood-bank", label: t("landing.actions.bloodBanks"), icon: "🩸" },
               ].map((action) => (
                 <Link key={action.href} href={action.href}>
                   <motion.div

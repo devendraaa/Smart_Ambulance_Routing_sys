@@ -11,6 +11,7 @@ import {
   Trash2,
   Locate,
 } from "lucide-react";
+import { useLanguage } from "@/lib/LanguageContext";
 import { addInstalledSensor, fetchInstalledSensors, deleteInstalledSensor, refreshSensorLocation } from "@/lib/api";
 
 const MapContainer = dynamic(
@@ -40,6 +41,7 @@ type InstalledSensor = {
 };
 
 export default function InstalledSensorsPage() {
+  const { t } = useLanguage();
   const [sensors, setSensors] = useState<InstalledSensor[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<Record<string, boolean>>({});
@@ -185,11 +187,10 @@ export default function InstalledSensorsPage() {
         className="mb-8"
       >
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Installed Sensors
+          {t("installed.heading")}
         </h1>
         <p className="text-gray-500">
-          Register new sensor locations and view all installed sensors with their
-          addresses
+          {t("installed.desc")}
         </p>
       </motion.div>
 
@@ -205,9 +206,9 @@ export default function InstalledSensorsPage() {
             <MapPin className="w-5 h-5 text-emerald-600" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900">Install New Sensor</h3>
+            <h3 className="font-semibold text-gray-900">{t("installed.installNew")}</h3>
             <p className="text-sm text-gray-500">
-              Enter coordinates to register a new sensor
+              {t("installed.installDesc")}
             </p>
           </div>
         </div>
@@ -216,28 +217,28 @@ export default function InstalledSensorsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Latitude <span className="text-red-500">*</span>
+                {t("installed.latitude")}
               </label>
               <input
                 type="number"
                 step="any"
                 value={lat}
                 onChange={(e) => setLat(e.target.value)}
-                placeholder="e.g. 19.0760"
+                placeholder={t("installed.latPlaceholder")}
                 className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 transition"
                 required
               />
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Longitude <span className="text-red-500">*</span>
+                {t("installed.longitude")}
               </label>
               <input
                 type="number"
                 step="any"
                 value={lon}
                 onChange={(e) => setLon(e.target.value)}
-                placeholder="e.g. 72.8777"
+                placeholder={t("installed.lonPlaceholder")}
                 className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 transition"
                 required
               />
@@ -253,12 +254,12 @@ export default function InstalledSensorsPage() {
                 {formLoading ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Installing...
+                    {t("installed.installingBtn")}
                   </>
                 ) : (
                   <>
                     <MapPin className="w-5 h-5" />
-                    Install Sensor
+                    {t("installed.installBtn")}
                   </>
                 )}
               </motion.button>

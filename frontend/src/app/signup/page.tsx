@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { UserPlus, User, Mail, Lock, AlertCircle, CheckCircle } from "lucide-react";
 import { signUp } from "@/lib/auth";
+import { useLanguage } from "@/lib/LanguageContext";
 
 export default function SignUpPage() {
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -70,8 +72,8 @@ export default function SignUpPage() {
             >
               <span className="text-4xl">🚑</span>
             </motion.div>
-            <h1 className="text-2xl font-bold text-gray-900">Create Account</h1>
-            <p className="text-sm text-gray-500 mt-1">Smart Ambulance Emergency Response</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t("signup.heading")}</h1>
+            <p className="text-sm text-gray-500 mt-1">{t("signup.subtitle")}</p>
           </div>
 
           {/* SignUp Form */}
@@ -90,13 +92,13 @@ export default function SignUpPage() {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   <Mail className="w-4 h-4 inline mr-2" />
-                  Email
+                  {t("auth.email")}
                 </label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter email"
+                  placeholder={t("auth.emailPlaceholder")}
                   className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition"
                   required
                 />
@@ -105,13 +107,13 @@ export default function SignUpPage() {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   <User className="w-4 h-4 inline mr-2" />
-                  Username
+                  {t("signup.username")}
                 </label>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Choose a username"
+                  placeholder={t("signup.usernamePlaceholder")}
                   className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition"
                   required
                 />
@@ -120,13 +122,13 @@ export default function SignUpPage() {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   <Lock className="w-4 h-4 inline mr-2" />
-                  Password
+                  {t("auth.password")}
                 </label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Create password (min 6 chars)"
+                  placeholder={t("signup.passwordPlaceholder")}
                   className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition"
                   required
                   minLength={6}
@@ -136,7 +138,7 @@ export default function SignUpPage() {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   <Lock className="w-4 h-4 inline mr-2" />
-                  Confirm Password
+                  {t("signup.confirmPassword")}
                 </label>
                 <input
                   type="password"

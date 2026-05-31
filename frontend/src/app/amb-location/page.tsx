@@ -7,6 +7,7 @@ import { ArrowLeft, MapPin, Radio, Send, AlertCircle, CheckCircle, StopCircle, R
 import Link from "next/link";
 import { getTaskRoadSensors, publishAmbLocation, getTaskStatus } from "@/lib/api";
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useLanguage } from "@/lib/LanguageContext";
 
 const GEO_INTERVAL = 4000; // 4 seconds
 
@@ -44,6 +45,7 @@ function formatSensorNumber(sensorId: string) {
 }
 
 function AmbLocationContent() {
+  const { t } = useLanguage();
   const searchParams = useSearchParams();
   const router = useRouter();
   const [taskId, setTaskId] = useState<string | null>(null);
@@ -165,12 +167,12 @@ function AmbLocationContent() {
   // Start Amb Location tracking (every 4 seconds)
   const startAmbTracking = useCallback(() => {
     if (!navigator.geolocation) {
-      setGeoError("Geolocation is not supported by your browser.");
+      setGeoError(t("amblocation.noGeolocation"));
       return;
     }
 
     if (roadSensors.length === 0) {
-      setGeoError("No active sensors loaded yet. Please wait or reload the page.");
+      setGeoError(t("amblocation.noSensors"));
       return;
     }
 
@@ -203,7 +205,7 @@ function AmbLocationContent() {
       },
       (err) => {
         console.error("Geolocation error:", err);
-        setGeoError(`Location error: ${err.message}`);
+        setGeoError(t("amblocation.locationError") + " " + err.message);
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -225,7 +227,7 @@ function AmbLocationContent() {
         },
         (err) => {
           console.error("Geolocation error:", err);
-          setGeoError(`Location error: ${err.message}`);
+          setGeoError(t("amblocation.locationError") + " " + err.message);
         },
         { enableHighAccuracy: true, timeout: 10000 }
       );
@@ -394,7 +396,7 @@ function AmbLocationContent() {
             </motion.button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Amb Location</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{t("amblocation.heading")}</h1>
             <p className="text-sm text-gray-500">
               {taskId ? `Task ID: ${taskId.slice(0, 8)}...` : 'No route task selected'}
             </p>
@@ -410,9 +412,9 @@ function AmbLocationContent() {
           className="bg-yellow-50 border border-yellow-200 rounded-2xl p-8 text-center"
         >
           <Radio className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-yellow-800 mb-2">No Route Task Found</h2>
+          <h2 className="text-lg font-semibold text-yellow-800 mb-2">{t("amblocation.noTask")}</h2>
           <p className="text-sm text-yellow-700 mb-4">
-            Please compute a route first to use Amb Location tracking.
+            {t("amblocation.noTaskDesc")}
           </p>
           <Link href="/route">
             <motion.button
@@ -420,7 +422,7 @@ function AmbLocationContent() {
               whileTap={{ scale: 0.98 }}
               className="px-6 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
             >
-              Go to Route Planner
+              {t("amblocation.goRoute")}
             </motion.button>
           </Link>
         </motion.div>
@@ -434,9 +436,9 @@ function AmbLocationContent() {
           className="bg-blue-50 border border-blue-200 rounded-2xl p-8 text-center"
         >
           <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-blue-800 mb-2">Waiting for Route Completion</h2>
+          <h2 className="text-lg font-semibold text-blue-800 mb-2">{t("amblocation.waiting")}</h2>
           <p className="text-sm text-blue-700">
-            Current status: <span className="font-bold">{taskStatus}</span>
+            {t("amblocation.status")} <span className="font-bold">{taskStatus}</span>
           </p>
         </motion.div>
       )}
@@ -454,7 +456,7 @@ function AmbLocationContent() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
                   <Radio className={`w-5 h-5 ${ambActive ? "text-green-500 animate-pulse" : "text-blue-600"}`} />
-                  <h2 className="text-lg font-semibold text-gray-900">Amb Location Tracking</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">{t("amblocation.tracking")}</h2>
                   <span className="text-sm text-gray-500 ml-2">
                     - {roadSensors.length} active sensors near route
                   </span>
@@ -468,7 +470,7 @@ function AmbLocationContent() {
                       className="px-5 py-2 rounded-xl text-sm font-medium bg-green-600 text-white shadow-lg shadow-green-200 hover:bg-green-700 transition-all flex items-center gap-2"
                     >
                       <Radio className="w-4 h-4" />
-                      Start Tracking
+                      {t("amblocation.start")}
                     </motion.button>
                   ) : (
                     <motion.button
@@ -478,7 +480,7 @@ function AmbLocationContent() {
                       className="px-5 py-2 rounded-xl text-sm font-medium bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-all flex items-center gap-2"
                     >
                       <StopCircle className="w-4 h-4" />
-                      Stop Tracking
+                      {t("amblocation.stop")}
                     </motion.button>
                   )}
                   <motion.button
@@ -503,7 +505,7 @@ function AmbLocationContent() {
                     className="px-4 py-2 rounded-xl text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all flex items-center gap-2"
                   >
                     <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-                    Reload
+                    {t("amblocation.reload")}
                   </motion.button>
                 </div>
               </div>
@@ -524,30 +526,30 @@ function AmbLocationContent() {
                 <div className="bg-gray-50 rounded-xl p-4">
                   <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
                     <MapPin className="w-3.5 h-3.5" />
-                    Current Location
+                    {t("amblocation.currentLocation")}
                   </h3>
                   {currentLat !== null && currentLon !== null ? (
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <p className="text-xs text-gray-500 font-medium">Latitude</p>
+                          <p className="text-xs text-gray-500 font-medium">{t("amblocation.latitude")}</p>
                           <p className="text-base font-bold text-gray-900">{currentLat.toFixed(6)}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500 font-medium">Longitude</p>
+                          <p className="text-xs text-gray-500 font-medium">{t("amblocation.longitude")}</p>
                           <p className="text-base font-bold text-gray-900">{currentLon.toFixed(6)}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-gray-500">
                         <div className={`w-2 h-2 rounded-full ${ambActive ? "bg-green-500 animate-pulse" : "bg-gray-300"}`} />
-                        {ambActive ? "Live tracking - every 4s" : "Tracking stopped"}
+                        {ambActive ? t("amblocation.liveTracking") : t("amblocation.trackingStopped")}
                       </div>
                     </div>
                   ) : (
                     <div className="text-center py-6">
                       <MapPin className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                       <p className="text-sm text-gray-500">
-                        {ambActive ? "Acquiring location..." : "Click 'Start Tracking' to begin"}
+                        {ambActive ? t("amblocation.acquiring") : t("amblocation.clickStart")}
                       </p>
                     </div>
                   )}
@@ -557,26 +559,26 @@ function AmbLocationContent() {
                 <div className="bg-gray-50 rounded-xl p-4">
                   <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
                     <Radio className="w-3.5 h-3.5" />
-                    Nearest Active Sensor
+                    {t("amblocation.nearestSensor")}
                   </h3>
                   {nearest ? (
                     <div className="space-y-3">
                       <div className="bg-green-50 rounded-lg p-3">
                         <div className="mb-2">
-                          <p className="text-xs text-green-600 font-medium">Sensor Number</p>
+                          <p className="text-xs text-green-600 font-medium">{t("amblocation.sensorNumber")}</p>
                           <p className="text-2xl font-bold text-green-900">
                             #{formatSensorNumber(nearest.sensor.sensor_id)}
                           </p>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <p className="text-xs text-green-600 font-medium">Distance</p>
+                            <p className="text-xs text-green-600 font-medium">{t("amblocation.distance")}</p>
                             <p className="text-base font-bold text-green-900">
                               {nearest.distance_from_amb.toFixed(3)} km
                             </p>
                           </div>
                           <div>
-                            <p className="text-xs text-green-600 font-medium">Position</p>
+                            <p className="text-xs text-green-600 font-medium">{t("amblocation.position")}</p>
                             <p className="text-base font-bold text-green-900">
                               {nearest.index + 1} of {roadSensors.length}
                             </p>
@@ -585,7 +587,7 @@ function AmbLocationContent() {
                       </div>
                       {nearest.sensor.road_name && (
                         <p className="text-xs text-gray-600">
-                          <span className="font-medium">Road:</span> {nearest.sensor.road_name}
+                          <span className="font-medium">{t("amblocation.road")}</span> {nearest.sensor.road_name}
                         </p>
                       )}
                     </div>
@@ -593,7 +595,7 @@ function AmbLocationContent() {
                     <div className="text-center py-6">
                       <Radio className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                       <p className="text-sm text-gray-500">
-                        {ambActive ? "Calculating nearest sensor..." : "Waiting for location data"}
+                        {ambActive ? t("amblocation.calculating") : t("amblocation.waitingLocation")}
                       </p>
                     </div>
                   )}
@@ -603,31 +605,31 @@ function AmbLocationContent() {
                 <div className="bg-gray-50 rounded-xl p-4">
                   <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
                     <Send className="w-3.5 h-3.5" />
-                    Device Status
+                    {t("amblocation.deviceStatus")}
                   </h3>
                   {publishStatus !== "idle" ? (
                     <div className="space-y-3">
                       {publishStatus === "sending" && (
                         <div className="flex items-center gap-3">
                           <div className="w-5 h-5 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin" />
-                          <p className="text-sm text-blue-700">Sending to amb82mini...</p>
+                          <p className="text-sm text-blue-700">{t("amblocation.sending")}</p>
                         </div>
                       )}
                       {publishStatus === "sent" && (
                         <div>
                           <div className="flex items-center gap-3 mb-2">
                             <CheckCircle className="w-5 h-5 text-green-500" />
-                            <p className="text-sm text-green-700 font-medium">Sent to amb82mini</p>
+                            <p className="text-sm text-green-700 font-medium">{t("amblocation.sent")}</p>
                           </div>
                           {lastPublishTime && (
-                            <p className="text-xs text-green-600">Last: {lastPublishTime}</p>
+                            <p className="text-xs text-green-600">{t("amblocation.last")} {lastPublishTime}</p>
                           )}
                         </div>
                       )}
                       {publishStatus === "error" && (
                         <div className="flex items-center gap-3">
                           <AlertCircle className="w-5 h-5 text-red-500" />
-                          <p className="text-sm text-red-700">Failed to send</p>
+                          <p className="text-sm text-red-700">{t("amblocation.failed")}</p>
                         </div>
                       )}
                     </div>
@@ -635,7 +637,7 @@ function AmbLocationContent() {
                     <div className="text-center py-6">
                       <Send className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                       <p className="text-sm text-gray-500">
-                        {ambActive ? "Auto-sending every 4s..." : "Not sending data"}
+                        {ambActive ? t("amblocation.autoSending") : t("amblocation.notSending")}
                       </p>
                     </div>
                   )}
@@ -647,7 +649,7 @@ function AmbLocationContent() {
                 <div>
                   <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                     <Radio className="w-4 h-4 text-blue-600" />
-                    Active Sensors Near Route
+                    {t("amblocation.activeSensors")}
                     <span className="ml-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
                       {roadSensors.length}
                     </span>
@@ -656,12 +658,12 @@ function AmbLocationContent() {
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 sticky top-0">
                         <tr>
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">#</th>
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Sensor ID</th>
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Lat</th>
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Lon</th>
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Road</th>
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Dist (km)</th>
+                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">{t("amblocation.tableNum")}</th>
+                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">{t("amblocation.tableSensorId")}</th>
+                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">{t("amblocation.tableLat")}</th>
+                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">{t("amblocation.tableLon")}</th>
+                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">{t("amblocation.tableRoad")}</th>
+                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">{t("amblocation.tableDist")}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
@@ -711,11 +713,11 @@ function AmbLocationContent() {
             <div className="px-6 py-4 border-b border-gray-100">
               <div className="flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-blue-600" />
-                <h2 className="text-lg font-semibold text-gray-900">Live Map</h2>
+                <h2 className="text-lg font-semibold text-gray-900">{t("amblocation.liveMap")}</h2>
                 {ambActive && (
                   <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
                     <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                    Live
+                    {t("amblocation.live")}
                   </span>
                 )}
               </div>

@@ -81,6 +81,7 @@ export default function DoctorPatientInfo() {
   const [doctorNotes, setDoctorNotes] = useState<any[]>([]);
   const [transfers, setTransfers] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(false);
+  const [currentAppointmentId, setCurrentAppointmentId] = useState<string | null>(null);
 
   // Doctor note form
   const [noteText, setNoteText] = useState("");
@@ -172,36 +173,46 @@ export default function DoctorPatientInfo() {
       const { data: aptData } = await supabase
         .from("patient_appointments")
         .select("*")
-        .eq("patient_mobile", routeData.patient_mobile)
+        .eq("patient_email", email)
         .order("created_at", { ascending: false });
       setAppointments(aptData || []);
       if (!patientData.patient_name && aptData?.length) {
         patientData.patient_name = aptData[0].patient_name;
       }
 
-      // Fetch prescriptions
-      const { data: prescData } = await supabase
+      // Use the most recent appointment to scope encounter-specific data
+      const aptId = aptData?.[0]?.id || null;
+      setCurrentAppointmentId(aptId);
+
+      // Fetch prescriptions (scoped to appointment if available)
+      let prescQuery = supabase
         .from("doctor_prescriptions")
         .select("*")
         .eq("patient_email", email)
         .order("created_at", { ascending: false })
         .limit(20);
+      if (aptId) prescQuery = prescQuery.eq("appointment_id", aptId);
+      const { data: prescData } = await prescQuery;
       setPrescriptions(prescData || []);
 
-      // Fetch medicines
-      const { data: medData } = await supabase
+      // Fetch medicines (scoped to appointment if available)
+      let medQuery = supabase
         .from("patient_medicines")
         .select("*")
         .eq("patient_email", email)
         .order("created_at", { ascending: false });
+      if (aptId) medQuery = medQuery.eq("appointment_id", aptId);
+      const { data: medData } = await medQuery;
       setMedicines(medData || []);
 
-      // Fetch tests
-      const { data: testData } = await supabase
+      // Fetch tests (scoped to appointment if available)
+      let testQuery = supabase
         .from("patient_tests")
         .select("*")
         .eq("patient_email", email)
         .order("created_at", { ascending: false });
+      if (aptId) testQuery = testQuery.eq("appointment_id", aptId);
+      const { data: testData } = await testQuery;
       setTests(testData || []);
 
       // Fetch doctor notes from API
@@ -291,29 +302,39 @@ export default function DoctorPatientInfo() {
         patientData.patient_name = aptData[0].patient_name;
       }
 
-      // Fetch prescriptions
-      const { data: prescData } = await supabase
+      // Use the most recent appointment to scope encounter-specific data
+      const aptId = aptData?.[0]?.id || null;
+      setCurrentAppointmentId(aptId);
+
+      // Fetch prescriptions (scoped to appointment if available)
+      let prescQuery = supabase
         .from("doctor_prescriptions")
         .select("*")
         .eq("patient_email", email)
         .order("created_at", { ascending: false })
         .limit(20);
+      if (aptId) prescQuery = prescQuery.eq("appointment_id", aptId);
+      const { data: prescData } = await prescQuery;
       setPrescriptions(prescData || []);
 
-      // Fetch medicines
-      const { data: medData } = await supabase
+      // Fetch medicines (scoped to appointment if available)
+      let medQuery = supabase
         .from("patient_medicines")
         .select("*")
         .eq("patient_email", email)
         .order("created_at", { ascending: false });
+      if (aptId) medQuery = medQuery.eq("appointment_id", aptId);
+      const { data: medData } = await medQuery;
       setMedicines(medData || []);
 
-      // Fetch tests
-      const { data: testData } = await supabase
+      // Fetch tests (scoped to appointment if available)
+      let testQuery = supabase
         .from("patient_tests")
         .select("*")
         .eq("patient_email", email)
         .order("created_at", { ascending: false });
+      if (aptId) testQuery = testQuery.eq("appointment_id", aptId);
+      const { data: testData } = await testQuery;
       setTests(testData || []);
 
       // Fetch doctor notes from API
@@ -399,6 +420,7 @@ export default function DoctorPatientInfo() {
     try {
       const { error } = await supabase.from("patient_medicines").insert({
         patient_email: patient.email,
+        appointment_id: currentAppointmentId,
         medicine_name: medicineForm.medicine_name,
         dosage: medicineForm.dosage,
         frequency: medicineForm.frequency,
@@ -409,7 +431,9 @@ export default function DoctorPatientInfo() {
       if (error) throw error;
       setMedicineForm({ medicine_name: "", dosage: "", frequency: "", timing: "", duration: "" });
       setShowMedicineForm(false);
-      const { data } = await supabase.from("patient_medicines").select("*").eq("patient_email", patient.email).order("created_at", { ascending: false });
+      let medQuery = supabase.from("patient_medicines").select("*").eq("patient_email", patient.email).order("created_at", { ascending: false });
+      if (currentAppointmentId) medQuery = medQuery.eq("appointment_id", currentAppointmentId);
+      const { data } = await medQuery;
       setMedicines(data || []);
     } catch (err) {
       console.error("Error adding medicine:", err);
@@ -424,6 +448,7 @@ export default function DoctorPatientInfo() {
     try {
       const { error } = await supabase.from("patient_tests").insert({
         patient_email: patient.email,
+        appointment_id: currentAppointmentId,
         test_type: testForm.test_type,
         status: "pending",
         payment_status: "unpaid",
@@ -431,7 +456,9 @@ export default function DoctorPatientInfo() {
       if (error) throw error;
       setTestForm({ test_type: "" });
       setShowTestForm(false);
-      const { data } = await supabase.from("patient_tests").select("*").eq("patient_email", patient.email).order("created_at", { ascending: false });
+      let testQuery = supabase.from("patient_tests").select("*").eq("patient_email", patient.email).order("created_at", { ascending: false });
+      if (currentAppointmentId) testQuery = testQuery.eq("appointment_id", currentAppointmentId);
+      const { data } = await testQuery;
       setTests(data || []);
     } catch (err) {
       console.error("Error adding test:", err);
@@ -451,6 +478,7 @@ export default function DoctorPatientInfo() {
     setTests([]);
     setDoctorNotes([]);
     setTransfers([]);
+    setCurrentAppointmentId(null);
     setActiveSidebar("patient-info");
   };
 
@@ -515,13 +543,14 @@ export default function DoctorPatientInfo() {
         );
 
       case "diagnosis":
+        const diagnosisEntries = prescriptions.filter(p => p.diagnosis || p.ai_diagnosis);
         return (
           <div className="space-y-4">
             <h3 className="font-bold text-gray-900 text-lg">Diagnosis</h3>
-            {prescriptions.length === 0 ? (
+            {diagnosisEntries.length === 0 ? (
               <p className="text-gray-400 text-center py-8">No diagnosis records found</p>
             ) : (
-              prescriptions.map((p, i) => (
+              diagnosisEntries.map((p, i) => (
                 <motion.div key={p.id || i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                   className="bg-white rounded-xl border border-gray-200 p-4">
                   <div className="flex justify-between items-start mb-2">
@@ -586,13 +615,18 @@ export default function DoctorPatientInfo() {
         );
 
       case "opd":
+        const currentHospital = (patient.hospital_name || "").trim().toLowerCase();
+        const opdAppointments = appointments.filter(a =>
+          a.case_type !== "Emergency" &&
+          (a.hospital_name || "").trim().toLowerCase() === currentHospital
+        );
         return (
           <div className="space-y-4">
             <h3 className="font-bold text-gray-900 text-lg">OPD Appointments</h3>
-            {appointments.length === 0 ? (
-              <p className="text-gray-400 text-center py-8">No OPD appointments found</p>
+            {opdAppointments.length === 0 ? (
+              <p className="text-gray-400 text-center py-8">No OPD appointments found at {patient.hospital_name || "this hospital"}</p>
             ) : (
-              appointments.filter(a => a.case_type !== "Emergency").map((apt) => (
+              opdAppointments.map((apt) => (
                 <div key={apt.id} className="bg-white rounded-xl border border-gray-200 p-4">
                   <div className="flex justify-between items-start">
                     <div>
@@ -612,24 +646,42 @@ export default function DoctorPatientInfo() {
         );
 
       case "follow-up":
+        const prescriptionFollowUps = prescriptions.filter(p => p.follow_up_date);
+        const scheduledAppointments = appointments.filter(a => a.status === "scheduled");
+        const noFollowUps = prescriptionFollowUps.length === 0 && scheduledAppointments.length === 0;
         return (
           <div className="space-y-4">
             <h3 className="font-bold text-gray-900 text-lg">Follow-up Appointments</h3>
-            {appointments.length === 0 ? (
+            {noFollowUps ? (
               <p className="text-gray-400 text-center py-8">No follow-ups found</p>
             ) : (
-              appointments.filter(a => a.status === "scheduled").map((apt) => (
-                <div key={apt.id} className="bg-white rounded-xl border border-gray-200 p-4">
-                  <div className="flex items-center gap-3">
-                    <Calendar className="w-5 h-5 text-blue-500" />
-                    <div>
-                      <p className="font-semibold text-gray-900">{apt.hospital_name}</p>
-                      <p className="text-sm text-gray-500">{apt.case_type}</p>
-                      <p className="text-xs text-gray-400">{new Date(apt.appointment_date).toLocaleDateString("en-IN")}</p>
+              <>
+                {prescriptionFollowUps.map((p, i) => (
+                  <div key={p.id || i} className="bg-white rounded-xl border border-emerald-200 p-4">
+                    <div className="flex items-center gap-3">
+                      <Calendar className="w-5 h-5 text-emerald-500" />
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900">Follow-up from Prescription</p>
+                        <p className="text-sm text-emerald-600 font-medium">{new Date(p.follow_up_date + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short", year: "numeric", month: "short", day: "numeric" })}</p>
+                        <p className="text-xs text-gray-500 mt-1">{p.doctor_name && `Dr. ${p.doctor_name}${p.hospital_name ? ` | ${p.hospital_name}` : ""}`}</p>
+                        {p.diagnosis && <p className="text-xs text-gray-400 mt-0.5">{p.diagnosis}</p>}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                ))}
+                {scheduledAppointments.map((apt) => (
+                  <div key={apt.id} className="bg-white rounded-xl border border-blue-200 p-4">
+                    <div className="flex items-center gap-3">
+                      <Calendar className="w-5 h-5 text-blue-500" />
+                      <div>
+                        <p className="font-semibold text-gray-900">{apt.hospital_name}</p>
+                        <p className="text-sm text-gray-500">{apt.case_type}</p>
+                        <p className="text-xs text-gray-400">{new Date(apt.appointment_date).toLocaleDateString("en-IN")}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </>
             )}
           </div>
         );
